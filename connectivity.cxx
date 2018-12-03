@@ -6,8 +6,8 @@ Tensor<int> connectivity(Matrix<int> & A){
   Vector<int> v(n);
   Vector<int> w(n);
 
-  v.get_local_data
-  //change the dqta
+  //v.get_local_data
+  //change the data
 
   w["i"] = v["i"];
 
@@ -31,9 +31,11 @@ int main(int argc, char ** argv){
   srand48(A.wrld->rank);
   A.fill_sp_random(1,1,sp_frac);
   //generate graph with blocks
+  /**
   for i = 1 to n/b:
     A[bi:b(i+1), bi:b(i+1)] = B[i]
     //block sparse
+  **/
   printf("matrix before: \n");
   A.print_matrix();
   printf("return w: \n");
