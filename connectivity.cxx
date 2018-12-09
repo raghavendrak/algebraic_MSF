@@ -3,20 +3,28 @@ using namespace CTF;
 
 
 Tensor<int> connectivity(int n, World & dw){
-  Semiring<int> s(n*n,
+  Semiring<int> s(0,
                 [](int a, int b){ return std::max(a,b); },
                 MPI_MAX,
                 0,
                 [](int a, int b){ return a+b; });
-  Matrix<int> A(n, n, dw, s);
-  srand48(dw.rank);
-  double sp_frac = 0.1;
-  A.fill_sp_random(1.0,1.0,sp_frac);
+  Matrix<int> A(n, n, get_universe(), s);
+  //srand48(dw.rank);
+  //double sp_frac = 0.1;
+
+  //A.fill_sp_random(1.0,1.0,sp_frac);
+  A["ij"] = 0;
+  int64_t * idx = new int64_t[12]{1, 2, 7, 9, 10, 14, 15, 18, 19, 22, 30, 37};
+  int * data = new int[12]{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  A.write(12, idx, data);
   printf("matrix is: \n");
   A.print_matrix();
   Vector<int> W(n, dw, s);
 
-  W["i"] += A["ij"] * W["j"];
+  for(int j = 0; i < n; j++)
+    W["j"] += A["jk"] * W["k"];
+  free(idx);
+  free(data);
   return W;
 }
 
