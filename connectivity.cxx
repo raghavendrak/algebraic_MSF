@@ -1,6 +1,8 @@
 #include <ctf.hpp>
+#include <utility>
+#include <cfloat>
 
-#define PLACE_VERTEX (1);
+#define PLACE_VERTEX (1.0);
 
 using namespace CTF;
 
@@ -10,8 +12,6 @@ public:
 	int64_t i2;
 	
 	IntPair(int64_t i1, int64_t i2);
-	
-	IntPair(const IntPair &p);
 };
 
 class Graph {
@@ -21,10 +21,10 @@ public:
 	
 	Graph(int n, vector<IntPair> edges);
 	
-	Matrix<int>* adj_mat(World* w);
+	Matrix<float>* adj_mat(World* w);
 };
 
-Vector<int>* connectivity(Matrix<int>* A);
+Vector<float>* connectivity(Matrix<float> A);
 
 int main(int argc, char** argv) {
 	int rank;
@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &np);
 	World w(argc, argv);
 	
+	cout << "Example 1:" << endl;
 	auto edges = vector<IntPair>();
 	edges.emplace_back(1, 2);
 	edges.emplace_back(3, 4);
@@ -42,26 +43,31 @@ int main(int argc, char** argv) {
 	auto g = Graph(6, edges);
 	auto B = g.adj_mat(&w);
 	B->print_matrix();
-	connectivity(B)->print();
+	connectivity(*B)->print();
+	free(B);
 	
+	cout << endl;
+	
+	cout << "Example 2:" << endl;
 	int n = 7;
-	auto A = new Matrix<int>(n, n, w);
-	(*A)["ij"] = 0; // init to all 0
+	Semiring<float> tsr(0.0,
+	                    [](float a, float b) { return std::max(a, b); },
+	                    MPI_MAX,
+	                    1.0,
+	                    [](float a, float b) { return a * b; });
+	auto A = Matrix<float>(n, n, w, tsr);
 	int v = 12;
 	auto idx = new int64_t[v]{1, 2, 7, 9, 10, 14, 15, 18, 19, 22, 30, 37};
-	auto data = new int[v];
+	auto data = new float[v];
 	for (int i = 0; i < v; i++) {
 		data[i] = PLACE_VERTEX;
 	}
-	A->write(v, idx, data);
-	printf("matrix before is: \n");
-	A->print_matrix();
+	A.write(v, idx, data);
+	A.print_matrix();
 	free(idx);
 	free(data);
 	
 	auto ret = connectivity(A);
-	free(A);
-	printf("return w: \n");
 	ret->print();
 	free(ret);
 }
@@ -71,19 +77,19 @@ IntPair::IntPair(int64_t i1, int64_t i2) {
 	this->i2 = i2;
 }
 
-IntPair::IntPair(const IntPair &p) {
-	this->i1 = p.i1;
-	this->i2 = p.i2;
-}
-
 Graph::Graph(int n, vector<IntPair> edges) {
 	this->n = n;
-	this->edges = edges;
+	this->edges = std::move(edges);
 }
 
-Matrix<int>* Graph::adj_mat(World* w) {
-	auto A = new Matrix<int>(n, n, *w);
-	(*A)["ij"] = 0;
+Matrix<float>* Graph::adj_mat(World* w) {
+	// tropical semiring (tsr)
+	Semiring<float> tsr(0.0,
+	                    [](float a, float b) { return std::max(a, b); },
+	                    MPI_MAX,
+	                    1.0,
+	                    [](float a, float b) { return a * b; });
+	auto A = new Matrix<float>(n, n, *w, tsr);
 	
 	auto n64 = (int64_t) n;
 	auto m = (int64_t) edges.size();
@@ -96,36 +102,42 @@ Matrix<int>* Graph::adj_mat(World* w) {
 		idx[i] = v1 * n64 + v2;
 		idx[i + m] = v2 * n64 + v1;
 	}
-	auto fill = new int[m2];
+	auto fill = new float[m2];
 	for (int i = 0; i < m2; i++) {
 		fill[i] = PLACE_VERTEX;
 	}
 	A->write(m2, idx, fill);
 	
+	free(idx);
+	free(fill);
 	return A;
 }
 
-Vector<int>* connectivity(Matrix<int>* A) {
-	assert(A->nrow == A->ncol);
+Vector<float>* connectivity(Matrix<float> A) {
+	assert(A.nrow == A.ncol);
+	int n = A.nrow;
 	
-	// tropical semiring
-	Semiring<int> tsr(0,
-	                  [](int a, int b) { return std::max(a, b); },
-	                  MPI_MAX,
-	                  0,
-	                  [](int a, int b) { return a + b; });
-	int n = A->nrow;
-	auto w = new Vector<int>(n, *A->wrld, tsr);
-	auto tmp = A->sr;
-	// equip A w/ tsr
-	A->sr = &tsr;
+	Semiring<float> tsr(0.0,
+	                    [](float a, float b) { return std::max(a, b); },
+	                    MPI_MAX,
+	                    1.0,
+	                    [](float a, float b) { return a * b; });
+	auto w = new Vector<float>(n, *A.wrld, tsr);
+	auto idx = new int64_t[n];
+	auto fill = new float[n];
+	for (int i = 0; i < n; i++) {
+		idx[i] = i;
+		fill[i] = i;
+	}
+	w->write(n, idx, fill);
+	cout << "w setup: " << endl;
+	w->print();
 	
 	// update adj mat
-	for (int j = 0; j < n; j++) {
-		(*w)["j"] += (*A)["jk"] * (*w)["k"];
+	for (int i = 0; i < n; i++) {
+		(*w)["j"] += A["jk"] * (*w)["k"];
+//		w->print();
 	}
 	
-	A->sr = tmp;
 	return w;
 }
-
