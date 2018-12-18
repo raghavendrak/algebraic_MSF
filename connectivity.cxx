@@ -2,7 +2,7 @@
 #include <utility>
 #include <cfloat>
 
-#define PLACE_VERTEX (1.0);
+#define PLACE_VERTEX (1.0)
 
 using namespace CTF;
 
