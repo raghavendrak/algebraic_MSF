@@ -8,7 +8,7 @@ fun main(args: Array<String>) {
 
 fun Graph.connectedComponents(): Map<Int, List<Int>> {
 	// vertex -> parent
-	val F = Graph.ParentMap()
+	val F = ParentMap()
 
 	// init. s.t. all vertices have a parent
 	// isolated vertices and root vertices have parents to themselves
@@ -17,20 +17,20 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 	edges.forEach { (v1, v2) -> F[v1] = v2 }
 
 	// loop until all vertices are in stars
-	while (vertices.any { !F.inStar(it) }) {
+	while (vertices.any { !inStar(F, it) }) {
 		// cond star hook
 		edges
-				.filter { (i, j) -> F.inStar(i) && F[i] > F[j] }
+				.filter { (i, j) -> inStar(F, i) && F[i] > F[j] }
 				.forEach { (i, j) -> F[F[i]] = F[j] }
 
 		// uncond star hook
 		edges
-				.filter { (i, j) -> F.inStar(i) && F[i] != F[j] }
+				.filter { (i, j) -> inStar(F, i) && F[i] != F[j] }
 				.forEach { (i, j) -> F[F[i]] = F[j] }
 
 		// shortcut
 		vertices
-				.filter { !F.inStar(it) }
+				.filter { !inStar(F, it) }
 				.forEach { F[it] = F[F[it]] }
 	}
 
@@ -43,10 +43,12 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 class Graph(val numVertices: Int, val edges: List<Pair<Int, Int>>) {
 	val vertices = IntRange(1, numVertices)
 
-	class ParentMap : HashMap<Int, Int>() {
-		override operator fun get(key: Int) = super.get(key)!!
+	// in star iff. grandparent == parent
+	fun inStar(F: ParentMap, v: Int) = F[F[v]] == F[v]
+}
 
-		// in star iff. grandparent == parent
-		fun inStar(v: Int) = this[this[v]] == this[v]
-	}
+class ParentMap : HashMap<Int, Int>() {
+
+	override operator fun get(key: Int) = super.get(key)
+			?: throw IllegalArgumentException("no vertex found")
 }
