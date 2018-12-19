@@ -16,7 +16,7 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 	// vertex w/ deg >= 2 has the last vertex in the edge list as its parent
 	edges.forEach { (v1, v2) -> F[v1] = v2 }
 
-	// loop until all vertices are in stars
+	// keep looping if any vertex is NOT in a star
 	while (vertices.any { !inStar(F, it) }) {
 		// cond star hook
 		edges
@@ -49,6 +49,5 @@ class Graph(val numVertices: Int, val edges: List<Pair<Int, Int>>) {
 
 class ParentMap : HashMap<Int, Int>() {
 
-	override operator fun get(key: Int) = super.get(key)
-			?: throw IllegalArgumentException("no vertex found")
+	override operator fun get(key: Int) = super.get(key)!!
 }
