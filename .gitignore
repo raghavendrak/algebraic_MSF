@@ -1,2 +1,5 @@
-*jar
+*.jar
+*.iml
+.idea/
+out/
 
