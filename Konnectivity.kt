@@ -10,13 +10,14 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 	// vertex -> parent
 	val F = Graph.ParentMap()
 
-	// initialize s.t. all vertices have a parent
+	// init. s.t. all vertices have a parent
 	// isolated vertices and root vertices have parents to themselves
 	vertices.forEach { F[it] = it }
 	// vertex w/ deg >= 2 has the last vertex in the edge list as its parent
 	edges.forEach { (v1, v2) -> F[v1] = v2 }
 
-	while (true) {
+	// loop until all vertices are in stars
+	while (vertices.any { !F.inStar(it) }) {
 		// cond star hook
 		edges
 				.filter { (i, j) -> F.inStar(i) && F[i] > F[j] }
@@ -31,11 +32,6 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 		vertices
 				.filter { !F.inStar(it) }
 				.forEach { F[it] = F[F[it]] }
-
-		// terminate when all vertices are in stars
-		if (vertices.all { F.inStar(it) }) {
-			break
-		}
 	}
 
 	// parent -> list of vertices with the parent
