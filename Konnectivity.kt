@@ -19,21 +19,21 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 	while (true) {
 		// cond star hook
 		edges
-				.filter { (i, j) -> inStar(i, F) && F[i] > F[j] }
+				.filter { (i, j) -> F.inStar(i) && F[i] > F[j] }
 				.forEach { (i, j) -> F[F[i]] = F[j] }
 
 		// uncond star hook
 		edges
-				.filter { (i, j) -> inStar(i, F) && F[i] != F[j] }
+				.filter { (i, j) -> F.inStar(i) && F[i] != F[j] }
 				.forEach { (i, j) -> F[F[i]] = F[j] }
 
 		// shortcut
 		vertices
-				.filter { !inStar(it, F) }
+				.filter { !F.inStar(it) }
 				.forEach { F[it] = F[F[it]] }
 
 		// terminate when all vertices are in stars
-		if (vertices.all { inStar(it, F) }) {
+		if (vertices.all { F.inStar(it) }) {
 			break
 		}
 	}
@@ -49,9 +49,8 @@ class Graph(val numVertices: Int, val edges: List<Pair<Int, Int>>) {
 
 	class ParentMap : HashMap<Int, Int>() {
 		override operator fun get(key: Int) = super.get(key)!!
+
+		// in star iff. grandparent == parent
+		fun inStar(v: Int) = this[this[v]] == this[v]
 	}
 }
-
-
-// in star iff grandparent == parent
-fun inStar(v: Int, F: Map<Int, Int>) = F[F[v]] == F[v]
