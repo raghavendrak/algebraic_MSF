@@ -16,21 +16,21 @@ open class Matrix<T>(val shape: Shape,
                      init: (Int, Int) -> T) {
 	val numRows = shape.first
 	val numCols = shape.second
-	val rows = 1..numRows
-	val cols = 1..numCols
+	val rowIndices = 1..numRows
+	val colIndices = 1..numCols
 
 	/**
-	 * COLUMN-dominant 2d arrays are used internally, i.e. array[col][row]
+	 * COLUMN-dominant 2d arrays are used internally, i.e. arrays[col][row]
 	 * however public getter/setter interfaces are still ROW-dominant,
 	 * i.e. M[row, col]. This mechanism achieve better performance for Vector as
-	 * it represents a (length by 1) matrix, i.e. a single column with many rows
+	 * it represents a (length by 1) matrix, i.e. a single column with many rowIndices
 	 */
-	protected val array =
+	protected val arrays =
 			Array(numCols) { arrayOfNulls<Any?>(numRows) } as Array<Array<T>>
 
 	init {
-		rows.forEach { r ->
-			cols.forEach { c ->
+		rowIndices.forEach { r ->
+			colIndices.forEach { c ->
 				this[r, c] = init(r, c)
 			}
 		}
@@ -51,7 +51,7 @@ open class Matrix<T>(val shape: Shape,
 		}
 	}
 
-	operator fun get(r: Int, c: Int) = array[c - 1, r - 1]
+	operator fun get(r: Int, c: Int) = arrays[c - 1, r - 1]
 
 	operator fun set(rowRange: IntRange, colRange: IntRange, vals: Matrix<T>) {
 		val rowStart = rowRange.start
@@ -64,34 +64,34 @@ open class Matrix<T>(val shape: Shape,
 	}
 
 	operator fun set(r: Int, c: Int, v: T) {
-		array[c - 1, r - 1] = v
+		arrays[c - 1, r - 1] = v
 	}
 
-	fun prettyPrint(printIndex: Boolean = false) {
+	open fun prettyPrint(printIndex: Boolean = false) {
 		var maxLenEle = numCols.toString().length
-		rows.forEach { r ->
-			cols.forEach { c ->
+		rowIndices.forEach { r ->
+			colIndices.forEach { c ->
 				maxLenEle = max(maxLenEle, this[r, c].toString().length)
 			}
 		}
 
 		if (printIndex) {
 			print(" " * (numRows.toString().length + 2))
-			cols.forEach { c ->
+			colIndices.forEach { c ->
 				print(c)
 				print(" " * (maxLenEle - c.toString().length + 1))
 			}
 			println()
 		}
 
-		rows.forEach { r ->
+		rowIndices.forEach { r ->
 			if (printIndex) {
 				print(" " * (numRows.toString().length - r.toString().length))
 				print(r)
 				print(" ")
 			}
 			print("[")
-			cols.forEach { c ->
+			colIndices.forEach { c ->
 				print(this[r, c])
 				print(" " * (maxLenEle - this[r, c].toString().length))
 				if (c == numCols) {
@@ -109,7 +109,7 @@ open class Matrix<T>(val shape: Shape,
 
 		if (shape != other.shape) return false
 		if (semiring != other.semiring) return false
-		if (!Arrays.deepEquals(array, other.array)) return false
+		if (!Arrays.deepEquals(arrays, other.arrays)) return false
 
 		return true
 	}
@@ -117,7 +117,7 @@ open class Matrix<T>(val shape: Shape,
 	override fun hashCode(): Int {
 		var result = shape.hashCode()
 		result = 31 * result + semiring.hashCode()
-		result = 31 * result + Arrays.deepHashCode(array)
+		result = 31 * result + Arrays.deepHashCode(arrays)
 		return result
 	}
 
@@ -125,32 +125,58 @@ open class Matrix<T>(val shape: Shape,
 		if (shape != m.shape) {
 			throw IllegalArgumentException("inconsistent shape")
 		}
-
 		if (semiring != m.semiring) {
 			throw IllegalArgumentException("inconsistent semiring")
 		}
 
-		return Matrix(shape, semiring) { r, c ->
-			semiring.addOp(this[r, c], m[r, c])
-		}
+		return Matrix(shape, semiring) { r, c -> this[r, c] + m[r, c] }
 	}
 
 	operator fun times(v: Vector<T>): Vector<T> {
 		if (numCols != v.length) {
-			throw IllegalArgumentException("inconsistent length")
+			throw IllegalArgumentException("inconsistent shape")
 		}
-
 		if (semiring != v.semiring) {
 			throw IllegalArgumentException("inconsistent semiring")
 		}
 
 		return Vector(v.length, semiring) { r ->
 			var acc = semiring.addIdentity
-			cols.forEach { c ->
-				acc = semiring.addOp(acc, semiring.multOp(this[r, c], v[r]))
-			}
+			colIndices.forEach { acc += this[r, it] * v[it] }
 			acc
 		}
+	}
+
+	operator fun times(m: Matrix<T>): Matrix<T> {
+		if (numCols != m.numRows) {
+			throw IllegalArgumentException("inconsistent shape")
+		}
+
+		if (semiring != m.semiring) {
+			throw IllegalArgumentException("inconsistent semiring")
+		}
+
+		return Matrix(numRows by m.numCols, semiring) { r, c ->
+			var acc = semiring.addIdentity
+			colIndices.forEach { acc += this[r, it] * m[it, c] }
+			acc
+		}
+	}
+
+	protected operator fun T.plus(t: T) = semiring.addOp(this, t)
+
+	protected operator fun T.times(t: T) = semiring.multOp(this, t)
+
+	fun toVector(): Vector<T> {
+		if (numCols != 1) {
+			throw IllegalArgumentException("not a vector")
+		}
+
+		return Vector(numRows, semiring) { this[it, 1] }
+	}
+
+	fun transpose(): Matrix<T> {
+		return Matrix(numCols by numRows, semiring) { r, c -> this[c, r] }
 	}
 }
 
@@ -161,13 +187,12 @@ fun intMatrix(shape: Shape,
               init: (Int, Int) -> Int = { _, _ -> 0 }) =
 		Matrix(shape, semiring, init)
 
-fun intMatrixIdentity(size: Int,
+fun intIdentityMatrix(size: Int,
                       semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
 		Matrix(size by size, semiring) { r, c -> if (r == c) 1 else 0 }
 
-operator fun Matrix<Int>.times(scalar: Int) = Matrix(shape, semiring) { r, c ->
-	semiring.multOp(scalar, this[r, c])
-}
+operator fun Matrix<Int>.times(scalar: Int) =
+		Matrix(shape, semiring) { r, c -> scalar * this[r, c] }
 
 operator fun Int.times(m: Matrix<Int>) = m * this
 
@@ -175,4 +200,3 @@ fun <T> Array<Array<T>>.toMatrix(semiring: Semiring<T>) = Matrix(this, semiring)
 
 fun Array<Array<Int>>.toMatrix(semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
 		Matrix(this, semiring)
-

@@ -10,24 +10,24 @@ open class Vector<T>(val length: Int,
                      semiring: Semiring<T>,
                      init: (Int) -> T)
 	: Matrix<T>(length by 1, semiring, { r, _ -> init(r) }) {
-	val indices = rows
+	val indices = rowIndices
 
-	constructor(array: Array<T>, semiring: Semiring<T>) :
+	constructor(array: Array<out T>, semiring: Semiring<T>) :
 			this(array.size, semiring, { array[it - 1] })
 
 	operator fun get(indexRange: IntRange) =
-			super.get(indexRange, cols) as Vector<T>
+			super.get(indexRange, colIndices) as Vector<T>
 
 	operator fun get(index: Int) = super.get(index, 1)
 
 	operator fun set(index: Int, value: T) = super.set(index, numCols, value)
 
 	operator fun set(indexRange: IntRange, values: Vector<T>) =
-			super.set(indexRange, cols, values)
+			super.set(indexRange, colIndices, values)
 
-	fun prettyPrintVector(printIndex: Boolean = false) {
+	override fun prettyPrint(printIndex: Boolean) {
 		if (!printIndex) {
-			println(Arrays.toString(array[0]))
+			println(Arrays.toString(arrays.first()))
 			return
 		}
 
@@ -57,15 +57,53 @@ open class Vector<T>(val length: Int,
 			}
 		}
 	}
+
+	operator fun plus(v: Vector<T>): Vector<T> {
+		if (length != v.length) {
+			throw IllegalArgumentException("inconsistent length")
+		}
+
+		if (semiring != v.semiring) {
+			throw IllegalArgumentException("inconsistent semiring")
+		}
+
+		return Vector(length, semiring) { this[it] + v[it] }
+	}
+
+	infix fun inner(v: Vector<T>): T {
+		if (length != v.length) {
+			throw IllegalArgumentException("inconsistent length")
+		}
+
+		if (semiring != v.semiring) {
+			throw IllegalArgumentException("inconsistent semiring")
+		}
+
+		var acc = semiring.addIdentity
+		indices.forEach { acc += this[it] * v[it] }
+
+		return acc
+	}
+
+	infix fun outer(v: Vector<T>): Matrix<T> {
+		if (length != v.length) {
+			throw IllegalArgumentException("inconsistent length")
+		}
+
+		if (semiring != v.semiring) {
+			throw IllegalArgumentException("inconsistent semiring")
+		}
+
+		return Matrix(length by length, semiring) { r, c -> this[r] * v[c] }
+	}
 }
 
 fun intVector(length: Int,
               semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
               init: (Int) -> Int = { 0 }) = Vector(length, semiring, init)
 
-operator fun Vector<Int>.times(scalar: Int) = Vector(length, semiring) {
-	semiring.multOp(scalar, this[it])
-}
+operator fun Vector<Int>.times(scalar: Int) =
+		Vector(length, semiring) { scalar * this[it] }
 
 operator fun Int.times(v: Vector<Int>) = v * this
 
