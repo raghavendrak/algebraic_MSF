@@ -100,7 +100,8 @@ open class Vector<T>(val length: Int,
 
 fun intVector(length: Int,
               semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
-              init: (Int) -> Int = { 0 }) = Vector(length, semiring, init)
+              init: (Int) -> Int = { INT_DEFAULT_SEMIRING.addIdentity }) =
+		Vector(length, semiring, init)
 
 operator fun Vector<Int>.times(scalar: Int) =
 		Vector(length, semiring) { scalar * this[it] }

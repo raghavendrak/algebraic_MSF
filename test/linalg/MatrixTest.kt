@@ -9,7 +9,7 @@ class MatrixTest {
 
 	@Test
 	fun testMatrixSliceGet() {
-		val m = intIdentityMatrix(5)
+		val m = identityIntMatrix(5)
 		m.prettyPrint(true)
 		println()
 		m[1..3, 2..3].prettyPrint(true)
@@ -17,23 +17,23 @@ class MatrixTest {
 
 	@Test
 	fun testMatrixSliceSet() {
-		val m = intIdentityMatrix(3)
+		val m = identityIntMatrix(3)
 		m.prettyPrint(true)
 		println()
-		m[1..2, 2..3] = intIdentityMatrix(2)
+		m[1..2, 2..3] = identityIntMatrix(2)
 		m.prettyPrint(true)
 	}
 
 	@Test
 	fun testMatrixAdd() {
-		val m1 = intIdentityMatrix(3)
-		val m2 = intIdentityMatrix(3)
+		val m1 = identityIntMatrix(3)
+		val m2 = identityIntMatrix(3)
 		assertEquals(m1 * 2, m1 + m2)
 	}
 
 	@Test
 	fun testMatrixVectorMult() {
-		val m = 2 * intIdentityMatrix(4)
+		val m = 2 * identityIntMatrix(4)
 		val v = intVector(4) { it } * 100
 		(m * v).prettyPrint(true)
 	}
@@ -57,5 +57,11 @@ class MatrixTest {
 	fun testMatrixTranspose() {
 		val m = arrayOf(arrayOf(3, 4), arrayOf(2, 5), arrayOf(2, 2)).toMatrix()
 		m.transpose().prettyPrint(true)
+	}
+
+	@Test
+	fun testVectorToDiagonal() {
+		val v1 = arrayOf(1, 2, 3).toVector()
+		v1.asDiagonal().prettyPrint(true)
 	}
 }

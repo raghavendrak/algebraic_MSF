@@ -38,7 +38,7 @@ open class Matrix<T>(val shape: Shape,
 
 	constructor(array: Array<Array<T>>,
 	            semiring: Semiring<T>) : this(
-			array.size by array[0].size,
+			array.size by array.first().size,
 			semiring, { r, c -> array[r - 1, c - 1] })
 
 	operator fun get(rowRange: IntRange, colRange: IntRange): Matrix<T> {
@@ -184,12 +184,17 @@ infix fun Int.by(numCols: Int) = this to numCols
 
 fun intMatrix(shape: Shape,
               semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
-              init: (Int, Int) -> Int = { _, _ -> 0 }) =
+              init: (Int, Int) -> Int = { _, _ -> INT_DEFAULT_SEMIRING.addIdentity }) =
 		Matrix(shape, semiring, init)
 
-fun intIdentityMatrix(size: Int,
+fun <T> identityMatrix(size: Int, semiring: Semiring<T>) =
+		Matrix(size by size, semiring) { r, c ->
+			if (r == c) semiring.multIdentity else semiring.addIdentity
+		}
+
+fun identityIntMatrix(size: Int,
                       semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
-		Matrix(size by size, semiring) { r, c -> if (r == c) 1 else 0 }
+		identityMatrix(size, semiring)
 
 operator fun Matrix<Int>.times(scalar: Int) =
 		Matrix(shape, semiring) { r, c -> scalar * this[r, c] }
@@ -200,3 +205,7 @@ fun <T> Array<Array<T>>.toMatrix(semiring: Semiring<T>) = Matrix(this, semiring)
 
 fun Array<Array<Int>>.toMatrix(semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
 		Matrix(this, semiring)
+
+fun <T> Vector<T>.asDiagonal() = Matrix(length by length, semiring) { r, c ->
+	if (r == c) this[r] else semiring.addIdentity
+}
