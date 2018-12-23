@@ -1,8 +1,11 @@
-package algo
+package graph
 
 fun main(args: Array<String>) {
 	// an isolated vertex [1] UNION an edge [2, 3] UNION a triangle [4, 5, 6]
 	val G = Graph(6, listOf(2 to 3, 4 to 5, 4 to 6, 5 to 6))
+
+	G.adjMat.prettyPrint(true)
+	println()
 
 	val components = G.connectedComponents()
 	println(components)
@@ -10,7 +13,7 @@ fun main(args: Array<String>) {
 
 fun Graph.connectedComponents(): Map<Int, List<Int>> {
 	// vertex -> parent
-	val F = algo.ParentMap()
+	val F = graph.ParentMap()
 
 	// init. s.t. all vertices have a parent
 	// isolated vertices and root vertices have parents to themselves

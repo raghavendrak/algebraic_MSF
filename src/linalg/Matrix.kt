@@ -1,8 +1,12 @@
 package linalg
 
+import util.get
+import util.set
 import util.times
 import java.util.*
 import kotlin.math.max
+
+typealias Shape = Pair<Int, Int>
 
 /**
  * 1-indexed
@@ -10,8 +14,8 @@ import kotlin.math.max
 open class Matrix<T>(val shape: Shape,
                      val semiring: Semiring<T>,
                      init: (Int, Int) -> T) {
-	val numRows = shape.numRows
-	val numCols = shape.numCols
+	val numRows = shape.first
+	val numCols = shape.second
 	val rows = 1..numRows
 	val cols = 1..numCols
 
@@ -32,6 +36,11 @@ open class Matrix<T>(val shape: Shape,
 		}
 	}
 
+	constructor(array: Array<Array<T>>,
+	            semiring: Semiring<T>) : this(
+			array.size by array[0].size,
+			semiring, { r, c -> array[r - 1, c - 1] })
+
 	operator fun get(rowRange: IntRange, colRange: IntRange): Matrix<T> {
 		val rowStart = rowRange.start
 		val colStart = colRange.start
@@ -42,7 +51,7 @@ open class Matrix<T>(val shape: Shape,
 		}
 	}
 
-	operator fun get(r: Int, c: Int) = array[c - 1][r - 1]
+	operator fun get(r: Int, c: Int) = array[c - 1, r - 1]
 
 	operator fun set(rowRange: IntRange, colRange: IntRange, vals: Matrix<T>) {
 		val rowStart = rowRange.start
@@ -55,7 +64,7 @@ open class Matrix<T>(val shape: Shape,
 	}
 
 	operator fun set(r: Int, c: Int, v: T) {
-		array[c - 1][r - 1] = v
+		array[c - 1, r - 1] = v
 	}
 
 	fun prettyPrint(printIndex: Boolean = false) {
@@ -145,13 +154,15 @@ open class Matrix<T>(val shape: Shape,
 	}
 }
 
+infix fun Int.by(numCols: Int) = this to numCols
+
 fun intMatrix(shape: Shape,
-              semiring: Semiring<Int> = INT_SEMIRING_DEFAULT,
+              semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
               init: (Int, Int) -> Int = { _, _ -> 0 }) =
 		Matrix(shape, semiring, init)
 
 fun intMatrixIdentity(size: Int,
-                      semiring: Semiring<Int> = INT_SEMIRING_DEFAULT) =
+                      semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
 		Matrix(size by size, semiring) { r, c -> if (r == c) 1 else 0 }
 
 operator fun Matrix<Int>.times(scalar: Int) = Matrix(shape, semiring) { r, c ->
@@ -159,3 +170,9 @@ operator fun Matrix<Int>.times(scalar: Int) = Matrix(shape, semiring) { r, c ->
 }
 
 operator fun Int.times(m: Matrix<Int>) = m * this
+
+fun <T> Array<Array<T>>.toMatrix(semiring: Semiring<T>) = Matrix(this, semiring)
+
+fun Array<Array<Int>>.toMatrix(semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
+		Matrix(this, semiring)
+

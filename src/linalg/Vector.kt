@@ -12,6 +12,9 @@ open class Vector<T>(val length: Int,
 	: Matrix<T>(length by 1, semiring, { r, _ -> init(r) }) {
 	val indices = rows
 
+	constructor(array: Array<T>, semiring: Semiring<T>) :
+			this(array.size, semiring, { array[it - 1] })
+
 	operator fun get(indexRange: IntRange) =
 			super.get(indexRange, cols) as Vector<T>
 
@@ -57,7 +60,7 @@ open class Vector<T>(val length: Int,
 }
 
 fun intVector(length: Int,
-              semiring: Semiring<Int> = INT_SEMIRING_DEFAULT,
+              semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
               init: (Int) -> Int = { 0 }) = Vector(length, semiring, init)
 
 operator fun Vector<Int>.times(scalar: Int) = Vector(length, semiring) {
@@ -65,3 +68,8 @@ operator fun Vector<Int>.times(scalar: Int) = Vector(length, semiring) {
 }
 
 operator fun Int.times(v: Vector<Int>) = v * this
+
+fun <T> Array<T>.toVector(semiring: Semiring<T>) = Vector(this, semiring)
+
+fun Array<Int>.toVector(semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
+		Vector(this, semiring)

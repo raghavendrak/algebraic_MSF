@@ -8,11 +8,20 @@ import kotlin.test.assertEquals
 class MatrixTest {
 
 	@Test
-	fun testMatrixSlice() {
+	fun testMatrixSliceGet() {
 		val m = intMatrixIdentity(5)
 		m.prettyPrint(true)
 		println()
 		m[1..3, 2..3].prettyPrint(true)
+	}
+
+	@Test
+	fun testMatrixSliceSet() {
+		val m = intMatrixIdentity(3)
+		m.prettyPrint(true)
+		println()
+		m[1..2, 2..3] = intMatrixIdentity(2)
+		m.prettyPrint(true)
 	}
 
 	@Test

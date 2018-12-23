@@ -1,4 +1,4 @@
-package algo
+package graph
 
 import linalg.by
 import linalg.intMatrix
