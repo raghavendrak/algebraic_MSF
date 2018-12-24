@@ -103,6 +103,10 @@ fun intVector(length: Int,
               init: (Int) -> Int = { INT_DEFAULT_SEMIRING.addIdentity }) =
 		Vector(length, semiring, init)
 
+fun intVector(length: Int,
+              semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
+              initValue: Int) = intVector(length, semiring) { initValue }
+
 operator fun Vector<Int>.times(scalar: Int) =
 		Vector(length, semiring) { scalar * this[it] }
 

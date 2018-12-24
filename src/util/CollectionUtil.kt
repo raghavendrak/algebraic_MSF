@@ -11,4 +11,3 @@ operator fun Array<IntArray>.get(r: Int, c: Int) = this[r][c]
 operator fun Array<IntArray>.set(r: Int, c: Int, v: Int) {
 	this[r][c] = v
 }
-

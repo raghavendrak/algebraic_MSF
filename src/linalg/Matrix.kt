@@ -187,6 +187,10 @@ fun intMatrix(shape: Shape,
               init: (Int, Int) -> Int = { _, _ -> INT_DEFAULT_SEMIRING.addIdentity }) =
 		Matrix(shape, semiring, init)
 
+fun intMatrix(shape: Shape,
+              semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
+              initValue: Int) = intMatrix(shape, semiring) { _, _ -> initValue }
+
 fun <T> identityMatrix(size: Int, semiring: Semiring<T>) =
 		Matrix(size by size, semiring) { r, c ->
 			if (r == c) semiring.multIdentity else semiring.addIdentity
