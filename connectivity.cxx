@@ -39,15 +39,10 @@ static Semiring<float> TSR(0.0,
                            1.0,
                            [](float a, float b) { return a * b; });
 
-int main(int argc, char** argv) {
-	int rank;
-	int np;
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &np);
-	World w(argc, argv);
-	
+void test_simple(World w){
+	printf("TEST1: SIMPLE GRAPH 6*6\n");
 	auto edges = vector<IntPair>();
+	//edges.emplace_back(0, 1);
 	edges.emplace_back(1, 2);
 	edges.emplace_back(3, 4);
 	edges.emplace_back(3, 5);
@@ -57,6 +52,55 @@ int main(int argc, char** argv) {
 	B->print_matrix();
 	connectivity(*B)->print();
 	free(B);
+}
+
+void test_disconnected(World w){
+	printf("TEST2: DISCONNECTED 6*6\n");
+	auto edges = vector<IntPair>();
+	//edges.emplace_back(0, 1);
+	auto g = Graph(6, edges);
+	auto B = g.adj_mat(&w);
+	B->print_matrix();
+	connectivity(*B)->print();
+	free(B);
+}
+
+void test_fully_connected(World w){
+	printf("TEST3: FULLY CONNECTED 6*6\n");
+	auto edges = vector<IntPair>();
+	for(int i = 0; i < 6; i++){
+		for(int j = i + 1; j < 6; j++){
+			edges.emplace_back(i, j);
+		}
+	}
+	auto g = Graph(6, edges);
+	auto B = g.adj_mat(&w);
+	B->print_matrix();
+	connectivity(*B)->print();
+	free(B);
+}
+
+void test_random_1(World w){
+	printf("TEST4: RANDOM 1 6*6\n");
+	Matrix<float> * B = new Matrix<float>(6,6,SH|SP);
+  	//srand48(B->wrld->rank);
+  	B->fill_sp_random(1.0,1.0,0.3);
+	B->print_matrix();
+	connectivity(*B)->print();
+	free(B);
+}
+
+int main(int argc, char** argv) {
+	int rank;
+	int np;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &np);
+	World w(argc, argv);
+	//test_simple(w);
+	//test_disconnected(w);
+	//test_fully_connected(w);
+	test_random_1(w);
 }
 
 IntPair::IntPair(int64_t i1, int64_t i2) {
