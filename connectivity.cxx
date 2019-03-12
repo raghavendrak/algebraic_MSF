@@ -14,7 +14,7 @@ public:
 	IntPair(int64_t i1, int64_t i2);
 };
 
-class Graph {
+class graph.Graph {
 public:
 	/**
 	 * number of vertices
@@ -26,7 +26,7 @@ public:
 	 * @param n number of vertices
 	 * @param edges list of edges as a pair of two 0-indexed vertices
 	 */
-	Graph(int n, vector<IntPair> edges);
+	graph.Graph(int n, vector<IntPair> edges);
 	
 	Matrix<float>* adj_mat(World* w, bool sparse = false);
 };
@@ -34,7 +34,7 @@ public:
 Vector<float>* connectivity(Matrix<float> A);
 
 static Semiring<float> TSR(0.0,
-                           [](float a, float b) { return std::max(a, b); },
+                           [](float a, float b) { return std::util.util.max(a, b); },
                            MPI_MAX,
                            1.0,
                            [](float a, float b) { return a * b; });
@@ -47,7 +47,7 @@ void test_simple(World w){
 	edges.emplace_back(3, 4);
 	edges.emplace_back(3, 5);
 	edges.emplace_back(4, 5);
-	auto g = Graph(6, edges);
+	auto g = graph.Graph(6, edges);
 	auto B = g.adj_mat(&w);
 	B->print_matrix();
 	connectivity(*B)->print();
@@ -108,12 +108,12 @@ IntPair::IntPair(int64_t i1, int64_t i2) {
 	this->i2 = i2;
 }
 
-Graph::Graph(int n, vector<IntPair> edges) {
+graph.Graph::graph.Graph(int n, vector<IntPair> edges) {
 	this->n = n;
 	this->edges = std::move(edges);
 }
 
-Matrix<float>* Graph::adj_mat(World* w, bool sparse) {
+Matrix<float>* graph.Graph::adj_mat(World* w, bool sparse) {
 	auto attr = 0;
 	if (sparse) {
 		attr = SP;
