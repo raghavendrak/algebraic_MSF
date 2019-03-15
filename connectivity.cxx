@@ -14,7 +14,7 @@ public:
 	IntPair(int64_t i1, int64_t i2);
 };
 
-class graph.Graph {
+class Graph {
 public:
 	/**
 	 * number of vertices
@@ -26,7 +26,7 @@ public:
 	 * @param n number of vertices
 	 * @param edges list of edges as a pair of two 0-indexed vertices
 	 */
-	graph.Graph(int n, vector<IntPair> edges);
+	Graph(int n, vector<IntPair> edges);
 	
 	Matrix<float>* adj_mat(World* w, bool sparse = false);
 };
@@ -34,7 +34,7 @@ public:
 Vector<float>* connectivity(Matrix<float> A);
 
 static Semiring<float> TSR(0.0,
-                           [](float a, float b) { return std::util.util.max(a, b); },
+                           [](float a, float b) { return std::max(a, b); },
                            MPI_MAX,
                            1.0,
                            [](float a, float b) { return a * b; });
@@ -47,7 +47,7 @@ void test_simple(World w){
 	edges.emplace_back(3, 4);
 	edges.emplace_back(3, 5);
 	edges.emplace_back(4, 5);
-	auto g = graph.Graph(6, edges);
+	auto g = Graph(6, edges);
 	auto B = g.adj_mat(&w);
 	B->print_matrix();
 	connectivity(*B)->print();
@@ -68,7 +68,7 @@ void test_disconnected(World w){
 void test_fully_connected(World w){
 	printf("TEST3: FULLY CONNECTED 6*6\n");
 	auto edges = vector<IntPair>();
-	for(int i = 0; i < 6; i++){
+	for(int i = 0; i < 5; i++){
 		for(int j = i + 1; j < 6; j++){
 			edges.emplace_back(i, j);
 		}
@@ -90,6 +90,56 @@ void test_random_1(World w){
 	free(B);
 }
 
+void test_6Blocks_simply_connected(World w){
+	printf("TEST5: 6 Blocks of 6*6 simply connected graph\n");
+	auto edges = vector<IntPair>();
+	for(int b = 0; b < 6; b++){
+		for(int i = 0; i < 5; i++){
+			edges.emplace_back(b*6+i, b*6+i+1);
+			//cout << (b*6+i) << " " << (b*6+i+1) << endl;
+		}
+	}
+	auto g = Graph(36, edges);
+	cout << "Large Adjancency Matrix 36*36" << endl;
+	auto B = g.adj_mat(&w);
+	//B->print_matrix();
+	connectivity(*B)->print();
+	free(B);
+}
+
+void test_6Blocks_fully_connected(World w){
+	printf("TEST6: 6 Blocks of 6*6 fully connected graph\n");
+	auto edges = vector<IntPair>();
+	for(int b = 0; b < 6; b++){
+		for(int i = 0; i < 5; i++){
+			for(int j = i+1; j < 6; j++)
+				edges.emplace_back(b*6+i, b*6+j);
+		}
+	}
+	auto g = Graph(36, edges);
+	auto B = g.adj_mat(&w);
+	//B->print_matrix();
+	cout << "Large Adjancency Matrix 36*36" << endl;
+	connectivity(*B)->print();
+	free(B);
+}
+
+void test_simple_kronecker(World w){
+	printf("TEST7: SIMPLE KRONECKER GRAPH: 3*3\n");
+	auto edges = vector<IntPair>();
+	edges.emplace_back(0, 0);
+	edges.emplace_back(0, 1);
+	edges.emplace_back(1, 1);
+	edges.emplace_back(1, 2);
+	edges.emplace_back(2, 2);
+	auto g = Graph(3, edges);
+	auto B = g.adj_mat(&w);
+	B->print_matrix();
+	connectivity(*B)->print();
+	free(B);
+}
+
+
 int main(int argc, char** argv) {
 	int rank;
 	int np;
@@ -97,10 +147,13 @@ int main(int argc, char** argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &np);
 	World w(argc, argv);
-	//test_simple(w);
-	//test_disconnected(w);
-	//test_fully_connected(w);
+	test_simple(w);
+	test_disconnected(w);
+	test_fully_connected(w);
 	test_random_1(w);
+	test_6Blocks_simply_connected(w);
+	test_6Blocks_fully_connected(w);
+	test_simple_kronecker(w);
 }
 
 IntPair::IntPair(int64_t i1, int64_t i2) {
@@ -108,12 +161,12 @@ IntPair::IntPair(int64_t i1, int64_t i2) {
 	this->i2 = i2;
 }
 
-graph.Graph::graph.Graph(int n, vector<IntPair> edges) {
+Graph::Graph(int n, vector<IntPair> edges) {
 	this->n = n;
 	this->edges = std::move(edges);
 }
 
-Matrix<float>* graph.Graph::adj_mat(World* w, bool sparse) {
+Matrix<float>* Graph::adj_mat(World* w, bool sparse) {
 	auto attr = 0;
 	if (sparse) {
 		attr = SP;
