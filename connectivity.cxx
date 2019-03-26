@@ -81,10 +81,20 @@ void test_fully_connected(World w){
 }
 
 void test_random_1(World w){
-  printf("TEST4: RANDOM 1 6*6\n");
+  printf("TEST4-1: RANDOM 1 6*6\n");
   Matrix<float> * B = new Matrix<float>(6,6,SP,w,TSR);
     //srand48(B->wrld->rank);
-    B->fill_sp_random(1.0,1.0,0.3);
+    B->fill_sp_random(1.0,1.0,0.1);
+  B->print_matrix();
+  connectivity(*B)->print();
+  free(B);
+}
+
+void test_random_2(World w){
+  printf("TEST4-2: RANDOM 2 10*10\n");
+  Matrix<float> * B = new Matrix<float>(10,10,SP,w,TSR);
+    //srand48(B->wrld->rank);
+    B->fill_sp_random(1.0,1.0,0.2);
   B->print_matrix();
   connectivity(*B)->print();
   free(B);
@@ -158,13 +168,14 @@ int main(int argc, char** argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &np);
   World w(argc, argv);
-  test_simple(w);
-  test_disconnected(w);
-  test_fully_connected(w);
-  test_random_1(w);
+  //test_simple(w);
+  //test_disconnected(w);
+  //test_fully_connected(w);
+  //test_random_1(w);
+  //test_random_2(w);
   test_6Blocks_simply_connected(w);
-  test_6Blocks_fully_connected(w);
-  test_simple_kronecker(w);
+  //test_6Blocks_fully_connected(w);
+  //test_simple_kronecker(w);
 }
 
 IntPair::IntPair(int64_t i1, int64_t i2) {
