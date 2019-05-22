@@ -95,7 +95,7 @@ void test_fully_connected(World *w){
 
 void test_random1(World *w){
 	printf("TEST4-1: RANDOM 1 6*6\n");
-	Matrix<int> * B = new Matrix<int>(6,6,SP,*w,MAX_TIMES_SR);
+	Matrix<int> * B = new Matrix<int>(6,6,SP|SH,*w,MAX_TIMES_SR);
 	B->fill_sp_random(1.0,1.0,0.1);
 	B->print_matrix();
 	hook_matrix(6, B, w)->print();
