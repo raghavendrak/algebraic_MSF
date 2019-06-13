@@ -55,6 +55,7 @@ Vector<int>* hook(Graph* graph, World* world);
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
 
 void vec_max(Vector<int>* out, Vector<int>* in1, Vector<int>* in2);
+void shortcut(Vector<int> & pi);
 
 void test_simple(World* w){
 	printf("TEST1: SIMPLE GRAPH 6*6\n");
@@ -211,6 +212,7 @@ Vector<int>* hook(Graph* graph, World* world) {
 	}
 
 	free(A);
+	shortcut(*p);
 	return p;
 }
 
@@ -376,4 +378,25 @@ void vec_max(Vector<int>* out, Vector<int>* in1, Vector<int>* in2) {
 			vec_set(out, i, qi);
 		}
 	}
+}
+
+void shortcut(Vector<int> & pi){
+  int64_t npairs;
+  Pair<int> * loc_pairs;
+  // obtain all values of pi on this process
+  pi.read_local(&npairs, &loc_pairs);
+  Pair<int> * remote_pairs = new Pair<int>[npairs];
+  // set keys to value of pi, so remote_pairs[i].k = pi[loc_pairs[i].k]
+  for (int64_t i=0; i<npairs; i++){
+    remote_pairs[i].k = loc_pairs[i].d;
+  }
+  // obtains values at each pi[i] by remote read, so remote_pairs[i].d = pi[loc_pairs[i].k]
+  pi.read(npairs, remote_pairs);
+  // set loc_pairs[i].d = remote_pairs[d] and write back to local data
+  for (int64_t i=0; i<npairs; i++){
+    loc_pairs[i].d =remote_pairs[i].d;
+  }
+  delete [] remote_pairs;
+  pi.write(npairs, loc_pairs);
+  delete [] loc_pairs;
 }
