@@ -179,45 +179,13 @@ int main(int argc, char** argv) {
     test_random2(w);
     test_6Blocks_simply_connected(w);
     test_6Blocks_fully_connected(w);
-    //test_simple_kronecker(w);
 	return 0;
 }
 
 Vector<int>* hook(Graph* graph, World* world) {
 	auto n = graph->numVertices;
-	/**
-	auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
-	for (auto i = 0; i < n; i++) {
-		vec_set(p, i, i);
-	}
-	**/
 	auto A = graph->adjacencyMatrix(world);
 	return hook_matrix(n, A, world);
-	/**
-	auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
-	
-		// ========== ==========
-	while (!vec_eq(p, prev)) {
-		// ========== ==========
-		auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
-		(*q)["i"] = (*A)["ij"] * (*p)["j"];
-		auto r = new Vector<int>(n, *world, MAX_TIMES_SR);
-		vec_max(r, p, q);
-		auto P = mat_P(p, world);
-		auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
-		(*s)["i"] = (*P)["ji"] * (*r)["i"];
-		vec_max(p, p, s);
-		prev = p;
-		free(q);
-		free(r);
-   	 	free(P);
-		free(s);		
-	}
-
-	free(A);
-	shortcut(*p);
-	return p;
-	**/
 }
 
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
