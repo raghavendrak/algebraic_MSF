@@ -185,12 +185,15 @@ int main(int argc, char** argv) {
 
 Vector<int>* hook(Graph* graph, World* world) {
 	auto n = graph->numVertices;
+	/**
 	auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
 	for (auto i = 0; i < n; i++) {
 		vec_set(p, i, i);
 	}
+	**/
 	auto A = graph->adjacencyMatrix(world);
-	
+	return hook_matrix(n, A, world);
+	/**
 	auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
 	
 		// ========== ==========
@@ -214,6 +217,7 @@ Vector<int>* hook(Graph* graph, World* world) {
 	free(A);
 	shortcut(*p);
 	return p;
+	**/
 }
 
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
@@ -242,7 +246,12 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
 	}
 
 	free(A);
-	return p;
+	auto pi = shortcut(*p);
+	while (!vec_eq(pi, p)){
+		p = pi;
+		pi = shortcut(*pi);
+	}
+	return pi;
 }
 
 
@@ -388,13 +397,16 @@ void shortcut(Vector<int> & pi){
   Pair<int> * remote_pairs = new Pair<int>[npairs];
   // set keys to value of pi, so remote_pairs[i].k = pi[loc_pairs[i].k]
   for (int64_t i=0; i<npairs; i++){
+  	//cout << "k: " << remote_pairs[i].k << " d: " << loc_pairs[i].d << endl;
     remote_pairs[i].k = loc_pairs[i].d;
   }
+
+
   // obtains values at each pi[i] by remote read, so remote_pairs[i].d = pi[loc_pairs[i].k]
   pi.read(npairs, remote_pairs);
   // set loc_pairs[i].d = remote_pairs[d] and write back to local data
   for (int64_t i=0; i<npairs; i++){
-    loc_pairs[i].d =remote_pairs[i].d;
+    loc_pairs[i].d = remote_pairs[i].d;
   }
   delete [] remote_pairs;
   pi.write(npairs, loc_pairs);
