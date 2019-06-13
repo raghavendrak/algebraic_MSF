@@ -246,12 +246,15 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
 	}
 
 	free(A);
-	auto pi = shortcut(*p);
+	Vector<int> * pi = new Vector<int>(*p);
+	shortcut(*p);
 	while (!vec_eq(pi, p)){
-		p = pi;
-		pi = shortcut(*pi);
+		free(pi);
+		pi = new Vector<int>(*p);
+		shortcut(*p);
 	}
-	return pi;
+	//free(p);
+	return p;
 }
 
 
