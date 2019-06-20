@@ -31,9 +31,10 @@ fun Graph.superVertex(A: Matrix<Vertex> = adjacencyMatrix(SR), // adjacency matr
 	// preferably, the update deploys sparsity to speed up on recursive calls
 
 	if (q == p) {
-		return q // converged
+		// converged
+		return q
 	} else {
-		val P = q.toParentMatrix() // P[i, j] = 1 <=> w[i] = j
+		val P = q.toParentMatrix() // P[i, j] = 1 <=> q[i] = j
 		// transform child edges to parents
 		// this step does not shrink matrix in size but introduces more zeros
 		val rec_A = P.transpose() * A * P
