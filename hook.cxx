@@ -65,6 +65,12 @@ bool is_different_vector(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
   return s.get_val();
 }
 
+template <typename dtype>
+void max_vector(CTF::Vector<dtype> & result, CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
+{
+  result["i"] = CTF::Function<dtype,dtype,dtype>([](dtype a, dtype b){return ((a > b) ? a : b);})(A["i"], B["i"]);
+}
+
 void test_simple(World* w){
 	printf("TEST1: SIMPLE GRAPH 6*6\n");
 	auto g = new Graph();
