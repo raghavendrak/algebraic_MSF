@@ -57,6 +57,14 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
 void vec_max(Vector<int>* out, Vector<int>* in1, Vector<int>* in2);
 void shortcut(Vector<int> & pi);
 
+template <typename dtype>
+bool is_different_vector(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
+{
+  CTF::Scalar<bool> s;
+  s[""] = CTF::Function<dtype,dtype,bool>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+  return s.get_val();
+}
+
 void test_simple(World* w){
 	printf("TEST1: SIMPLE GRAPH 6*6\n");
 	auto g = new Graph();
