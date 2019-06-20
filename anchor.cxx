@@ -180,51 +180,8 @@ int main(int argc, char** argv) {
 
 Vector<int>* anchor(Graph* graph, World* world) {
 	auto n = graph->numVertices;
-	auto v = Vector<int>(n, *world, MAX_TIMES_SR);
-	for (auto i = 0; i < n; i++) {
-		vec_set(&v, i, i);
-	}
 	auto A = graph->adjacencyMatrix(world);
-	auto I = mat_I(n, world);
-	auto AI = mat_add(A, I, world);
-	
-	auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
-	(*p)["i"] = (*AI)["ij"] * v["j"];
-	auto P = mat_P(p, world);
-	auto Prev = new Matrix<int>(n, n, *world, MAX_TIMES_SR);
-	
-		// ========== ==========
-	while (!mat_eq(P, Prev)) {
-		// ========== ==========
-		
-		Prev = P;
-		(*p)["i"] = (*AI)["ij"] * v["j"];
-		P = mat_P(p, world);
-		
-		// ========== ==========
-		auto PTA = Matrix<int>(n, n, *world, MAX_TIMES_SR);
-		PTA["ij"] = (*P)["li"] * (*A)["lj"];
-		auto B = Matrix<int>(n, n, *world, MAX_TIMES_SR);
-		B["ij"] = PTA["il"] * (*P)["lj"];
-		for (int r = 0; r < n; r++) {
-			for (int c = 0; c < r; c++) {
-				mat_set(&B, Int64Pair(r, c), 0);
-			}
-		}
-		// ========== ==========
-		
-		(*P)["ij"] = (*P)["il"] * B["lj"];
-		(*P)["ij"] = (*P)["il"] * (*P)["lj"];
-	}
-	auto PI = mat_add(P, I, world);
-	(*p)["i"] = (*PI)["ij"] * v["j"];
-	free(A);
-	free(P);
-	free(I);
-	free(PI);
-	free(AI);
-	free(Prev);
-	return p;
+	return anchor_matrix(n, A, world);
 }
 
 Vector<int>* anchor_matrix(int n, Matrix<int> * A, World* world) {
