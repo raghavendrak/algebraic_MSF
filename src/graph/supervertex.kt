@@ -6,6 +6,21 @@ import algebra.Vector
 
 val SR = INT_MAX_TIMES_SEMIRING
 
+fun main() {
+	val G = Graph(11, listOf(
+			5 to 4,
+			4 to 1,
+			4 to 3,
+			3 to 2,
+			11 to 9,
+			10 to 9,
+			9 to 6,
+			9 to 8,
+			6 to 8)
+	)
+	G.superVertex().prettyPrintln()
+}
+
 fun Graph.superVertex(A: Matrix<Vertex> = adjacencyMatrix(SR), // adjacency matrix of G
                       p: Vector<Vertex> = verticesVector(SR)) // p[i] = i
 		: Vector<Vertex> {
