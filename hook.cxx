@@ -207,7 +207,13 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
 		auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
 		(*s)["i"] = (*P)["ji"] * (*r)["i"];
 		vec_max(p, p, s);
-		//shortcut(*p);
+		Vector<int> * pi = new Vector<int>(*p);
+		shortcut(*p);
+		while (!vec_eq(pi, p)){
+			free(pi);
+			pi = new Vector<int>(*p);
+			shortcut(*p);
+		}
 		free(q);
 		free(r);
    	 	free(P);
@@ -215,16 +221,6 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
 	}
 
 	free(A);
-	Vector<int> * pi = new Vector<int>(*p);
-	
-	shortcut(*p);
-	while (!vec_eq(pi, p)){
-		free(pi);
-		pi = new Vector<int>(*p);
-		shortcut(*p);
-	}
-	//free(p);
-	
 	return p;
 }
 
@@ -386,3 +382,12 @@ void shortcut(Vector<int> & pi){
   pi.write(npairs, loc_pairs);
   delete [] loc_pairs;
 }
+
+/**
+template typename <dtype>
+bool is_different(CTF::Matrix<dtype> A, CTF::Matrix<dtype> B){
+  CTF::Scalar<bool> s(); // maybe need to define semiring, but maybe default works
+  s[""] = CTF::Function<dtype,dtype,bool>([](dtype a, dtype b){ return a!=b; })(A["ij"],B["ij"]);
+  return s.get_val(); // not sure this is the right function, but there should be one to extract the value of a scalar
+}
+**/
