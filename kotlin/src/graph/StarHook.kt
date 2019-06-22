@@ -1,18 +1,17 @@
 package graph
 
-fun main(args: Array<String>) {
+
+fun main() {
 	// an isolated vertex [1] UNION an edge [2, 3] UNION a triangle [4, 5, 6]
-	val G = Graph(6, listOf(2 to 3, 4 to 5, 4 to 6, 5 to 6))
+	val G = Graph(6, listOf(2 with 3, 4 with 5, 4 with 6, 5 with 6))
 
-	println()
 
-	val components = G.connectedComponents()
-	println(components)
+	println(G.starHook())
 }
 
-fun Graph.connectedComponents(): Map<Int, List<Int>> {
+fun Graph.starHook(): Map<Vertex, List<Vertex>> {
 	// vertex -> parent
-	val F = graph.ParentMap()
+	val F = ParentMap()
 
 	// init. s.t. all vertices have a parent
 	// isolated vertices and root vertices have parents to themselves
@@ -21,7 +20,9 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 	edges.forEach { (v1, v2) -> F[v1] = v2 }
 
 	// keep looping if any vertex is NOT in a star
+	// algo will conv in O(log N) steps
 	while (vertices.any { !F.inStar(it) }) {
+		// and each step will cost O(N + numEdges)
 		// cond star hook
 		edges
 				.filter { (i, j) -> F.inStar(i) && F[i] > F[j] }
@@ -44,10 +45,10 @@ fun Graph.connectedComponents(): Map<Int, List<Int>> {
 			.mapValues { pair -> pair.value.map { it.key } }
 }
 
-class ParentMap : HashMap<Int, Int>() {
+class ParentMap : HashMap<Vertex, Vertex>() {
 
-	override operator fun get(key: Int) = super.get(key)!!
+	override operator fun get(key: Vertex) = super.get(key)!!
 
 	// in star iff. grandparent == parent
-	fun inStar(v: Int) = this[this[v]] == this[v]
+	fun inStar(v: Vertex) = this[this[v]] == this[v]
 }

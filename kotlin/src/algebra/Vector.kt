@@ -1,10 +1,10 @@
-package linalg
+package algebra
 
 import util.times
 import java.util.*
 
 /**
- * 1-indexed
+ * Vector = Matrix with `length` rows and exactly 1 column
  */
 open class Vector<T>(val length: Int,
                      semiring: Semiring<T>,
@@ -20,12 +20,17 @@ open class Vector<T>(val length: Int,
 
 	operator fun get(index: Int) = super.get(index, 1)
 
-	operator fun set(index: Int, value: T) = super.set(index, numCols, value)
+	operator fun set(index: Int, value: T) = super.set(index, 1, value)
 
 	operator fun set(indexRange: IntRange, values: Vector<T>) =
 			super.set(indexRange, colIndices, values)
 
-	override fun prettyPrint(printIndex: Boolean) {
+	override fun prettyPrintln(printIndex: Boolean) {
+		if (length == 0) {
+			println("[]")
+			return
+		}
+
 		if (!printIndex) {
 			println(Arrays.toString(arrays.first()))
 			return
@@ -58,49 +63,46 @@ open class Vector<T>(val length: Int,
 		}
 	}
 
-	operator fun plus(v: Vector<T>): Vector<T> {
-		if (length != v.length) {
-			throw IllegalArgumentException("inconsistent length")
-		}
-
-		if (semiring != v.semiring) {
-			throw IllegalArgumentException("inconsistent semiring")
-		}
-
-		return Vector(length, semiring) { this[it] + v[it] }
+	operator fun plus(v: Vector<T>) = when {
+		length != v.length ->
+			throw IllegalArgumentException("Inconsistent length.")
+		semiring != v.semiring ->
+			throw IllegalArgumentException("Inconsistent semiring.")
+		else -> Vector(length, semiring) { this[it] + v[it] }
 	}
 
-	infix fun inner(v: Vector<T>): T {
-		if (length != v.length) {
-			throw IllegalArgumentException("inconsistent length")
+
+	infix fun inner(v: Vector<T>) = when {
+		length != v.length ->
+			throw IllegalArgumentException("Inconsistent length.")
+		semiring != v.semiring ->
+			throw IllegalArgumentException("Inconsistent semiring.")
+		else -> {
+			var acc = semiring.additiveIdentity
+			indices.forEach { acc += this[it] * v[it] }
+			acc
 		}
-
-		if (semiring != v.semiring) {
-			throw IllegalArgumentException("inconsistent semiring")
-		}
-
-		var acc = semiring.addIdentity
-		indices.forEach { acc += this[it] * v[it] }
-
-		return acc
 	}
 
-	infix fun outer(v: Vector<T>): Matrix<T> {
-		if (length != v.length) {
-			throw IllegalArgumentException("inconsistent length")
-		}
-
-		if (semiring != v.semiring) {
-			throw IllegalArgumentException("inconsistent semiring")
-		}
-
-		return Matrix(length by length, semiring) { r, c -> this[r] * v[c] }
+	infix fun outer(v: Vector<T>) = when {
+		length != v.length ->
+			throw IllegalArgumentException("Inconsistent length.")
+		semiring != v.semiring ->
+			throw IllegalArgumentException("Inconsistent semiring.")
+		else -> Matrix(length by length, semiring) { r, c -> this[r] * v[c] }
 	}
+
+	override fun copy() = Vector(length, semiring) { this[it] }
+
+	fun asDiagonal(empty: T = semiring.additiveIdentity) =
+			Matrix(length by length, semiring) { r, c ->
+				if (r == c) this[r] else empty
+			}
 }
 
 fun intVector(length: Int,
               semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
-              init: (Int) -> Int = { INT_DEFAULT_SEMIRING.addIdentity }) =
+              init: (Int) -> Int = { semiring.additiveIdentity }) =
 		Vector(length, semiring, init)
 
 fun intVector(length: Int,
@@ -116,3 +118,4 @@ fun <T> Array<T>.toVector(semiring: Semiring<T>) = Vector(this, semiring)
 
 fun Array<Int>.toVector(semiring: Semiring<Int> = INT_DEFAULT_SEMIRING) =
 		Vector(this, semiring)
+

@@ -1,1 +1,4 @@
-# CTF_connectivity
+# Connectivity
+
+Algebraic Graph Algorithms on Connectivily
+

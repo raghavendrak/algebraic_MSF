@@ -1,0 +1,110 @@
+ \documentclass[11pt]{article}
+ \usepackage[margin=1in,footskip=0.25in]{geometry}
+
+\usepackage{braket,amsfonts}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{amssymb}
+% \usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{enumitem}
+\usepackage{yfonts}
+% \usepackage{algorithm}
+% \usepackage[linesnumbered,ruled]{algorithm2e}
+% \usepackage[noend]{algpseudocode}
+\usepackage{algorithmic}
+\usepackage{cite}
+
+\newcommand{\dd}[1]{\mathrm{d}#1}
+\usepackage{filecontents}
+\usepackage{ulem}
+% to order citations
+% \usepackage{cite}
+% to allow clickable references
+% \usepackage[hidelinks]{hyperref}
+% for \coloneqq
+\usepackage{mathtools}
+\usepackage{adjustbox}
+\usepackage{lipsum}% example text
+\usepackage[section]{placeins}
+\DeclareMathOperator*{\vecn}{vec}
+\usepackage{bm}
+% \usepackage{subfig}
+\usepackage{graphicx,epstopdf}% <- Preamble
+\usepackage[caption=false]{subfig}% <- Preamble
+
+
+\title{}
+
+\author{}
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{lem}[thm]{Lemma}
+
+\newtheorem{defn}[thm]{Definition}
+\newtheorem{eg}[thm]{Example}
+\newtheorem{ex}[thm]{Exercise}
+\newtheorem{conj}[thm]{Conjecture}
+\newtheorem{cor}[thm]{Corollary}
+\newtheorem{claim}[thm]{Claim}
+\newtheorem{rmk}[thm]{Remark}
+
+\newcommand{\ie}{\emph{i.e.} }
+\newcommand{\cf}{\emph{cf.} }
+\newcommand{\into}{\hookrightarrow}
+\newcommand{\dirac}{\slashed{\partial}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\LieT}{\mathfrak{t}}
+\newcommand{\T}{T}
+\newcommand{\tree}[1]{{\mathcal{#1}}}
+\newcommand{\tsr}[1]{\pmb{\mathcal{#1}}}
+\newcommand{\fvcr}[1]{\bm{#1}}
+\newcommand{\vcr}[1]{\mathbf{#1}}
+\newcommand{\mat}[1]{\mathbf{#1}}
+%\newcommand{\defeq}{\coloneqq}
+\newcommand{\defeq}{=}
+%\newcommand{\tnrm}[1]{\lvert \lvert #1 \rvert \rvert_F}
+\newcommand{\tnrm}[1]{{\| #1 \|}_2}
+\newcommand{\fnrm}[1]{{\| #1 \|}_F}
+%\newcommand{\tinf}[1]{\left|\sigma_\text{min}(#1)\right|}
+\newcommand{\tinf}[1]{\inf\{\vnrm{\fvcr{f}_{#1}}\}}
+%\newcommand{\vnrm}[1]{{\lvert \lvert #1 \rvert \rvert}_2}
+\newcommand{\vnrm}[1]{{\| #1 \|}_2}
+%\newcommand{\vnrm}[1]{\| #1 \|_2}
+\newcommand{\inti}[2]{\{{#1},\ldots, {#2}\}}
+\newcommand{\M}{M}
+\newcommand\bigzero{\makebox(0,0){\text{\huge0}}}
+\newcommand{\es}[1]{{\color{red} #1}}
+
+
+
+\begin{document}
+\maketitle
+
+Let $P^{(0)}$ be an upper triangular parent matrix, with $P^{(0)}_{ij} = 1$ if $\pi(i)=j$, i.e. $j$ is the parent of vertex $i$.
+This matrix will have a single nonzero entry per row and represents a forest.
+Given a set of undirected edges $E$, define upper triangular adjacency matrix $A$, such that $A_{ij}=1$ if $(i,j)\in E$ with $i<j$.
+We seek to find a parent matrix which corresponds to a forest in which each tree is a connected component in $G=(V,E)$.
+Let $A^{(0)}=A$.
+Initialize, $\pi(i)=\max(i,\max_{j} A_{ij}j)$ and $P^{(0)}$ accordingly.
+%\[P^{(0)}_{ij} = \begin{cases} i & \text{if} \forall (i,j)\in E\]
+Compute
+\begin{align*}
+B^{(k)}_{ij} &= \max_{l} P^{(m)}_{li} A^{(k)}_{lj}  \\
+A^{(k)}_{ij} &= \begin{cases} 0 &: i>j \\ \max(B^{(k)}_{ij},B^{(k)}_{ji}) &: i\leq j \end{cases}.
+%A^{(k+1)}_{ij} &= \max_{l,m} P^{(k)}_{li} A^{(k)}_{lm} P^{(k)}_{mj}
+%               &= \max_{m} A^{(k)}_{\pi(i),m} P^{(k)}_{mj}
+%               &= \max_{(l,m)\in E^{(k)}} \pi(l)
+%P^{(k+1)}_{ij} 
+\end{align*}
+So that if $A_{ij}^{(k)}=1$, then $B_{\pi(i),j}^{(k)}=1$, and $A_{\pi(i),j}^{(k)}=1$ if $\pi(i)<j$ or $A_{j,\pi(i)}^{(k)}=1$ if $\pi(i)\geq j$.
+Execute until convergence for some $k$.
+Then, set $\pi(i)=\max(i,\max_{j} A^{(k)}_{ij}j)$ and $P^{(m+1)}$ accordingly.
+
+
+\end{document}
