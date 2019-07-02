@@ -210,18 +210,18 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
 	auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
 	
 		// ========== ==========
-	while (!vec_eq(p, prev)) {
+	while (is_different_vector(*p, *prev)) {
 		// ========== ==========
     (*prev)["i"] = (*p)["i"];
 		// NOTE: bug here; prev = p;
 		auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
 		(*q)["i"] = (*A)["ij"] * (*p)["j"];
 		auto r = new Vector<int>(n, *world, MAX_TIMES_SR);
-		vec_max(r, p, q);
+		max_vector(*r, *p, *q);
 		auto P = mat_P(p, world);
 		auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
 		(*s)["i"] = (*P)["ji"] * (*r)["i"];
-		vec_max(p, p, s);
+		max_vector(*p, *p, *s);
 		// Vector<int> * pi = new Vector<int>(*p);
 		shortcut(*p);
     /*
