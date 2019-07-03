@@ -209,6 +209,7 @@ int main(int argc, char** argv) {
   test_random1(w);
   test_random2(w);
   test_6Blocks_simply_connected(w);
+  
   test_6Blocks_fully_connected(w);
   */
   driver(w);
@@ -242,14 +243,14 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
 		(*s)["i"] = (*P)["ji"] * (*r)["i"];
 		max_vector(*p, *p, *s);
 		// Vector<int> * pi = new Vector<int>(*p);
-		shortcut(*p);
-    /*
-		while (!vec_eq(pi, p)){
-			free(pi);
-			pi = new Vector<int>(*p);
+		//shortcut(*p);
+    
+		while (is_different_vector(*prev, *p)){
+			free(prev);
+			prev = new Vector<int>(*p);
 			shortcut(*p);
 		}
-    */
+    
 		free(q);
 		free(r);
    	free(P);
@@ -422,7 +423,7 @@ void shortcut(Vector<int> & pi){
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world) {
   auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
   (*q)["i"] = (*p)["i"] + (*A)["ij"] * (*p)["j"];
-  if (vec_eq(p, q)) {
+  if (!is_different_vector(*p, *q)) {
     return q;
   }
   else {
