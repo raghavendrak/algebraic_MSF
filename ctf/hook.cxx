@@ -428,13 +428,9 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
   else {
     auto P = mat_P(q, world);
 	  auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-	  auto rec_A_temp = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    // FIXME: need efficient implementation
-    (*rec_A_temp)["ik"] = (*A)["ij"] * (*P)["jk"];
-    (*rec_A)["jk"] = (*P)["ji"] * (*rec_A_temp)["jk"];
+    (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
     auto rec_p = supervertex_matrix(n, rec_A, q, world);
     delete rec_A;
-    delete rec_A_temp;
     
     // p[i] = rec_p[q[i]]
     int64_t npairs;
