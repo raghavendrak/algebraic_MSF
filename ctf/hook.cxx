@@ -57,6 +57,8 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
 void vec_max(Vector<int>* out, Vector<int>* in1, Vector<int>* in2);
 void shortcut(Vector<int> & pi);
 
+Vector<int>* supervertex_matrix(int n, Matrix<int> * A, Vector<int>* p, World* world);
+
 template <typename dtype>
 bool is_different_vector(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
 {
@@ -179,6 +181,20 @@ void test_simple_kronecker(World* w){
   delete B;
 }
 
+void driver(World *w) {
+	Matrix<int> *B = new Matrix<int>(6,6,SP|SH,*w,MAX_TIMES_SR);
+	B->fill_sp_random(1.0,1.0,0.1);
+  printf("6X6 Matrix <1.0, 1.0, 0.1>\n");
+  B->print_matrix();
+	// hook_matrix(6, B, w)->print();
+	
+  auto p = new Vector<int>(6, *w, MAX_TIMES_SR);
+	for (auto i = 0; i < 6; i++) {
+		vec_set(p, i, i);
+	}
+  supervertex_matrix(6, B, p, w)->print();
+}
+
 int main(int argc, char** argv) {
 	int rank;
 	int np;
@@ -186,13 +202,16 @@ int main(int argc, char** argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &np);
 	auto w = new World(argc, argv);
+  /*
 	test_simple(w);
-    test_disconnected(w);
-    test_fully_connected(w);
-    test_random1(w);
-    test_random2(w);
-    test_6Blocks_simply_connected(w);
-    test_6Blocks_fully_connected(w);
+  test_disconnected(w);
+  test_fully_connected(w);
+  test_random1(w);
+  test_random2(w);
+  test_6Blocks_simply_connected(w);
+  test_6Blocks_fully_connected(w);
+  */
+  driver(w);
 	return 0;
 }
 
@@ -398,6 +417,43 @@ void shortcut(Vector<int> & pi){
   delete [] remote_pairs;
   pi.write(npairs, loc_pairs);
   delete [] loc_pairs;
+}
+
+Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world) {
+  auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
+  (*q)["i"] = (*p)["i"] + (*A)["ij"] * (*p)["j"];
+  if (vec_eq(p, q)) {
+    return q;
+  }
+  else {
+    auto P = mat_P(q, world);
+	  auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
+	  auto rec_A_temp = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
+    // FIXME: need efficient implementation
+    (*rec_A_temp)["ik"] = (*A)["ij"] * (*P)["jk"];
+    (*rec_A)["jk"] = (*P)["ji"] * (*rec_A_temp)["jk"];
+    auto rec_p = supervertex_matrix(n, rec_A, q, world);
+    delete rec_A;
+    delete rec_A_temp;
+    
+    // p[i] = rec_p[q[i]]
+    int64_t npairs;
+    Pair<int>* loc_pairs;
+    q->read_local(&npairs, &loc_pairs);
+    Pair<int> * remote_pairs = new Pair<int>[npairs];
+    for (int64_t i = 0; i < npairs; i++) {
+      remote_pairs[i].k = loc_pairs[i].d;
+    }
+    rec_p->read(npairs, remote_pairs);
+    for (int64_t i = 0; i < npairs; i++) {
+      loc_pairs[i].d = remote_pairs[i].d;
+    }
+    // FIXME: assumption: p & q use the same distribution across processes
+    p->write(npairs, loc_pairs);
+    delete [] remote_pairs;
+    delete [] loc_pairs;
+    return p;
+  }
 }
 
 /**
