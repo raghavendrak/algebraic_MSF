@@ -4,7 +4,7 @@ import util.times
 import java.util.*
 
 /**
- * Vector = Matrix with `length` rows and exactly 1 column
+ * Vector = Matrix with exactly 1 column and `length` rows
  */
 open class Vector<T>(val length: Int,
                      semiring: Semiring<T>,
@@ -15,8 +15,8 @@ open class Vector<T>(val length: Int,
 	constructor(array: Array<out T>, semiring: Semiring<T>) :
 			this(array.size, semiring, { array[it - 1] })
 
-	operator fun get(indexRange: IntRange) =
-			super.get(indexRange, colIndices) as Vector<T>
+	operator fun get(indexRange: IntRange, reshape: Boolean = true) =
+			super.get(indexRange, colIndices, reshape) as Vector<T>
 
 	operator fun get(index: Int) = super.get(index, 1)
 
@@ -38,8 +38,7 @@ open class Vector<T>(val length: Int,
 
 		print(" ")
 		indices.forEach {
-			print(it)
-			print(" ")
+			print("$it ")
 			val lenIdx = it.toString().length
 			val lenEle = this[it].toString().length
 			if (lenEle > lenIdx) {
@@ -78,7 +77,7 @@ open class Vector<T>(val length: Int,
 		semiring != v.semiring ->
 			throw IllegalArgumentException("Inconsistent semiring.")
 		else -> {
-			var acc = semiring.additiveIdentity
+			var acc = semiring.addId
 			indices.forEach { acc += this[it] * v[it] }
 			acc
 		}
@@ -94,7 +93,7 @@ open class Vector<T>(val length: Int,
 
 	override fun copy() = Vector(length, semiring) { this[it] }
 
-	fun asDiagonal(empty: T = semiring.additiveIdentity) =
+	fun asDiagonal(empty: T = semiring.addId) =
 			Matrix(length by length, semiring) { r, c ->
 				if (r == c) this[r] else empty
 			}
@@ -102,7 +101,7 @@ open class Vector<T>(val length: Int,
 
 fun intVector(length: Int,
               semiring: Semiring<Int> = INT_DEFAULT_SEMIRING,
-              init: (Int) -> Int = { semiring.additiveIdentity }) =
+              init: (Int) -> Int = { semiring.addId }) =
 		Vector(length, semiring, init)
 
 fun intVector(length: Int,

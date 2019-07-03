@@ -4,7 +4,7 @@ import algebra.INT_MAX_TIMES_SEMIRING
 import algebra.Matrix
 import algebra.Vector
 
-val SR = INT_MAX_TIMES_SEMIRING
+private val SR = INT_MAX_TIMES_SEMIRING
 
 fun main() {
 	val G = Graph(11, listOf(

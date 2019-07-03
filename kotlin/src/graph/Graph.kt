@@ -13,8 +13,8 @@ data class Graph(val numVertices: Int = 0, val edges: List<Edge> = emptyList()) 
 	val vertices = 1..numVertices
 
 	fun adjacencyMatrix(semiring: Semiring<Vertex> = INT_DEFAULT_SEMIRING,
-	                    noEdge: Vertex = semiring.additiveIdentity,
-	                    placeEdge: Vertex = semiring.multiplicativeIdentity): Matrix<Vertex> {
+	                    noEdge: Vertex = semiring.addId,
+	                    placeEdge: Vertex = semiring.multId): Matrix<Vertex> {
 		val A = Matrix(numVertices by numVertices, semiring) { _, _ -> noEdge }
 		edges.forEach { (v1, v2) ->
 			A[v1, v2] = placeEdge

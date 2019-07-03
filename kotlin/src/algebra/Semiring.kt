@@ -4,10 +4,10 @@ import util.INF
 import util.max
 import util.min
 
-class Semiring<T>(val additiveIdentity: T,
-                  val multiplicativeIdentity: T,
-                  val additiveOperation: (T, T) -> T,
-                  val multiplicativeOperation: (T, T) -> T)
+class Semiring<T>(val addId: T,
+                  val multId: T,
+                  val addOp: (T, T) -> T,
+                  val multOp: (T, T) -> T)
 
 val INT_DEFAULT_SEMIRING = Semiring(0, 1,
 		{ i1, i2 -> min(INF, i1 + i2) }, { i1, i2 -> min(INF, i1 * i2) })
