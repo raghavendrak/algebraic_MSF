@@ -155,44 +155,66 @@ void test_6Blocks_fully_connected(World *w){
   hook(g, w)->print();
 }
 
-void test_simple_kronecker(World* w){
-  printf("TEST7: KRONECKER GRAPH: 9*9\n");
+Matrix<int>* generate_kronecker(World* w, int order){
   auto g = new Graph();
-  g->numVertices = 9;
+  g->numVertices = 3;
   g->edges->emplace_back(0, 0);
   g->edges->emplace_back(0, 1);
   g->edges->emplace_back(1, 1);
   g->edges->emplace_back(1, 2);
   g->edges->emplace_back(2, 2);
+  auto kinitiator = g->adjacencyMatrix(w);
   auto B = g->adjacencyMatrix(w);
-  int lens[] = {3,3,3,3};
-  auto D = Tensor<int>(4,B->is_sparse,lens);
-  D["ijkl"] = (*B)["ik"]*(*B)["jl"];
-  auto B2 = new Matrix<int>(9,9,B->is_sparse*SP,*w,*B->sr);
-  delete B;
-  B = B2;
-  Pair<int> * prs;
-  int64_t numprs;
-  D.get_local_pairs(&numprs, &prs, true);
-  B->write(numprs, prs);
-  delete [] prs;
-  B->print_matrix();
-  hook_matrix(9,B,w)->print();
-  delete B;
+  
+  int64_t len = 1;
+  int64_t matSize = 3;
+  for (int i = 2; i <= order; i++) {
+    len *= 3;
+    int64_t lens[] = {3, len, 3, len};
+    auto D = Tensor<int>(4, B->is_sparse, lens);
+    D["ijkl"] = (*kinitiator)["ik"] * (*B)["jl"];
+
+    matSize *= 3;
+    auto B2 = new Matrix<int>(matSize, matSize, B->is_sparse * SP, *w, *B->sr);
+    delete B;
+    B2->reshape(D);
+    B = B2;
+    // B->print_matrix();
+    // hook on B
+  }
+  delete kinitiator;
+  assert(matSize == 1594323);
+  return B;
 }
 
 void driver(World *w) {
+  /*
   Matrix<int> *B = new Matrix<int>(6,6,SP|SH,*w,MAX_TIMES_SR);
   B->fill_sp_random(1.0,1.0,0.1);
   printf("6X6 Matrix <1.0, 1.0, 0.1>\n");
   B->print_matrix();
+  */
   // hook_matrix(6, B, w)->print();
 
-  auto p = new Vector<int>(6, *w, MAX_TIMES_SR);
-  for (auto i = 0; i < 6; i++) {
+  // K13 : 1594323 (matrix size)
+  int64_t matSize = 1594323;
+  auto B = generate_kronecker(w, 13);
+ 
+  Timer_epoch thm("hook_matrix");
+  thm.begin();
+  hook_matrix(matSize, B, w);
+  thm.end();
+
+  auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
+  for (int64_t i = 0; i < matSize; i++) {
     vec_set(p, i, i);
   }
-  supervertex_matrix(6, B, p, w)->print();
+  Timer_epoch tsv("super vertex");
+  tsv.begin();
+  supervertex_matrix(matSize, B, p, w);
+  tsv.end();
+
+  delete B;
 }
 
 int main(int argc, char** argv) {
@@ -203,15 +225,16 @@ int main(int argc, char** argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &np);
   auto w = new World(argc, argv);
   /*
-     test_simple(w);
-     test_disconnected(w);
-     test_fully_connected(w);
-     test_random1(w);
-     test_random2(w);
-     test_6Blocks_simply_connected(w);
-
-     test_6Blocks_fully_connected(w);
-     */
+  test_simple(w);
+  test_disconnected(w);
+  test_fully_connected(w);
+  test_random1(w);
+  test_random2(w);
+  test_6Blocks_simply_connected(w);
+     
+  test_6Blocks_fully_connected(w);
+  */
+  // test_simple_kronecker(w);
   driver(w);
   return 0;
 }
@@ -256,8 +279,6 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
     free(P);
     free(s);		
   }
-
-  free(A);
   return p;
 }
 
