@@ -265,12 +265,12 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world) {
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
     (*s)["i"] = (*P)["ji"] * (*r)["i"];
     max_vector(*p, *p, *s);
-    // Vector<int> * pi = new Vector<int>(*p);
+    Vector<int> * pi = new Vector<int>(*p);
     //shortcut(*p);
 
-    while (is_different_vector(*prev, *p)){
-      free(prev);
-      prev = new Vector<int>(*p);
+    while (is_different_vector(*pi, *p)){
+      free(pi);
+      pi = new Vector<int>(*p);
       shortcut(*p);
     }
 
