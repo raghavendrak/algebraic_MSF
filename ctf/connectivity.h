@@ -1,0 +1,70 @@
+#ifndef __BTWN_CENTRAL_H__
+#define __BTWN_CENTRAL_H__
+
+#include <ctf.hpp>
+
+using namespace CTF;
+
+#define PLACE_VERTEX (1)
+
+static Semiring<int> MAX_TIMES_SR(0,
+    [](int a, int b) {
+    return std::max(a, b);
+    },
+    MPI_MAX,
+    1,
+    [](int a, int b) {
+    return a * b;
+    });
+
+class Int64Pair {
+  public:
+    int64_t i1;
+    int64_t i2;
+
+    Int64Pair(int64_t i1, int64_t i2);
+
+    Int64Pair swap();
+};
+
+class Graph {
+  public:
+    int numVertices;
+    vector<Int64Pair>* edges;
+
+    Graph();
+
+    Matrix<int>* adjacencyMatrix(World* world, bool sparse = false);
+};
+
+
+// Connectivity
+Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
+Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, Vector<int> *pg, World* world);
+
+
+// Utility functions
+template <typename dtype>
+int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B);
+template <typename dtype>
+void max_vector(CTF::Vector<dtype> & result, CTF::Vector<dtype> & A, CTF::Vector<dtype> & B);
+void init_pvector(Vector<int>* p);
+Matrix<int>* pMatrix(Vector<int>* p, Vector<int> *pg, World* world);
+void shortcut(Vector<int> & pi);
+
+
+
+// FIXME: below functions are yet to be optimized/reviewed
+// ---------------------------
+void mat_set(Matrix<int>* matrix, Int64Pair index, int value = PLACE_VERTEX);
+int mat_get(Matrix<int>* matrix, Int64Pair index);
+Matrix<int>* mat_add(Matrix<int>* A, Matrix<int>* B, World* world);
+Matrix<int>* mat_I(int dim, World* world);
+bool mat_eq(Matrix<int>* A, Matrix<int>* B);
+Vector<int>* hook(Graph* graph, World* world);
+void shortcut(Vector<int> & pi);
+// ---------------------------
+
+
+
+#endif
