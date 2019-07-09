@@ -2,10 +2,21 @@
 #define __BTWN_CENTRAL_H__
 
 #include <ctf.hpp>
+#include <float.h>
+#include <math.h>
+#include "graph_aux.h"
 
 using namespace CTF;
 
-#define PLACE_VERTEX (1)
+// From btwn_central
+typedef float mlt;
+typedef float wht;
+#define MAX_WHT (FLT_MAX/4.)
+//typedef int mlt;
+//typedef int wht;
+//#define MAX_WHT (INT_MAX/2)
+typedef double REAL;
+uint64_t gen_graph(int scale, int edgef, uint64_t seed, uint64_t **edges);
 
 static Semiring<int> MAX_TIMES_SR(0,
     [](int a, int b) {
@@ -37,11 +48,9 @@ class Graph {
     Matrix<int>* adjacencyMatrix(World* world, bool sparse = false);
 };
 
-
 // Connectivity
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
-Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, Vector<int> *pg, World* world);
-
+Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world);
 
 // Utility functions
 template <typename dtype>
@@ -49,14 +58,12 @@ int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B);
 template <typename dtype>
 void max_vector(CTF::Vector<dtype> & result, CTF::Vector<dtype> & A, CTF::Vector<dtype> & B);
 void init_pvector(Vector<int>* p);
-Matrix<int>* pMatrix(Vector<int>* p, Vector<int> *pg, World* world);
-void shortcut(Vector<int> & pi);
-
-
+Matrix<int>* pMatrix(Vector<int>* p, World* world);
+void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p);
 
 // FIXME: below functions are yet to be optimized/reviewed
 // ---------------------------
-void mat_set(Matrix<int>* matrix, Int64Pair index, int value = PLACE_VERTEX);
+void mat_set(Matrix<int>* matrix, Int64Pair index, int value = 1);
 int mat_get(Matrix<int>* matrix, Int64Pair index);
 Matrix<int>* mat_add(Matrix<int>* A, Matrix<int>* B, World* world);
 Matrix<int>* mat_I(int dim, World* world);
@@ -64,7 +71,5 @@ bool mat_eq(Matrix<int>* A, Matrix<int>* B);
 Vector<int>* hook(Graph* graph, World* world);
 void shortcut(Vector<int> & pi);
 // ---------------------------
-
-
 
 #endif

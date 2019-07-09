@@ -1,8 +1,199 @@
 #include "connectivity.h"
 
+
+Matrix <wht> preprocess_graph(int           n,
+                              World &       dw,
+                              Matrix<wht> & A_pre,
+                              bool          remove_singlets,
+                              int *         n_nnz,
+                              int64_t       max_ewht=1){
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
+
+  A_pre["ii"] = 0;
+
+  A_pre.sparsify([](int a){ return a>0; });
+
+  if (dw.rank == 0)
+    printf("A contains %ld nonzeros\n", A_pre.nnz_tot);
+
+  if (remove_singlets){
+    Vector<int> rc(n, dw);
+    rc["i"] += ((Function<wht>)([](wht a){ return (int)(a>0); }))(A_pre["ij"]);
+    rc["i"] += ((Function<wht>)([](wht a){ return (int)(a>0); }))(A_pre["ji"]);
+    int * all_rc; // = (int*)malloc(sizeof(int)*n);
+    int64_t nval;
+    rc.read_all(&nval, &all_rc);
+    int n_nnz_rc = 0;
+    int n_single = 0;
+    for (int i=0; i<nval; i++){
+      if (all_rc[i] != 0){
+        if (all_rc[i] == 2) n_single++;
+        all_rc[i] = n_nnz_rc;
+        n_nnz_rc++;
+      } else {
+        all_rc[i] = -1;
+      }
+    }
+    if (dw.rank == 0) printf("n_nnz_rc = %d of %d vertices kept, %d are 0-degree, %d are 1-degree\n", n_nnz_rc, n,(n-n_nnz_rc),n_single);
+    Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, s, "A");
+    int * pntrs[] = {all_rc, all_rc};
+
+    A.permute(0, A_pre, pntrs, 0);
+    free(all_rc);
+    if (dw.rank == 0) printf("preprocessed matrix has %ld edges\n", A.nnz_tot);
+
+    A["ii"] = 0;
+    *n_nnz = n_nnz_rc;
+    return A;
+  } else {
+    *n_nnz= n;
+    A_pre["ii"] = 0;
+    return A_pre;
+  }
+//  return n_nnz_rc;
+
+}
+
+Matrix <wht> read_matrix(World  &     dw,
+                         int          n,
+                         const char * fpath,
+                         bool         remove_singlets,
+                         int *        n_nnz,
+                         int64_t      max_ewht=1){
+  uint64_t *my_edges = NULL;
+  uint64_t my_nedges = 0;
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
+  //random adjacency matrix
+  Matrix<wht> A_pre(n, n, SP, dw, s, "A_rmat");
+#ifdef MPIIO
+  if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
+  char **leno;
+  my_nedges = read_graph_mpiio(dw.rank, dw.np, fpath, &my_edges, &leno);
+  processedges(leno, my_nedges, dw.rank, &my_edges);
+  free(leno[0]);
+  free(leno);
+#else
+  if (dw.rank == 0) printf("Running graph reader n = %d... ",n);
+    my_nedges = read_graph(dw.rank, dw.np, fpath, &my_edges);
+#endif
+  if (dw.rank == 0) printf("finished reading (%ld edges).\n", my_nedges);
+  int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
+  wht * vals = (wht*)malloc(sizeof(wht)*my_nedges);
+
+  srand(dw.rank+1);
+  for (int64_t i=0; i<my_nedges; i++){
+    inds[i] = my_edges[2*i]+my_edges[2*i+1]*n;
+    vals[i] = (rand()%max_ewht) + 1;
+  }
+  if (dw.rank == 0) printf("filling CTF graph\n");
+  A_pre.write(my_nedges,inds,vals);
+  A_pre["ij"] += A_pre["ji"];
+  free(inds);
+  free(vals);
+
+  Matrix<wht> newA =  preprocess_graph(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
+  /*int64_t nprs;
+  newA.read_local_nnz(&nprs,&inds,&vals);
+
+  for (int64_t i=0; i<nprs; i++){
+    printf("%d %d\n",inds[i]/newA.nrow,inds[i]%newA.nrow);
+  }*/
+  return newA;
+}
+
+Matrix <wht> gen_rmat_matrix(World  & dw,
+                             int      scale,
+                             int      ef,
+                             uint64_t gseed,
+                             bool     remove_singlets,
+                             int *    n_nnz,
+                             int64_t  max_ewht=1){
+  uint64_t *edge=NULL;
+  uint64_t nedges = 0;
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
+  //random adjacency matrix
+  int n = pow(2,scale);
+  Matrix<wht> A_pre(n, n, SP, dw, s, "A_rmat");
+  if (dw.rank == 0) printf("Running graph generator n = %d... ",n);
+  nedges = gen_graph(scale, ef, gseed, &edge);
+  if (dw.rank == 0) printf("done.\n");
+  int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*nedges);
+  wht * vals = (wht*)malloc(sizeof(wht)*nedges);
+
+  srand(dw.rank+1);
+  for (int64_t i=0; i<nedges; i++){
+    inds[i] = edge[2*i]+edge[2*i+1]*n;
+    vals[i] = (rand()%max_ewht) + 1;
+  }
+  if (dw.rank == 0) printf("filling CTF graph\n");
+  A_pre.write(nedges,inds,vals);
+  A_pre["ij"] += A_pre["ji"];
+  free(inds);
+  free(vals);
+
+  return preprocess_graph(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
+
+}
+Matrix <wht> gen_uniform_matrix(World & dw,
+                                int64_t n,
+                                double  sp=.20,
+                                int64_t  max_ewht=1){
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
+
+  //random adjacency matrix
+  Matrix<wht> A(n, n, SP, dw, s, "A");
+
+  //fill with values in the range of [1,min(n*n,100)]
+  srand(dw.rank+1);
+//  A.fill_random(1, std::min(n*n,100));
+  int nmy = ((int)std::max((int)(n*sp),(int)1))*((int)((n+dw.np-1)/dw.np));
+  int64_t inds[nmy];
+  wht vals[nmy];
+  int i=0;
+  for (int64_t row=dw.rank*n/dw.np; row<(int)(dw.rank+1)*n/dw.np; row++){
+    int64_t cols[std::max((int)(n*sp),1)];
+    for (int64_t col=0; col<std::max((int)(n*sp),1); col++){
+      bool is_rep;
+      do {
+        cols[col] = rand()%n;
+        is_rep = 0;
+        for (int c=0; c<col; c++){
+          if (cols[c] == cols[col]) is_rep = 1;
+        }
+      } while (is_rep);
+      inds[i] = cols[col]*n+row;
+      vals[i] = (rand()%max_ewht)+1;
+      i++;
+    }
+  }
+  A.write(i,inds,vals);
+
+  A["ii"] = 0;
+
+  //keep only values smaller than 20 (about 20% sparsity)
+  //A.sparsify([=](int a){ return a<sp*100; });
+   return A;
+}
+
+
 void test_6Blocks_simply_connected(World *w)
 {
-  printf("TEST5: 6 Blocks of 6*6 simply connected graph\n");
   auto g = new Graph();
   g->numVertices = 36;
   for(int b = 0; b < 6; b++){
@@ -15,8 +206,7 @@ void test_6Blocks_simply_connected(World *w)
   int matSize = 36;
   auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(p);
-  Vector<int> *pg = new Vector<int>(*p);
-  supervertex_matrix(matSize, A, p, pg, w)->print();
+  supervertex_matrix(matSize, A, p, w)->print();
 }
 
 Matrix<int>* generate_kronecker(World* w, int order)
@@ -51,17 +241,45 @@ Matrix<int>* generate_kronecker(World* w, int order)
   return B;
 }
 
-void driver(World *w)
+char* getCmdOption(char ** begin,
+                   char ** end,
+                   const   std::string & option) {
+  char ** itr = std::find(begin, end, option);
+  if (itr != end && ++itr != end){
+    return *itr;
+  }
+  return 0;
+}
+
+int main(int argc, char** argv)
 {
+  int rank;
+  int np;
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &np);
+  auto w = new World(argc, argv);
+  int const in_num = argc;
+  char** input_str = argv;
+
+
+  int k;
+  if (getCmdOption(input_str, input_str+in_num, "-k")) {
+    k = atoi(getCmdOption(input_str, input_str+in_num, "-k"));
+    if (k < 0) k = 5;
+  } else k = 5;
   // K13 : 1594323 (matrix size)
   // K6 : 729; 531441 vertices
   // k5 : 243
   // k7 : 2187
   // k8 : 6561
   // k9 : 19683
-  int64_t matSize = 243;
-  auto B = generate_kronecker(w, 5);
+  int64_t matSize = pow(3, k);
+  auto B = generate_kronecker(w, k);
 
+  if (w->rank == 0) {
+    printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
+  }
   Timer_epoch thm("hook_matrix");
   thm.begin();
   auto hm = hook_matrix(matSize, B, w);
@@ -71,9 +289,7 @@ void driver(World *w)
   init_pvector(p);
   Timer_epoch tsv("super_vertex");
   tsv.begin();
-  auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
-  init_pvector(pg);
-  auto sv = supervertex_matrix(matSize, B, p, pg, w);
+  auto sv = supervertex_matrix(matSize, B, p, w);
   tsv.end();
 
   int64_t result = are_vectors_different(*hm, *sv);
@@ -86,18 +302,10 @@ void driver(World *w)
     }
   }
   delete B;
+  if (w->rank == 0) {
+    printf("Running connectivity on 6X6 graph\n");
+  }
   test_6Blocks_simply_connected(w);
-}
-
-int main(int argc, char** argv)
-{
-  int rank;
-  int np;
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &np);
-  auto w = new World(argc, argv);
-  driver(w);
   return 0;
 }
 

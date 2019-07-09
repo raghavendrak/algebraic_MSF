@@ -20,16 +20,14 @@ void init_pvector(Vector<int>* p)
   int64_t npairs;
   Pair<int> * loc_pairs;
   p->read_local(&npairs, &loc_pairs);
-
   for (int64_t i = 0; i < npairs; i++){
     loc_pairs[i].d = loc_pairs[i].k;
   }
-
   p->write(npairs, loc_pairs);
   delete [] loc_pairs;
 }
 
-Matrix<int>* pMatrix(Vector<int>* p, Vector<int> *pg, World* world)
+Matrix<int>* pMatrix(Vector<int>* p, World* world)
 {
   /*
   auto n = p->len;
@@ -56,30 +54,26 @@ Matrix<int>* pMatrix(Vector<int>* p, Vector<int> *pg, World* world)
   return A;
 }
 
-void shortcut(Vector<int> & pi)
+// p[i] = rec_p[q[i]]
+void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
 {
   int64_t npairs;
   Pair<int> * loc_pairs;
-  // obtain all values of pi on this process
-  pi.read_local(&npairs, &loc_pairs);
+  q.read_local(&npairs, &loc_pairs);
   Pair<int> * remote_pairs = new Pair<int>[npairs];
-  // set keys to value of pi, so remote_pairs[i].k = pi[loc_pairs[i].k]
   for (int64_t i=0; i<npairs; i++){
-    //cout << "k: " << remote_pairs[i].k << " d: " << loc_pairs[i].d << endl;
     remote_pairs[i].k = loc_pairs[i].d;
   }
-  // obtains values at each pi[i] by remote read, so remote_pairs[i].d = pi[loc_pairs[i].k]
-  pi.read(npairs, remote_pairs);
-  // set loc_pairs[i].d = remote_pairs[d] and write back to local data
+  rec_p.read(npairs, remote_pairs);
   for (int64_t i=0; i<npairs; i++){
     loc_pairs[i].d = remote_pairs[i].d;
   }
   delete [] remote_pairs;
-  pi.write(npairs, loc_pairs);
+  p.write(npairs, loc_pairs);
   delete [] loc_pairs;
 }
 
-Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, Vector<int> *pg, World* world)
+Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
 {
   auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
   (*q)["i"] = (*p)["i"] + (*A)["ij"] * (*p)["j"];
@@ -87,37 +81,21 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, Vector<in
     return q;
   }
   else {
-    auto P = pMatrix(q, pg, world);
+    auto P = pMatrix(q, world);
     auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
     (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
-    auto rec_p = supervertex_matrix(n, rec_A, q, pg, world);
+    auto rec_p = supervertex_matrix(n, rec_A, q, world);
     delete rec_A;
     // p[i] = rec_p[q[i]]
-    int64_t npairs;
-    Pair<int>* loc_pairs;
-    q->read_local(&npairs, &loc_pairs);
-    Pair<int> * remote_pairs = new Pair<int>[npairs];
-    for (int64_t i = 0; i < npairs; i++) {
-      remote_pairs[i].k = loc_pairs[i].d;
-    }
-    rec_p->read(npairs, remote_pairs);
-    for (int64_t i = 0; i < npairs; i++) {
-      loc_pairs[i].d = remote_pairs[i].d;
-    }
-    // FIXME: assumption: p & q use the same distribution across processes
-    p->write(npairs, loc_pairs);
-    delete [] remote_pairs;
-    delete [] loc_pairs;
+    shortcut(*p, *q, *rec_p);
     return p;
   }
-  free(pg);
 }
 
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
 {
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
   init_pvector(p);
-  Vector<int> *pg = new Vector<int>(*p);
   auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
 
   while (are_vectors_different(*p, *prev)) {
@@ -126,17 +104,17 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
     (*q)["i"] = (*A)["ij"] * (*p)["j"];
     auto r = new Vector<int>(n, *world, MAX_TIMES_SR);
     max_vector(*r, *p, *q);
-    auto P = pMatrix(p, pg, world);
+    auto P = pMatrix(p, world);
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
     (*s)["i"] = (*P)["ji"] * (*r)["i"];
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
-    shortcut(*p);
+    shortcut(*p, *p, *p);
 
     while (are_vectors_different(*pi, *p)){
       free(pi);
       pi = new Vector<int>(*p);
-      shortcut(*p);
+      shortcut(*p, *p, *p);
     }
     free(pi);
 
@@ -145,7 +123,6 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
     free(P);
     free(s);
   }
-  free(pg);
   return p;
 }
 
