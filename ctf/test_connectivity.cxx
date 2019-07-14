@@ -39,7 +39,7 @@ Matrix <wht> preprocess_graph(int           n,
       }
     }
     if (dw.rank == 0) printf("n_nnz_rc = %d of %d vertices kept, %d are 0-degree, %d are 1-degree\n", n_nnz_rc, n,(n-n_nnz_rc),n_single);
-    Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, s, "A");
+    Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, MAX_TIMES_SR, "A");
     int * pntrs[] = {all_rc, all_rc};
 
     A.permute(0, A_pre, pntrs, 0);
@@ -72,7 +72,7 @@ Matrix <wht> read_matrix(World  &     dw,
                   0,
                   [](wht a, wht b){ return a+b; });
   //random adjacency matrix
-  Matrix<wht> A_pre(n, n, SP, dw, s, "A_rmat");
+  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
 #ifdef MPIIO
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
   char **leno;
@@ -91,10 +91,12 @@ Matrix <wht> read_matrix(World  &     dw,
   srand(dw.rank+1);
   for (int64_t i=0; i<my_nedges; i++){
     inds[i] = my_edges[2*i]+my_edges[2*i+1]*n;
-    vals[i] = (rand()%max_ewht) + 1;
+    //vals[i] = (rand()%max_ewht) + 1;
+    vals[i] = 1;
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
   A_pre.write(my_nedges,inds,vals);
+  //A_pre["ij"] += A_pre["ji"];
   A_pre["ij"] += A_pre["ji"];
   free(inds);
   free(vals);
@@ -241,6 +243,31 @@ Matrix<int>* generate_kronecker(World* w, int order)
   return B;
 }
 
+void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
+{
+  Timer_epoch thm("hook_matrix");
+  thm.begin();
+  auto hm = hook_matrix(matSize, A, w);
+  thm.end();
+
+  auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
+  init_pvector(p);
+  Timer_epoch tsv("super_vertex");
+  tsv.begin();
+  auto sv = supervertex_matrix(matSize, A, p, w);
+  tsv.end();
+  
+  int64_t result = are_vectors_different(*hm, *sv);
+  if (w->rank == 0) {
+    if (result) {
+      printf("result vectors are different: FAIL\n");
+    }
+    else {
+      printf("result vectors are same: PASS\n");
+    }
+  }
+}
+
 char* getCmdOption(char ** begin,
                    char ** end,
                    const   std::string & option) {
@@ -262,50 +289,57 @@ int main(int argc, char** argv)
   int const in_num = argc;
   char** input_str = argv;
 
+  int64_t max_ewht;
+  uint64_t edges;
+  char *gfile = NULL;
+  int n;
+
 
   int k;
   if (getCmdOption(input_str, input_str+in_num, "-k")) {
     k = atoi(getCmdOption(input_str, input_str+in_num, "-k"));
     if (k < 0) k = 5;
-  } else k = 5;
+  } else k = -1;
   // K13 : 1594323 (matrix size)
   // K6 : 729; 531441 vertices
   // k5 : 243
   // k7 : 2187
   // k8 : 6561
   // k9 : 19683
-  int64_t matSize = pow(3, k);
-  auto B = generate_kronecker(w, k);
+  if (getCmdOption(input_str, input_str+in_num, "-f")){
+    gfile = getCmdOption(input_str, input_str+in_num, "-f");
+  } else gfile = NULL;
+  if (getCmdOption(input_str, input_str+in_num, "-n")){
+    n = atoi(getCmdOption(input_str, input_str+in_num, "-n"));
+    if (n < 0) n = 27;
+  } else n = 27;
 
-  if (w->rank == 0) {
-    printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
+  if (gfile != NULL){
+    int n_nnz = 0;
+    int prep = 0;
+    if (w->rank == 0)
+      printf("Reading real graph n = %d\n", n);
+    Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
+    A.print_matrix();
+    run_connectivity(&A, n, w);
+    // pass = btwn_cnt(A,n_nnz,dw,sp_B,sp_C, bsize, nbatches, test, adapt);
   }
-  Timer_epoch thm("hook_matrix");
-  thm.begin();
-  auto hm = hook_matrix(matSize, B, w);
-  thm.end();
+  else if (k != -1) {
+    int64_t matSize = pow(3, k);
+    auto B = generate_kronecker(w, k);
 
-  auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
-  init_pvector(p);
-  Timer_epoch tsv("super_vertex");
-  tsv.begin();
-  auto sv = supervertex_matrix(matSize, B, p, w);
-  tsv.end();
-
-  int64_t result = are_vectors_different(*hm, *sv);
-  if (w->rank == 0) {
-    if (result) {
-      printf("result vectors are different: FAIL\n");
+    if (w->rank == 0) {
+      printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
     }
-    else {
-      printf("result vectors are same: PASS\n");
+    run_connectivity(B, matSize, w);
+    delete B;
+  }
+  else {
+    if (w->rank == 0) {
+      printf("Running connectivity on 6X6 graph\n");
     }
+    test_6Blocks_simply_connected(w);
   }
-  delete B;
-  if (w->rank == 0) {
-    printf("Running connectivity on 6X6 graph\n");
-  }
-  test_6Blocks_simply_connected(w);
   return 0;
 }
 

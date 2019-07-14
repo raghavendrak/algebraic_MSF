@@ -9,12 +9,12 @@
 using namespace CTF;
 
 // From btwn_central
-typedef float mlt;
-typedef float wht;
-#define MAX_WHT (FLT_MAX/4.)
-//typedef int mlt;
-//typedef int wht;
-//#define MAX_WHT (INT_MAX/2)
+//typedef float mlt;
+//typedef float wht;
+//#define MAX_WHT (FLT_MAX/4.)
+typedef int mlt;
+typedef int wht;
+#define MAX_WHT (INT_MAX/2)
 typedef double REAL;
 uint64_t gen_graph(int scale, int edgef, uint64_t seed, uint64_t **edges);
 
