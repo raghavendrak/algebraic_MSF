@@ -106,7 +106,7 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
     max_vector(*r, *p, *q);
     auto P = pMatrix(p, world);
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
-    (*s)["i"] = (*P)["ji"] * (*r)["i"];
+    (*s)["i"] = (*P)["ji"] * (*r)["j"];
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
     shortcut(*p, *p, *p);

@@ -7,7 +7,7 @@
 #include "graph_aux.h"
 
 using namespace CTF;
-
+#define SEED 23
 // From btwn_central
 //typedef float mlt;
 //typedef float wht;

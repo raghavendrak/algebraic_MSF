@@ -127,7 +127,7 @@ Matrix <wht> gen_rmat_matrix(World  & dw,
                   [](wht a, wht b){ return a+b; });
   //random adjacency matrix
   int n = pow(2,scale);
-  Matrix<wht> A_pre(n, n, SP, dw, s, "A_rmat");
+  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
   if (dw.rank == 0) printf("Running graph generator n = %d... ",n);
   nedges = gen_graph(scale, ef, gseed, &edge);
   if (dw.rank == 0) printf("done.\n");
@@ -137,7 +137,8 @@ Matrix <wht> gen_rmat_matrix(World  & dw,
   srand(dw.rank+1);
   for (int64_t i=0; i<nedges; i++){
     inds[i] = edge[2*i]+edge[2*i+1]*n;
-    vals[i] = (rand()%max_ewht) + 1;
+    // vals[i] = (rand()%max_ewht) + 1;
+    vals[i] = 1;
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
   A_pre.write(nedges,inds,vals);
@@ -288,11 +289,14 @@ int main(int argc, char** argv)
   auto w = new World(argc, argv);
   int const in_num = argc;
   char** input_str = argv;
+  uint64_t myseed;
 
   int64_t max_ewht;
   uint64_t edges;
   char *gfile = NULL;
-  int n;
+  int64_t n;
+  int scale;
+  int ef;
 
 
   int k;
@@ -310,9 +314,17 @@ int main(int argc, char** argv)
     gfile = getCmdOption(input_str, input_str+in_num, "-f");
   } else gfile = NULL;
   if (getCmdOption(input_str, input_str+in_num, "-n")){
-    n = atoi(getCmdOption(input_str, input_str+in_num, "-n"));
+    n = atoll(getCmdOption(input_str, input_str+in_num, "-n"));
     if (n < 0) n = 27;
   } else n = 27;
+  if (getCmdOption(input_str, input_str+in_num, "-S")){
+    scale = atoi(getCmdOption(input_str, input_str+in_num, "-S"));
+    if (scale < 0) scale=10;
+  } else scale=0;
+  if (getCmdOption(input_str, input_str+in_num, "-E")){
+    ef = atoi(getCmdOption(input_str, input_str+in_num, "-E"));
+    if (ef < 0) ef=16;
+  } else ef=0;
 
   if (gfile != NULL){
     int n_nnz = 0;
@@ -320,9 +332,8 @@ int main(int argc, char** argv)
     if (w->rank == 0)
       printf("Reading real graph n = %d\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
-    A.print_matrix();
+    // A.print_matrix();
     run_connectivity(&A, n, w);
-    // pass = btwn_cnt(A,n_nnz,dw,sp_B,sp_C, bsize, nbatches, test, adapt);
   }
   else if (k != -1) {
     int64_t matSize = pow(3, k);
@@ -333,6 +344,16 @@ int main(int argc, char** argv)
     }
     run_connectivity(B, matSize, w);
     delete B;
+  }
+  else if (scale > 0 && ef > 0){
+    if (w->rank == 0)
+      printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
+    int n_nnz = 0;
+    myseed = SEED;
+    int prep = 0;
+    int64_t matSize = pow(2, scale); 
+    Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+    run_connectivity(&A, matSize, w);
   }
   else {
     if (w->rank == 0) {
