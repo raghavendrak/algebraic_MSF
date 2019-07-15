@@ -246,20 +246,14 @@ Matrix<int>* generate_kronecker(World* w, int order)
 
 void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
 {
-  Vector<int> id(matSize, matSize, *w);
-  int64_t npr;
-  Pair<int> * prs;
-  id.get_local_pairs(&npr, &prs);
-  for (int64_t i=0; i<npr; i++){
-    prs[i].d = i;
-  }
-  id.write(npr,prs);
+  auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
+  init_pvector(pg);
   Scalar<int> count(*w);
   Timer_epoch thm("hook_matrix");
   thm.begin();
   auto hm = hook_matrix(matSize, A, w);
   thm.end();
-  count[""] = Function<int,int,int>([](int a, int b){ return a==b; })(id["i"], hm->operator[]("i"));
+  count[""] = Function<int,int,int>([](int a, int b){ return a==b; })((*pg)["i"], hm->operator[]("i"));
   int cnt = count.get_val();
   if (w->rank == 0) {
     printf("Found %d components with hook_matrix.\n",cnt);
@@ -271,7 +265,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   tsv.begin();
   auto sv = supervertex_matrix(matSize, A, p, w);
   tsv.end();
-  count[""] = Function<int,int,int>([](int a, int b){ return a==b; })(id["i"], hm->operator[]("i"));
+  count[""] = Function<int,int,int>([](int a, int b){ return a==b; })((*pg)["i"], hm->operator[]("i"));
   cnt = count.get_val();
   if (w->rank == 0) {
     printf("Found %d components with supervertex_matrix.\n",cnt);
