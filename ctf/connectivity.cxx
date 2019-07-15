@@ -74,6 +74,40 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
   delete [] loc_pairs;
 }
 
+Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
+  int np = p->wrld->np;
+  int64_t n = p->len;
+  Pair<int> * pprs;
+  int64_t npprs;
+  p->get_local_pairs(&npprs, &pprs);
+  assert(npprs == (n+np-1)/np);
+  assert(A->ncol == n);
+  assert(A->nrow == n);
+  Pair<int> * A_prs;
+  int64_t nprs;
+  {
+    Matrix<int> A1(n, n, "ij", Partition(1,&np)["i"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
+    A1["ij"] = A->operator[]("ij");
+    A1.get_local_pairs(&nprs, &A_prs);
+    for (int64_t i=0; i<nprs; i++){
+      A_prs[i].k = (A_prs[i].k/n)*n + pprs[(A_prs[i].k%n)/np].d;
+    }
+  }
+  {
+    Matrix<int> A2(n, n, "ij", Partition(1,&np)["j"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
+    A2.write(nprs, A_prs);
+    delete [] A_prs;
+    A2.get_local_pairs(&nprs, &A_prs);
+    for (int64_t i=0; i<nprs; i++){
+      A_prs[i].k = (A_prs[i].k%n) + pprs[(A_prs[i].k/n)/np].d*n;
+    }
+  }
+  Matrix<int> * PTAP = new Matrix<int>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
+  PTAP->write(nprs, A_prs);
+  delete [] A_prs;
+  return PTAP;
+}
+
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
 {
   auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -82,13 +116,14 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     return q;
   }
   else {
-    auto P = pMatrix(q, world);
-    auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    auto inter = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    (*inter)["ik"] = (*P)["ji"] * (*A)["jk"];
-    (*rec_A)["ik"] = (*inter)["ij"] * (*P)["jk"];
-    // (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
-    delete inter;
+    auto rec_A = PTAP(A, q);
+    //auto P = pMatrix(q, world);
+    //auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
+    //auto inter = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
+    //(*inter)["ik"] = (*P)["ji"] * (*A)["jk"];
+    //(*rec_A)["ik"] = (*inter)["ij"] * (*P)["jk"];
+    //// (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
+    //delete inter;
     auto rec_p = supervertex_matrix(n, rec_A, q, world);
     delete rec_A;
     // p[i] = rec_p[q[i]]
