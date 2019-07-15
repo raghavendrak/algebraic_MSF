@@ -253,7 +253,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   thm.begin();
   auto hm = hook_matrix(matSize, A, w);
   thm.end();
-  count[""] = Function<int,int,int>([](int a, int b){ return a==b; })((*pg)["i"], hm->operator[]("i"));
+  count[""] = Function<int,int,int>([](int a, int b){ return (int)(a==b); })((*pg)["i"], hm->operator[]("i"));
   int cnt = count.get_val();
   if (w->rank == 0) {
     printf("Found %d components with hook_matrix.\n",cnt);
