@@ -58,6 +58,8 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
 // p[i] = rec_p[q[i]]
 void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
 {
+  Timer t_shortcut("CONNECTIVITY_Shortcut");
+  t_shortcut.start();
   int64_t npairs;
   Pair<int> * loc_pairs;
   q.read_local(&npairs, &loc_pairs);
@@ -72,15 +74,18 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
   delete [] remote_pairs;
   p.write(npairs, loc_pairs);
   delete [] loc_pairs;
+  t_shortcut.stop();
 }
 
 Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
+  Timer t_ptap("CONNECTIVITY_PTAP");
+  t_ptap.start();
   int np = p->wrld->np;
   int64_t n = p->len;
   Pair<int> * pprs;
   int64_t npprs;
   p->get_local_pairs(&npprs, &pprs);
-  assert(npprs == (n+np-1)/np);
+  assert((npprs <= (n+np-1)/np) && (npprs >= (n/np)));
   assert(A->ncol == n);
   assert(A->nrow == n);
   Pair<int> * A_prs;
@@ -88,7 +93,7 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   {
     Matrix<int> A1(n, n, "ij", Partition(1,&np)["i"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
     A1["ij"] = A->operator[]("ij");
-    A1.get_local_pairs(&nprs, &A_prs);
+    A1.get_local_pairs(&nprs, &A_prs, true);
     for (int64_t i=0; i<nprs; i++){
       A_prs[i].k = (A_prs[i].k/n)*n + pprs[(A_prs[i].k%n)/np].d;
     }
@@ -97,7 +102,7 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
     Matrix<int> A2(n, n, "ij", Partition(1,&np)["j"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
     A2.write(nprs, A_prs);
     delete [] A_prs;
-    A2.get_local_pairs(&nprs, &A_prs);
+    A2.get_local_pairs(&nprs, &A_prs, true);
     for (int64_t i=0; i<nprs; i++){
       A_prs[i].k = (A_prs[i].k%n) + pprs[(A_prs[i].k/n)/np].d*n;
     }
@@ -105,13 +110,17 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   Matrix<int> * PTAP = new Matrix<int>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
   PTAP->write(nprs, A_prs);
   delete [] A_prs;
+  t_ptap.stop();
   return PTAP;
 }
 
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
 {
   auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
+  Timer t_relax("CONNECTIVITY_Relaxation");
+  t_relax.start();
   (*q)["i"] = (*p)["i"] + (*A)["ij"] * (*p)["j"];
+  t_relax.stop();
   if (!are_vectors_different(*p, *q)) {
     return q;
   }
@@ -141,27 +150,30 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
   while (are_vectors_different(*p, *prev)) {
     (*prev)["i"] = (*p)["i"];
     auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
+    Timer t_relax("CONNECTIVITY_Relaxation");
+    t_relax.start();
     (*q)["i"] = (*A)["ij"] * (*p)["j"];
+    t_relax.stop();
     auto r = new Vector<int>(n, *world, MAX_TIMES_SR);
     max_vector(*r, *p, *q);
-    auto P = pMatrix(p, world);
+    //auto P = pMatrix(p, world);
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
-    (*s)["i"] = (*P)["ji"] * (*r)["j"];
+    //(*s)["i"] = (*P)["ji"] * (*r)["j"];
+    shortcut(*s, *r, *p);
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
     shortcut(*p, *p, *p);
 
     while (are_vectors_different(*pi, *p)){
-      free(pi);
+      delete pi;
       pi = new Vector<int>(*p);
       shortcut(*p, *p, *p);
     }
-    free(pi);
+    delete pi;
 
-    free(q);
-    free(r);
-    free(P);
-    free(s);
+    delete q;
+    delete r;
+    delete s;
   }
   return p;
 }
@@ -249,7 +261,7 @@ int mat_get(Matrix<int>* matrix, Int64Pair index) {
   auto data = new int[matrix->nrow * matrix->ncol];
   matrix->read_all(data);
   int value = data[index.i2 * matrix->nrow + index.i1];
-  free(data);
+  delete [] data;
   return value;
 }
 // ---------------------------
