@@ -37,7 +37,7 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
   return A;
   */
   // FIXME: below is not benchmarked, nor sure if this is the right way of doing it
-  auto n = p->len;
+  int64_t n = p->len;
   auto A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
   int64_t npairs;
   Pair<int> * loc_pairs;
@@ -51,6 +51,7 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
   A->write(npairs, gIndex, gData);
   delete [] gIndex;
   delete [] gData;
+  delete [] loc_pairs;
   return A;
 }
 
