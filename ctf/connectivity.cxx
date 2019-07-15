@@ -83,7 +83,11 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
   else {
     auto P = pMatrix(q, world);
     auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
+    auto inter = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
+    (*inter)["ik"] = (*P)["ji"] * (*A)["jk"];
+    (*rec_A)["ik"] = (*inter)["ij"] * (*P)["jk"];
+    // (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
+    delete inter;
     auto rec_p = supervertex_matrix(n, rec_A, q, world);
     delete rec_A;
     // p[i] = rec_p[q[i]]

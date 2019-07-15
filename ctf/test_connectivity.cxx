@@ -330,7 +330,7 @@ int main(int argc, char** argv)
     int n_nnz = 0;
     int prep = 0;
     if (w->rank == 0)
-      printf("Reading real graph n = %d\n", n);
+      printf("Reading real graph n = %lld\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
     // A.print_matrix();
     run_connectivity(&A, n, w);
@@ -346,12 +346,12 @@ int main(int argc, char** argv)
     delete B;
   }
   else if (scale > 0 && ef > 0){
-    if (w->rank == 0)
-      printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     int n_nnz = 0;
     myseed = SEED;
     int prep = 0;
     int64_t matSize = pow(2, scale); 
+    if (w->rank == 0)
+      printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
     run_connectivity(&A, matSize, w);
   }
