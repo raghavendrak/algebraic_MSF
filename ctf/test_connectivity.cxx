@@ -42,7 +42,7 @@ Matrix <wht> preprocess_graph(int           n,
     Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, MAX_TIMES_SR, "A");
     int * pntrs[] = {all_rc, all_rc};
 
-    A.permute(0, A_pre, pntrs, 0);
+    A.permute(0, A_pre, pntrs, 1);
     free(all_rc);
     if (dw.rank == 0) printf("preprocessed matrix has %ld edges\n", A.nnz_tot);
 
@@ -52,6 +52,7 @@ Matrix <wht> preprocess_graph(int           n,
   } else {
     *n_nnz= n;
     A_pre["ii"] = 0;
+    A_pre.print();
     return A_pre;
   }
 //  return n_nnz_rc;
@@ -253,10 +254,10 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   thm.begin();
   auto hm = hook_matrix(matSize, A, w);
   thm.end();
-  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
+  count[""] += Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
   int64_t cnt = count.get_val();
   if (w->rank == 0) {
-    printf("Found %ld components with hook_matrix.\n",cnt);
+    printf("Found %ld components with hook_matrix, pg is of length %d, hm of length %d, matSize is %ld.\n",cnt,pg->len,hm->len,matSize);
   }
 
   auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
@@ -368,6 +369,8 @@ int main(int argc, char** argv)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
     int64_t matSize = A.nrow; 
+    if (w->rank == 0)
+      printf("matSize = %ld\n",matSize);
     run_connectivity(&A, matSize, w);
   }
   else {
