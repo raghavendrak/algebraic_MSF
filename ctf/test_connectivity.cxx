@@ -136,7 +136,7 @@ Matrix <wht> gen_rmat_matrix(World  & dw,
 
   srand(dw.rank+1);
   for (int64_t i=0; i<nedges; i++){
-    inds[i] = edge[2*i]+edge[2*i+1]*n;
+    inds[i] = (edge[2*i]+(edge[2*i+1])*n);
     // vals[i] = (rand()%max_ewht) + 1;
     vals[i] = 1;
   }
@@ -270,7 +270,6 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   if (w->rank == 0) {
     printf("Found %ld components with supervertex_matrix.\n",cnt);
   }
-  
   int64_t result = are_vectors_different(*hm, *sv);
   if (w->rank == 0) {
     if (result) {
@@ -311,7 +310,7 @@ int main(int argc, char** argv)
   int64_t n;
   int scale;
   int ef;
-
+  int prep;
 
   int k;
   if (getCmdOption(input_str, input_str+in_num, "-k")) {
@@ -339,10 +338,13 @@ int main(int argc, char** argv)
     ef = atoi(getCmdOption(input_str, input_str+in_num, "-E"));
     if (ef < 0) ef=16;
   } else ef=0;
+  if (getCmdOption(input_str, input_str+in_num, "-prep")){
+    prep = atoll(getCmdOption(input_str, input_str+in_num, "-prep"));
+    if (prep < 0) prep = 0;
+  } else prep = 0;
 
   if (gfile != NULL){
     int n_nnz = 0;
-    int prep = 0;
     if (w->rank == 0)
       printf("Reading real graph n = %lld\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
@@ -362,11 +364,10 @@ int main(int argc, char** argv)
   else if (scale > 0 && ef > 0){
     int n_nnz = 0;
     myseed = SEED;
-    int prep = 0;
-    int64_t matSize = pow(2, scale); 
     if (w->rank == 0)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+    int64_t matSize = A.nrow; 
     run_connectivity(&A, matSize, w);
   }
   else {

@@ -5,7 +5,15 @@ template <typename dtype>
 int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
 {
   CTF::Scalar<int64_t> s;
-  s[""] = CTF::Function<dtype,dtype,int64_t>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+  if (!A.is_sparse && !B.is_sparse){
+    s[""] += CTF::Function<dtype,dtype,int64_t>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+  } else {
+    auto C = Vector<dtype>(A.len, SP*A.is_sparse, *A.wrld);
+    C["i"] += A["i"];
+    ((int64_t)-1)*C["i"] += B["i"];
+    s[""] += CTF::Function<dtype,int64_t>([](dtype a){ return (int64_t)(a!=0); })(C["i"]);
+    
+  }
   return s.get_val();
 }
 
@@ -63,24 +71,16 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
   int64_t npairs;
   Pair<int> * loc_pairs;
   if (q.is_sparse){
-    //int64_t npairs1;
-    //Pair<int> * loc_pairs1;
-    //q.get_local_pairs(&npairs1, &loc_pairs1);
     q.get_local_pairs(&npairs, &loc_pairs, true);
-    //printf("npairs = %ld npairs1=%ld\n",npairs,npairs1);
   } else
     q.get_local_pairs(&npairs, &loc_pairs);
   Pair<int> * remote_pairs = new Pair<int>[npairs];
   int64_t nontriv_pairs = 0;
   for (int64_t i=0; i<npairs; i++){
-    //if (loc_pairs[i].d > 0) nontriv_pairs++;
     remote_pairs[i].k = loc_pairs[i].d;
   }
-  //if (q.is_sparse)
- //   printf("nontriv_pairs is %ld\n", nontriv_pairs);
   rec_p.read(npairs, remote_pairs);
   for (int64_t i=0; i<npairs; i++){
-    //if (loc_pairs[i].d <= 0 && remote_pairs[i].d != 0) printf("found %d\n",remote_pairs[i].d);
     loc_pairs[i].d = remote_pairs[i].d;
   }
   delete [] remote_pairs;
@@ -128,18 +128,37 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
 
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
 {
-  auto q = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
   Timer t_relax("CONNECTIVITY_Relaxation");
   t_relax.start();
-  (*q)["i"] = (*p)["i"];
+  //(*q)["i"] = (*p)["i"];
+  //(*q)["i"] += (*A)["ij"] * (*p)["j"];
+  auto prev = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
+  (*prev)["i"] = (*p)["i"];
+  auto q = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
   (*q)["i"] += (*A)["ij"] * (*p)["j"];
+  auto r = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
+  max_vector(*r, *p, *q);
+  auto s = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
+  shortcut(*s, *r, *p);
+  max_vector(*p, *p, *s);
+  Vector<int> * pi = new Vector<int>(*p);
   t_relax.stop();
-  printf("diff = %ld\n",are_vectors_different(*p, *q));
-  if (!are_vectors_different(*p, *q)) {
-    return q;
+  shortcut(*p, *p, *p);
+  int nshort = 1;
+  while (are_vectors_different(*pi, *p)){
+    delete pi;
+    pi = new Vector<int>(*p);
+    shortcut(*p, *p, *p);
+    nshort++;
+  }
+  int64_t diff = are_vectors_different(*prev, *p);
+  if (p->wrld->rank == 0)
+    printf("Took %d shortcutting steps, diff is %ld\n",nshort,diff); 
+  if (!diff){
+    return p;
   }
   else {
-    auto rec_A = PTAP(A, q);
+    auto rec_A = PTAP(A, p);
     //auto P = pMatrix(q, world);
     //auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
     //auto inter = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
@@ -149,11 +168,13 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     //delete inter;
     int64_t nprq;
     Pair<int> * prs;
-    q->get_local_pairs(&nprq, &prs, true);
+    p->get_local_pairs(&nprq, &prs, true);
     int64_t nroot = 0;
     for (int64_t i=0; i<nprq; i++){
       if (prs[i].d == prs[i].k) nroot++;
     }
+    if (p->wrld->rank == 0)
+      printf("Found %ld roots\n", nroot);
     Pair<int> * roots = new Pair<int>[nroot];
     nroot = 0;
     for (int64_t i=0; i<nprq; i++){
@@ -168,9 +189,9 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     //delete pq;
     delete rec_A;
     // p[i] = rec_p[q[i]]
-    shortcut(*p, *q, *rec_p);
+    shortcut(*prev, *p, *rec_p);
     //delete rec_p;
-    return p;
+    return prev;
   }
 }
 
