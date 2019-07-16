@@ -248,15 +248,15 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
 {
   auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(pg);
-  Scalar<int> count(*w);
+  Scalar<int64_t> count(*w);
   Timer_epoch thm("hook_matrix");
   thm.begin();
   auto hm = hook_matrix(matSize, A, w);
   thm.end();
-  count[""] = Function<int,int,int>([](int a, int b){ return (int)(a==b); })((*pg)["i"], hm->operator[]("i"));
-  int cnt = count.get_val();
+  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
+  int64_t cnt = count.get_val();
   if (w->rank == 0) {
-    printf("Found %d components with hook_matrix.\n",cnt);
+    printf("Found %ld components with hook_matrix.\n",cnt);
   }
 
   auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
@@ -265,16 +265,16 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   tsv.begin();
   auto sv = supervertex_matrix(matSize, A, p, w);
   tsv.end();
-  count[""] = Function<int,int,int>([](int a, int b){ return a==b; })((*pg)["i"], hm->operator[]("i"));
+  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
   cnt = count.get_val();
   if (w->rank == 0) {
-    printf("Found %d components with supervertex_matrix.\n",cnt);
+    printf("Found %ld components with supervertex_matrix.\n",cnt);
   }
   
   int64_t result = are_vectors_different(*hm, *sv);
   if (w->rank == 0) {
     if (result) {
-      printf("result vectors are different: FAIL\n");
+      printf("result vectors are different by %ld: FAIL\n", result);
     }
     else {
       printf("result vectors are same: PASS\n");

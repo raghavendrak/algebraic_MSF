@@ -62,13 +62,25 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
   t_shortcut.start();
   int64_t npairs;
   Pair<int> * loc_pairs;
-  q.read_local(&npairs, &loc_pairs);
+  if (q.is_sparse){
+    //int64_t npairs1;
+    //Pair<int> * loc_pairs1;
+    //q.get_local_pairs(&npairs1, &loc_pairs1);
+    q.get_local_pairs(&npairs, &loc_pairs, true);
+    //printf("npairs = %ld npairs1=%ld\n",npairs,npairs1);
+  } else
+    q.get_local_pairs(&npairs, &loc_pairs);
   Pair<int> * remote_pairs = new Pair<int>[npairs];
+  int64_t nontriv_pairs = 0;
   for (int64_t i=0; i<npairs; i++){
+    //if (loc_pairs[i].d > 0) nontriv_pairs++;
     remote_pairs[i].k = loc_pairs[i].d;
   }
+  //if (q.is_sparse)
+ //   printf("nontriv_pairs is %ld\n", nontriv_pairs);
   rec_p.read(npairs, remote_pairs);
   for (int64_t i=0; i<npairs; i++){
+    //if (loc_pairs[i].d <= 0 && remote_pairs[i].d != 0) printf("found %d\n",remote_pairs[i].d);
     loc_pairs[i].d = remote_pairs[i].d;
   }
   delete [] remote_pairs;
@@ -116,11 +128,13 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
 
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
 {
-  auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
+  auto q = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
   Timer t_relax("CONNECTIVITY_Relaxation");
   t_relax.start();
-  (*q)["i"] = (*p)["i"] + (*A)["ij"] * (*p)["j"];
+  (*q)["i"] = (*p)["i"];
+  (*q)["i"] += (*A)["ij"] * (*p)["j"];
   t_relax.stop();
+  printf("diff = %ld\n",are_vectors_different(*p, *q));
   if (!are_vectors_different(*p, *q)) {
     return q;
   }
@@ -135,9 +149,8 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     //delete inter;
     int64_t nprq;
     Pair<int> * prs;
-    q.get_local_pairs(&nprq, &prs, true);
+    q->get_local_pairs(&nprq, &prs, true);
     int64_t nroot = 0;
-    #pragma omp parallel for
     for (int64_t i=0; i<nprq; i++){
       if (prs[i].d == prs[i].k) nroot++;
     }
@@ -147,14 +160,16 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
       if (prs[i].d == prs[i].k){ roots[nroot] = prs[i]; nroot++; }
     }
     delete [] prs;
-    auto pq = Vector<int>(p->len, SP, *p->wrld, *p->sr);
-    pq.write(nroot, roots);
+    auto pq = new Vector<int>(p->len, SP, *p->wrld, *p->sr);
+    //auto pq = new Vector<int>(p->len, *p->wrld, *p->sr);
+    pq->write(nroot, roots);
     delete [] roots;
     auto rec_p = supervertex_matrix(n, rec_A, pq, world);
+    //delete pq;
     delete rec_A;
     // p[i] = rec_p[q[i]]
     shortcut(*p, *q, *rec_p);
-    delete rec_p
+    //delete rec_p;
     return p;
   }
 }
