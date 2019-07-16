@@ -133,10 +133,28 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     //(*rec_A)["ik"] = (*inter)["ij"] * (*P)["jk"];
     //// (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
     //delete inter;
-    auto rec_p = supervertex_matrix(n, rec_A, q, world);
+    int64_t nprq;
+    Pair<int> * prs;
+    q.get_local_pairs(&nprq, &prs, true);
+    int64_t nroot = 0;
+    #pragma omp parallel for
+    for (int64_t i=0; i<nprq; i++){
+      if (prs[i].d == prs[i].k) nroot++;
+    }
+    Pair<int> * roots = new Pair<int>[nroot];
+    nroot = 0;
+    for (int64_t i=0; i<nprq; i++){
+      if (prs[i].d == prs[i].k){ roots[nroot] = prs[i]; nroot++; }
+    }
+    delete [] prs;
+    auto pq = Vector<int>(p->len, SP, *p->wrld, *p->sr);
+    pq.write(nroot, roots);
+    delete [] roots;
+    auto rec_p = supervertex_matrix(n, rec_A, pq, world);
     delete rec_A;
     // p[i] = rec_p[q[i]]
     shortcut(*p, *q, *rec_p);
+    delete rec_p
     return p;
   }
 }
