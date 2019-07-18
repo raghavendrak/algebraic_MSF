@@ -42,7 +42,7 @@ Matrix <wht> preprocess_graph(int           n,
     Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, MAX_TIMES_SR, "A");
     int * pntrs[] = {all_rc, all_rc};
 
-    A.permute(0, A_pre, pntrs, 0);
+    A.permute(0, A_pre, pntrs, 1);
     free(all_rc);
     if (dw.rank == 0) printf("preprocessed matrix has %ld edges\n", A.nnz_tot);
 
@@ -52,6 +52,7 @@ Matrix <wht> preprocess_graph(int           n,
   } else {
     *n_nnz= n;
     A_pre["ii"] = 0;
+    A_pre.print();
     return A_pre;
   }
 //  return n_nnz_rc;
@@ -136,7 +137,7 @@ Matrix <wht> gen_rmat_matrix(World  & dw,
 
   srand(dw.rank+1);
   for (int64_t i=0; i<nedges; i++){
-    inds[i] = edge[2*i]+edge[2*i+1]*n;
+    inds[i] = (edge[2*i]+(edge[2*i+1])*n);
     // vals[i] = (rand()%max_ewht) + 1;
     vals[i] = 1;
   }
@@ -248,15 +249,15 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
 {
   auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(pg);
-  Scalar<int> count(*w);
+  Scalar<int64_t> count(*w);
   Timer_epoch thm("hook_matrix");
   thm.begin();
   auto hm = hook_matrix(matSize, A, w);
   thm.end();
-  count[""] = Function<int,int,int>([](int a, int b){ return (int)(a==b); })((*pg)["i"], hm->operator[]("i"));
-  int cnt = count.get_val();
+  count[""] += Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
+  int64_t cnt = count.get_val();
   if (w->rank == 0) {
-    printf("Found %d components with hook_matrix.\n",cnt);
+    printf("Found %ld components with hook_matrix, pg is of length %d, hm of length %d, matSize is %ld.\n",cnt,pg->len,hm->len,matSize);
   }
 
   auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
@@ -265,16 +266,15 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   tsv.begin();
   auto sv = supervertex_matrix(matSize, A, p, w);
   tsv.end();
-  count[""] = Function<int,int,int>([](int a, int b){ return a==b; })((*pg)["i"], hm->operator[]("i"));
+  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
   cnt = count.get_val();
   if (w->rank == 0) {
-    printf("Found %d components with supervertex_matrix.\n",cnt);
+    printf("Found %ld components with supervertex_matrix.\n",cnt);
   }
-  
   int64_t result = are_vectors_different(*hm, *sv);
   if (w->rank == 0) {
     if (result) {
-      printf("result vectors are different: FAIL\n");
+      printf("result vectors are different by %ld: FAIL\n", result);
     }
     else {
       printf("result vectors are same: PASS\n");
@@ -311,7 +311,7 @@ int main(int argc, char** argv)
   int64_t n;
   int scale;
   int ef;
-
+  int prep;
 
   int k;
   if (getCmdOption(input_str, input_str+in_num, "-k")) {
@@ -339,10 +339,13 @@ int main(int argc, char** argv)
     ef = atoi(getCmdOption(input_str, input_str+in_num, "-E"));
     if (ef < 0) ef=16;
   } else ef=0;
+  if (getCmdOption(input_str, input_str+in_num, "-prep")){
+    prep = atoll(getCmdOption(input_str, input_str+in_num, "-prep"));
+    if (prep < 0) prep = 0;
+  } else prep = 0;
 
   if (gfile != NULL){
     int n_nnz = 0;
-    int prep = 0;
     if (w->rank == 0)
       printf("Reading real graph n = %lld\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
@@ -362,11 +365,12 @@ int main(int argc, char** argv)
   else if (scale > 0 && ef > 0){
     int n_nnz = 0;
     myseed = SEED;
-    int prep = 0;
-    int64_t matSize = pow(2, scale); 
     if (w->rank == 0)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+    int64_t matSize = A.nrow; 
+    if (w->rank == 0)
+      printf("matSize = %ld\n",matSize);
     run_connectivity(&A, matSize, w);
   }
   else {

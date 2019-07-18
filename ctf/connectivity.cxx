@@ -5,7 +5,15 @@ template <typename dtype>
 int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
 {
   CTF::Scalar<int64_t> s;
-  s[""] = CTF::Function<dtype,dtype,int64_t>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+  if (!A.is_sparse && !B.is_sparse){
+    s[""] += CTF::Function<dtype,dtype,int64_t>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+  } else {
+    auto C = Vector<dtype>(A.len, SP*A.is_sparse, *A.wrld);
+    C["i"] += A["i"];
+    ((int64_t)-1)*C["i"] += B["i"];
+    s[""] += CTF::Function<dtype,int64_t>([](dtype a){ return (int64_t)(a!=0); })(C["i"]);
+
+  }
   return s.get_val();
 }
 
@@ -56,14 +64,18 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
 }
 
 // p[i] = rec_p[q[i]]
-void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
+void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false)
 {
   Timer t_shortcut("CONNECTIVITY_Shortcut");
   t_shortcut.start();
   int64_t npairs;
   Pair<int> * loc_pairs;
-  q.read_local(&npairs, &loc_pairs);
+  if (q.is_sparse){
+    q.get_local_pairs(&npairs, &loc_pairs, true);
+  } else
+    q.get_local_pairs(&npairs, &loc_pairs);
   Pair<int> * remote_pairs = new Pair<int>[npairs];
+  int64_t nontriv_pairs = 0;
   for (int64_t i=0; i<npairs; i++){
     remote_pairs[i].k = loc_pairs[i].d;
   }
@@ -73,6 +85,16 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
   }
   delete [] remote_pairs;
   p.write(npairs, loc_pairs);
+  if (create_nonleaves){
+    *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr);
+    for (int64_t i=0; i<npairs; i++){
+      loc_pairs[i].k = loc_pairs[i].d;
+      loc_pairs[i].d = 1;
+    }
+    (*nonleaves)->write(npairs, loc_pairs);
+    (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
+    (*nonleaves)->sparsify();
+  }
   delete [] loc_pairs;
   t_shortcut.stop();
 }
@@ -116,27 +138,28 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
 
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
 {
-  auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
   Timer t_relax("CONNECTIVITY_Relaxation");
   t_relax.start();
-  (*q)["i"] = (*p)["i"] + (*A)["ij"] * (*p)["j"];
+  auto q = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
+  (*q)["i"] = (*p)["i"];
+  (*q)["i"] += (*A)["ij"] * (*p)["j"];
   t_relax.stop();
-  if (!are_vectors_different(*p, *q)) {
-    return q;
-  }
-  else {
+  Vector<int> * nonleaves;
+  int64_t diff = are_vectors_different(*q, *p);
+  if (p->wrld->rank == 0)
+    printf("Diff is %ld\n",diff);
+  if (!diff){
+    return p;
+  } else {
+    shortcut(*q, *q, *q, &nonleaves, true);
+    if (p->wrld->rank == 0)
+      printf("Number of nonleaves is %ld\n",nonleaves->nnz_tot);
     auto rec_A = PTAP(A, q);
-    //auto P = pMatrix(q, world);
-    //auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    //auto inter = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    //(*inter)["ik"] = (*P)["ji"] * (*A)["jk"];
-    //(*rec_A)["ik"] = (*inter)["ij"] * (*P)["jk"];
-    //// (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
-    //delete inter;
-    auto rec_p = supervertex_matrix(n, rec_A, q, world);
+    auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world);
     delete rec_A;
-    // p[i] = rec_p[q[i]]
     shortcut(*p, *q, *rec_p);
+    delete q;
+    delete rec_p;
     return p;
   }
 }
@@ -265,3 +288,4 @@ int mat_get(Matrix<int>* matrix, Int64Pair index) {
   return value;
 }
 // ---------------------------
+
