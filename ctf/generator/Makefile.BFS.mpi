@@ -45,4 +45,4 @@ scramble_edges.o: scramble_edges.c splittable_mrg.h mod_arith.h btrd_binomial_di
 	$(CC) $(CFLAGS) -c scramble_edges.c
 
 clean:
-	-rm -f generator_test_mpi *.o *.a
+	-rm -f generator_test_mpi *.o libgraph_generator_mpi.a
