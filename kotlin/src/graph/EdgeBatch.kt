@@ -8,13 +8,13 @@ private val SR = INT_MAX_TIMES_SEMIRING
 fun main() {
 	val G = Graph(6, listOf(
 			1 to 2,
-			3 to 5,
-			5 to 4,
+			3 to 4,
+			4 to 5,
 			4 to 6)
 	)
 
 //	G.edgeBatchRec().prettyPrintln()
-	G.edgeBatchRand().prettyPrintln()
+	G.edgeBatchRand()
 }
 
 fun Graph.edgeBatchRec(A: Matrix<Vertex> = adjacencyMatrix(),
@@ -63,7 +63,6 @@ fun Graph.edgeBatchRand(): Vector<Vertex> {
 	var A = intMatrix(numVertices by numVertices, SR)
 	var p = verticesVector(SR) // p[i] = i
 	for (batch in batches) {
-		println("Batch: $batch")
 		// add edges in this batch to current A
 		for ((u, v) in batch) {
 			A[u, v] = 1
@@ -75,11 +74,16 @@ fun Graph.edgeBatchRand(): Vector<Vertex> {
 			prev = p
 			p += A * p
 		}
-//		p.prettyPrintln()
+		// shortcut convergence
+		prev = null
+		while (p != prev) {
+			prev = p
+			p = p.shortcut()
+		}
+		p.prettyPrintln()
 		// update supervertex for current batch
 		val P = p.toParentMatrix()
 		A = P.transpose() * A * P
-//		A.prettyPrintln()
 	}
 	return p
 }
