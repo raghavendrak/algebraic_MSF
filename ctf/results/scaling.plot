@@ -6,9 +6,9 @@ set logscale x 2
 #set logscale x2 2
 #set logscale y 2
 set key top left
-set x2range [17:21];
-set xrange [64:1024];
-set yrange [.5:12];
+set x2range [17:23];
+set xrange [64:4096];
+set yrange [0:50];
 
 
 #set format x "%1.1E"
@@ -31,7 +31,7 @@ load "cfg.plot"
 set x2tics 17,1
 set xtics 2
 set mxtics 2
-set ytics 2
+set ytics 5
 set mytics 2
 set grid xtics mxtics ytics mytics ls 99
 
