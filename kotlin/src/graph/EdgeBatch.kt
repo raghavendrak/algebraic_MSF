@@ -1,22 +1,25 @@
 package graph
 
-import algebra.INT_MAX_TIMES_SEMIRING
-import algebra.Matrix
-import algebra.Vector
+import algebra.*
 import util.length
 
 private val SR = INT_MAX_TIMES_SEMIRING
 
 fun main() {
-	val G = Graph(8, listOf(1 to 2, 3 to 4, 4 to 5, 5 to 6, 6 to 7, 7 to 8))
+	val G = Graph(6, listOf(
+			1 to 2,
+			3 to 5,
+			5 to 4,
+			4 to 6)
+	)
 
-	G.edgeBatch().prettyPrintln()
+//	G.edgeBatchRec().prettyPrintln()
+	G.edgeBatchRand().prettyPrintln()
 }
 
-fun Graph.edgeBatch(A: Matrix<Vertex>
-                    = adjacencyMatrix(), // assuming `A` is of size 2^n
-                    rowRange: IntRange = 1..numVertices,
-                    colRange: IntRange = 1..numVertices): Vector<Vertex> {
+fun Graph.edgeBatchRec(A: Matrix<Vertex> = adjacencyMatrix(),
+                       rowRange: IntRange = 1..numVertices,
+                       colRange: IntRange = 1..numVertices): Vector<Vertex> {
 	val (rowStart, rowEnd) = rowRange.start to rowRange.endInclusive
 	val (colStart, colEnd) = colRange.start to colRange.endInclusive
 
@@ -32,19 +35,19 @@ fun Graph.edgeBatch(A: Matrix<Vertex>
 		// do in parallel {
 		val topLeftRowRange = rowStart..rowMid
 		val topLeftColRange = colStart..colMid
-		val topLeft = edgeBatch(A[topLeftRowRange, topLeftColRange,
+		val topLeft = edgeBatchRec(A[topLeftRowRange, topLeftColRange,
 				false], // pass in `false` to avoid matrix reshaping
 				topLeftRowRange, topLeftColRange)
 				.shortcut() // `shortcut` => p[i] = p[p[i]]
 
 		val btmRightRowRange = rowMid + 1..rowEnd
 		val btmRightColRange = colMid + 1..colEnd
-		val btmRight = edgeBatch(A[btmRightRowRange, btmRightColRange, false],
+		val btmRight = edgeBatchRec(A[btmRightRowRange, btmRightColRange, false],
 				btmRightRowRange, btmRightColRange).shortcut()
 
 		val topRightRowRange = rowStart..rowMid
 		val topRightColRange = colMid + 1..colEnd
-		val topRight = edgeBatch(A[topRightRowRange, topRightColRange, false],
+		val topRight = edgeBatchRec(A[topRightRowRange, topRightColRange, false],
 				topRightRowRange, topRightColRange).shortcut()
 		// } until all finished
 
@@ -52,3 +55,31 @@ fun Graph.edgeBatch(A: Matrix<Vertex>
 	}
 }
 
+fun Graph.edgeBatchRand(): Vector<Vertex> {
+	val EDGE_EACH_BATCH = 1
+	// shuffle edges if we truly want randomness
+	val batches = edges.indices.groupBy { it / EDGE_EACH_BATCH }
+			.map { it.value.map { edges[it] } }
+	var A = intMatrix(numVertices by numVertices, SR)
+	var p = verticesVector(SR) // p[i] = i
+	for (batch in batches) {
+		println("Batch: $batch")
+		// add edges in this batch to current A
+		for ((u, v) in batch) {
+			A[u, v] = 1
+			A[v, u] = 1
+		}
+		// run connectivity for current batch
+		var prev: Vector<Vertex>? = null
+		while (p != prev) {
+			prev = p
+			p += A * p
+		}
+//		p.prettyPrintln()
+		// update supervertex for current batch
+		val P = p.toParentMatrix()
+		A = P.transpose() * A * P
+//		A.prettyPrintln()
+	}
+	return p
+}
