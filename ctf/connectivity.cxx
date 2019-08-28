@@ -5,7 +5,15 @@ template <typename dtype>
 int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
 {
   CTF::Scalar<int64_t> s;
-  s[""] = CTF::Function<dtype,dtype,int64_t>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+  if (!A.is_sparse && !B.is_sparse){
+    s[""] += CTF::Function<dtype,dtype,int64_t>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+  } else {
+    auto C = Vector<dtype>(A.len, SP*A.is_sparse, *A.wrld);
+    C["i"] += A["i"];
+    ((int64_t)-1)*C["i"] += B["i"];
+    s[""] += CTF::Function<dtype,int64_t>([](dtype a){ return (int64_t)(a!=0); })(C["i"]);
+
+  }
   return s.get_val();
 }
 
@@ -56,27 +64,52 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
 }
 
 // p[i] = rec_p[q[i]]
-void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p)
+// if create_nonleaves=true, computing non-leaf vertices in parent forest
+void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false)
 {
   Timer t_shortcut("CONNECTIVITY_Shortcut");
   t_shortcut.start();
   int64_t npairs;
   Pair<int> * loc_pairs;
-  q.read_local(&npairs, &loc_pairs);
+  if (q.is_sparse){
+    //if we have updated only a subset of the vertices
+    q.get_local_pairs(&npairs, &loc_pairs, true);
+  } else {
+    //if we have potentially updated all the vertices
+    q.get_local_pairs(&npairs, &loc_pairs);
+  }
   Pair<int> * remote_pairs = new Pair<int>[npairs];
+  int64_t nontriv_pairs = 0;
   for (int64_t i=0; i<npairs; i++){
     remote_pairs[i].k = loc_pairs[i].d;
   }
-  rec_p.read(npairs, remote_pairs);
+  Timer t_shortcut_read("CONNECTIVITY_Shortcut_read");
+  t_shortcut_read.start();
+  rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
+  t_shortcut_read.stop();
   for (int64_t i=0; i<npairs; i++){
-    loc_pairs[i].d = remote_pairs[i].d;
+    loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
   }
   delete [] remote_pairs;
-  p.write(npairs, loc_pairs);
+  p.write(npairs, loc_pairs); //enter data into p[i]
+  //prune out leaves
+  if (create_nonleaves){
+    *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr);
+    //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
+    for (int64_t i=0; i<npairs; i++){
+      loc_pairs[i].k = loc_pairs[i].d;
+      loc_pairs[i].d = 1;
+    }
+    //FIXME: here and above potential optimization is to avoid duplicate queries to parent
+    (*nonleaves)->write(npairs, loc_pairs);
+    (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
+    (*nonleaves)->sparsify();
+  }
   delete [] loc_pairs;
   t_shortcut.stop();
 }
 
+// return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
 Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   Timer t_ptap("CONNECTIVITY_PTAP");
   t_ptap.start();
@@ -84,6 +117,7 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   int64_t n = p->len;
   Pair<int> * pprs;
   int64_t npprs;
+  //get local part of p
   p->get_local_pairs(&npprs, &pprs);
   assert((npprs <= (n+np-1)/np) && (npprs >= (n/np)));
   assert(A->ncol == n);
@@ -91,18 +125,23 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   Pair<int> * A_prs;
   int64_t nprs;
   {
+    //map matrix so rows are distributed as elements of p, ensures for each element of p, this process also owns the row of A (A1)
     Matrix<int> A1(n, n, "ij", Partition(1,&np)["i"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
     A1["ij"] = A->operator[]("ij");
     A1.get_local_pairs(&nprs, &A_prs, true);
+    //use fact p and rows of A are distributed cyclically, to compute P^T * A
     for (int64_t i=0; i<nprs; i++){
       A_prs[i].k = (A_prs[i].k/n)*n + pprs[(A_prs[i].k%n)/np].d;
     }
   }
   {
+    //map matrix so rows are distributed as elements of p, ensures for each element of p, this process also owns the column of A (A1)
     Matrix<int> A2(n, n, "ij", Partition(1,&np)["j"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
+    //write in P^T A into A2
     A2.write(nprs, A_prs);
     delete [] A_prs;
     A2.get_local_pairs(&nprs, &A_prs, true);
+    //use fact p and cols of A are distributed cyclically, to compute P^T A * P
     for (int64_t i=0; i<nprs; i++){
       A_prs[i].k = (A_prs[i].k%n) + pprs[(A_prs[i].k/n)/np].d*n;
     }
@@ -114,29 +153,38 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   return PTAP;
 }
 
+
+//recursive projection based algorithm
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
 {
-  auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
   Timer t_relax("CONNECTIVITY_Relaxation");
   t_relax.start();
-  (*q)["i"] = (*p)["i"] + (*A)["ij"] * (*p)["j"];
+  //relax all edges
+  auto q = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
+  (*q)["i"] = (*p)["i"];
+  (*q)["i"] += (*A)["ij"] * (*p)["j"];
   t_relax.stop();
-  if (!are_vectors_different(*p, *q)) {
-    return q;
-  }
-  else {
+  Vector<int> * nonleaves;
+  //check for convergence
+  int64_t diff = are_vectors_different(*q, *p);
+  if (p->wrld->rank == 0)
+    printf("Diff is %ld\n",diff);
+  if (!diff){
+    return p;
+  } else {
+    //compute shortcutting q[i] = q[q[i]], obtain nonleaves or roots (FIXME: can we also remove roots that are by themselves?)
+    shortcut(*q, *q, *q, &nonleaves, true);
+    if (p->wrld->rank == 0)
+      printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
+    //project to reduced graph with all vertices
     auto rec_A = PTAP(A, q);
-    //auto P = pMatrix(q, world);
-    //auto rec_A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    //auto inter = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
-    //(*inter)["ik"] = (*P)["ji"] * (*A)["jk"];
-    //(*rec_A)["ik"] = (*inter)["ij"] * (*P)["jk"];
-    //// (*rec_A)["il"] = (*P)["ji"] * (*A)["jk"] * (*P)["kl"];
-    //delete inter;
-    auto rec_p = supervertex_matrix(n, rec_A, q, world);
+    //recurse only on nonleaves
+    auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world);
     delete rec_A;
-    // p[i] = rec_p[q[i]]
+    //perform one step of shortcutting to update components of leaves
     shortcut(*p, *q, *rec_p);
+    delete q;
+    delete rec_p;
     return p;
   }
 }
@@ -179,7 +227,7 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
 }
 
 
-// FIXME: below functions are yet to be optimized/reviewed
+// FIXME: remove these functions or document at least
 // ---------------------------
 Vector<int>* hook(Graph* graph, World* world) {
   auto n = graph->numVertices;
@@ -265,3 +313,4 @@ int mat_get(Matrix<int>* matrix, Int64Pair index) {
   return value;
 }
 // ---------------------------
+
