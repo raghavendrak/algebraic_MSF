@@ -227,6 +227,39 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
 }
 
 
+std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs){
+  Matrix<float> B(A.nrow, A.ncol, SP*A.is_sparse, *A.wrld);
+  Pair<int> * prs;
+  int64_t nprs;
+  A.get_local_pairs(&nprs, &prs);
+  srand48(A.wrld->rank*4+10);
+  Pair<float> * rprs = new Pair<float>[nprs];
+  for (int64_t i=0; i<nprs; i++){
+    rprs[i].k = prs[i].k;
+    rprs[i].d = drand48();
+  }
+  std::sort(rprs, rprs+nprs, [](const Pair<float> & a, const Pair<float> & b){ return a.d>b.d; });
+  float prefix = 0.;
+  int64_t iprefix = 0;
+  std::vector< Matrix<int>* > vp;
+  for (int i=0; i<batch_fracs.size(); i++){
+    prefix += batch_fracs[i];
+    int64_t old_iprefix = iprefix;
+    while (iprefix < nprs && rprs[iprefix].d < prefix){ iprefix++; }
+    Matrix<int> * P = new Matrix<int>(A.nrow, A.ncol, SP*A.is_sparse, *A.wrld);
+    Pair<int> * part_pairs = new Pair<int>[iprefix-old_iprefix];
+    for (int64_t j=0; j<iprefix-old_iprefix; j++){
+      part_pairs[j].k = rprs[old_iprefix+j].k;
+      part_pairs[j].d = 1;
+    }
+    P->write(iprefix-old_iprefix, part_pairs);
+    delete [] part_pairs;
+    vp.push_back(P);
+  }
+  return vp;
+}
+
+
 // FIXME: remove these functions or document at least
 // ---------------------------
 Vector<int>* hook(Graph* graph, World* world) {
