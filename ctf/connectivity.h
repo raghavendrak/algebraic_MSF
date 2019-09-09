@@ -60,6 +60,7 @@ void max_vector(CTF::Vector<dtype> & result, CTF::Vector<dtype> & A, CTF::Vector
 void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
 void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> *& leaves);
+std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
 
 // FIXME: below functions are yet to be optimized/reviewed
 // ---------------------------

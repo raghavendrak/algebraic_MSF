@@ -213,6 +213,38 @@ void test_6Blocks_simply_connected(World *w)
   supervertex_matrix(matSize, A, p, w)->print();
 }
 
+void test_batch_subdivide(World *w)
+{
+  /**
+  auto g = new Graph();
+  g->numVertices = 36;
+  for(int b = 0; b < 6; b++){
+    for(int i = 0; i < 5; i++){
+      g->edges->emplace_back(b*6+i, b*6+i+1);
+    }
+  }
+  auto A = g->adjacencyMatrix(w);
+  **/
+  auto A = new Matrix<int>(10,10,SP|SH,*w,MAX_TIMES_SR);
+  A->fill_sp_random(1.0,1.0,0.4);
+  A->print_matrix();
+  std::vector<float> fracs = {0.1, 0.1, 0.1, 0.1,0.1, 0.1,0.1, 0.1,0.1, 0.1};
+  std::vector<Matrix<int>*> batches = batch_subdivide(*A, fracs);
+  int count = 1;
+  for(Matrix<int>* mat: batches) {
+    cout << "Batch " << count << endl;
+    mat->print_matrix();
+    count++;
+  }
+  /**
+  hook_matrix(36, A, w)->print();
+  int matSize = 36;
+  auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
+  init_pvector(p);
+  supervertex_matrix(matSize, A, p, w)->print();
+  **/
+}
+
 Matrix<int>* generate_kronecker(World* w, int order)
 {
   auto g = new Graph();
@@ -230,6 +262,13 @@ Matrix<int>* generate_kronecker(World* w, int order)
   for (int i = 2; i <= order; i++) {
     len *= 3;
     int64_t lens[] = {3, len, 3, len};
+    /**
+    int * lens = new int[4];
+    lens[0] = 3;
+    lens[1] = len;
+    lens[2] = 3;
+    lens[3] = len;
+    **/
     auto D = Tensor<int>(4, B->is_sparse, lens);
     D["ijkl"] = (*kinitiator)["ik"] * (*B)["jl"];
 
@@ -377,7 +416,8 @@ int main(int argc, char** argv)
     if (w->rank == 0) {
       printf("Running connectivity on 6X6 graph\n");
     }
-    test_6Blocks_simply_connected(w);
+    //test_6Blocks_simply_connected(w);
+    test_batch_subdivide(w);
   }
   return 0;
 }
