@@ -231,14 +231,14 @@ std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> 
   Matrix<float> B(A.nrow, A.ncol, SP*A.is_sparse, *A.wrld);
   Pair<int> * prs;
   int64_t nprs;
-  A.get_local_pairs(&nprs, &prs);
+  A.get_local_pairs(&nprs, &prs, true);
   srand48(A.wrld->rank*4+10);
   Pair<float> * rprs = new Pair<float>[nprs];
   for (int64_t i=0; i<nprs; i++){
     rprs[i].k = prs[i].k;
     rprs[i].d = drand48();
   }
-  std::sort(rprs, rprs+nprs, [](const Pair<float> & a, const Pair<float> & b){ return a.d>b.d; });
+  std::sort(rprs, rprs+nprs, [](const Pair<float> & a, const Pair<float> & b){ return a.d<b.d; });
   float prefix = 0.;
   int64_t iprefix = 0;
   std::vector< Matrix<int>* > vp;
