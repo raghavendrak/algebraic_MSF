@@ -228,7 +228,7 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
 
 
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs){
-  Matrix<float> B(A.nrow, A.ncol, SP*A.is_sparse, *A.wrld);
+  Matrix<float> B(A.nrow, A.ncol, SP*A.is_sparse, *A.wrld, MAX_TIMES_SR);
   Pair<int> * prs;
   int64_t nprs;
   A.get_local_pairs(&nprs, &prs, true);
@@ -246,7 +246,7 @@ std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> 
     prefix += batch_fracs[i];
     int64_t old_iprefix = iprefix;
     while (iprefix < nprs && rprs[iprefix].d < prefix){ iprefix++; }
-    Matrix<int> * P = new Matrix<int>(A.nrow, A.ncol, SP*A.is_sparse, *A.wrld);
+    Matrix<int> * P = new Matrix<int>(A.nrow, A.ncol, SP*A.is_sparse, *A.wrld, MAX_TIMES_SR);
     Pair<int> * part_pairs = new Pair<int>[iprefix-old_iprefix];
     for (int64_t j=0; j<iprefix-old_iprefix; j++){
       part_pairs[j].k = rprs[old_iprefix+j].k;
