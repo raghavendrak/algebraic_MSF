@@ -305,7 +305,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   tsv.begin();
   auto sv = supervertex_matrix(matSize, A, p, w);
   tsv.end();
-  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
+  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], sv->operator[]("i"));
   cnt = count.get_val();
   if (w->rank == 0) {
     printf("Found %ld components with supervertex_matrix.\n",cnt);
