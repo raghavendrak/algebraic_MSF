@@ -284,7 +284,7 @@ Matrix<int>* generate_kronecker(World* w, int order)
   return B;
 }
 
-void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
+void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
 {
   auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(pg);
@@ -303,7 +303,18 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w)
   init_pvector(p);
   Timer_epoch tsv("super_vertex");
   tsv.begin();
-  auto sv = supervertex_matrix(matSize, A, p, w);
+  Vector<int>* sv;
+  if (batch == 0) {
+    sv = supervertex_matrix(matSize, A, p, w);
+  }
+  else {
+    std::vector<float> fracs = {0.25, 0.35, 0.4};
+    std::vector<Matrix<int>*> batches = batch_subdivide(*A, fracs);
+    sv = p;
+    for(Matrix<int>* mat: batches) {
+      sv = supervertex_matrix(matSize, mat, sv, w);
+    }
+  }
   tsv.end();
   count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], sv->operator[]("i"));
   cnt = count.get_val();
@@ -351,6 +362,7 @@ int main(int argc, char** argv)
   int scale;
   int ef;
   int prep;
+  int batch;
 
   int k;
   if (getCmdOption(input_str, input_str+in_num, "-k")) {
@@ -382,6 +394,10 @@ int main(int argc, char** argv)
     prep = atoll(getCmdOption(input_str, input_str+in_num, "-prep"));
     if (prep < 0) prep = 0;
   } else prep = 0;
+  if (getCmdOption(input_str, input_str+in_num, "-batch")){
+    batch = atoll(getCmdOption(input_str, input_str+in_num, "-batch"));
+    if (batch != 1) batch = 0;
+  } else batch = 0;
 
   if (gfile != NULL){
     int n_nnz = 0;
@@ -389,7 +405,7 @@ int main(int argc, char** argv)
       printf("Reading real graph n = %lld\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
     // A.print_matrix();
-    run_connectivity(&A, n, w);
+    run_connectivity(&A, n, w, batch);
   }
   else if (k != -1) {
     int64_t matSize = pow(3, k);
@@ -398,7 +414,7 @@ int main(int argc, char** argv)
     if (w->rank == 0) {
       printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
     }
-    run_connectivity(B, matSize, w);
+    run_connectivity(B, matSize, w, batch);
     delete B;
   }
   else if (scale > 0 && ef > 0){
@@ -410,14 +426,14 @@ int main(int argc, char** argv)
     int64_t matSize = A.nrow; 
     if (w->rank == 0)
       printf("matSize = %ld\n",matSize);
-    run_connectivity(&A, matSize, w);
+    run_connectivity(&A, matSize, w, batch);
   }
   else {
     if (w->rank == 0) {
       printf("Running connectivity on 6X6 graph\n");
     }
     //test_6Blocks_simply_connected(w);
-    test_batch_subdivide(w);
+    //test_batch_subdivide(w);
   }
   return 0;
 }
