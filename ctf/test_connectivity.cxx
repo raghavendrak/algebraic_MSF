@@ -245,6 +245,23 @@ void test_batch_subdivide(World *w)
   **/
 }
 
+void test_roots_and_children(World *w) {
+  auto g = new Graph();
+  g->numVertices = 36;
+  for(int b = 0; b < 6; b++){
+    for(int i = 0; i < 5; i++){
+      g->edges->emplace_back(b*6+i, b*6+i+1);
+    }
+  }
+  auto A = g->adjacencyMatrix(w);
+  hook_matrix(36, A, w)->print();
+  int matSize = 36;
+  auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
+  init_pvector(p);
+  supervertex_matrix(matSize, A, p, w)->print();
+  roots_and_children(p, w);
+}
+
 Matrix<int>* generate_kronecker(World* w, int order)
 {
   auto g = new Graph();
@@ -434,6 +451,7 @@ int main(int argc, char** argv)
     }
     //test_6Blocks_simply_connected(w);
     //test_batch_subdivide(w);
+    //test_roots_and_children(w);
   }
   return 0;
 }

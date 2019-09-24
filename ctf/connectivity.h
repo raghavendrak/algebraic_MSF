@@ -61,6 +61,7 @@ void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
 void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> *& leaves);
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
+void roots_and_children(Vector<int> *p, World *world);
 
 // FIXME: below functions are yet to be optimized/reviewed
 // ---------------------------

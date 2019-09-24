@@ -85,7 +85,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   }
   Timer t_shortcut_read("CONNECTIVITY_Shortcut_read");
   t_shortcut_read.start();
-  rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
+  rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]] // TODO: replace with basic array management
   t_shortcut_read.stop();
   for (int64_t i=0; i<npairs; i++){
     loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
@@ -107,6 +107,125 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   }
   delete [] loc_pairs;
   t_shortcut.stop();
+}
+
+void roots_and_children(Vector<int> *p, World *world) {
+  int world_size;
+  MPI_Comm_size(world->comm, &world_size);
+
+  int64_t npairs;
+  Pair<int> * loc_pairs;
+  if (p->is_sparse){
+    //if we have updated only a subset of the vertices
+    p->get_local_pairs(&npairs, &loc_pairs, true);
+  } else {
+    //if we have potentially updated all the vertices
+    p->get_local_pairs(&npairs, &loc_pairs);
+  }
+
+  // roots. //
+  int loc_roots_num = 0;
+  for (int i=0; i<npairs; i++) {
+    Pair<int> loc_pair = loc_pairs[i];
+    if (loc_pair.d == loc_pair.k) {
+      loc_roots_num++;
+    }
+  }
+
+  int loc_roots [loc_roots_num];
+  int j = 0;
+  for (int i=0; i<npairs; i++) {
+    // same computation as before, can store in array
+    Pair<int> loc_pair = loc_pairs[i];
+    if (loc_pair.d == loc_pair.k) {
+      loc_roots[j] = loc_pair.k;
+      j++;
+    }
+  }
+
+  int* global_roots_num = new int;
+  MPI_Allreduce(&loc_roots_num, global_roots_num, 1, MPI_INT, MPI_SUM, world->comm); // 11
+
+  int *global_roots_nums = new int[world_size];
+  MPI_Allgather(&loc_roots_num, 1, MPI_INT, global_roots_nums, 1, MPI_INT, world->comm); // [3, 1, 2, 0, 4]
+
+  // prefix sum
+  int *displs_roots = new int[world_size];
+  int sum_roots = 0;
+  for (int i=0; i<world_size; i++) {
+   displs_roots[i] = sum_roots;
+   sum_roots += global_roots_nums[i] * sizeof(int);
+  }
+
+  int *global_roots = new int[*global_roots_num];
+  MPI_Allgatherv(&loc_roots, loc_roots_num, MPI_INT, global_roots, global_roots_nums, displs_roots, MPI_INT, world->comm); // [., ., ., ., ., ., ., ., ., ., .]?
+
+  // roots and children. //
+ int loc_children_num = 0;
+  for (int i=0; i<npairs; i++) {
+    Pair<int> loc_pair = loc_pairs[i];
+    for (int j=0; j<(*global_roots_num); j++) {
+      if (loc_pair.d == global_roots[j]) {
+       loc_children_num++;
+       break;
+      }
+    }
+  }
+
+  int loc_children [loc_children_num];
+  int k = 0;
+  for (int i=0; k<loc_children_num; i++) {
+    Pair<int> loc_pair = loc_pairs[i];
+    for (int j=0; j<(*global_roots_num); j++) {
+      if (loc_pair.d == global_roots[j]) { // TODO: same computation as before, can store as array
+        loc_children[k] = loc_pair.k;
+        k++;
+        break;
+      }
+    }
+  }
+
+  int* global_children_num = new int;
+  MPI_Allreduce(&loc_children_num, global_children_num, 1, MPI_INT, MPI_SUM, world->comm);
+
+  int *global_children_nums = new int[world_size];
+  MPI_Allgather(&loc_children_num, 1, MPI_INT, global_children_nums, 1, MPI_INT, world->comm);
+
+  // prefix sum
+  int *children_displs = new int[world_size];
+  int children_sum = 0;
+  for (int i=0; i<world_size; i++) {
+   children_displs[i] = children_sum;
+   //children_sum += global_children_nums[i] * sizeof(int);
+   children_sum += global_children_nums[i] * 1; // not sure why this works
+  }
+
+  int *global_children = new int[*global_children_num];
+  MPI_Allgatherv(&loc_children, loc_children_num, MPI_INT, global_children, global_children_nums, children_displs, MPI_INT, world->comm);
+
+  /*
+  if (world->rank == 0) {
+    std::cout << "world size: " << world_size << std::endl;
+    std::cout << "global number of roots and children: " << *global_children_num << std::endl;
+    for (int i=0; i<world_size; i++) {
+      std::cout << "global num[" << i << "]: " << global_children_nums[i] << std::endl;
+    }
+    std::cout << std::endl;
+    for(int i=0; i<(*global_children_num); i++) {
+      std::cout << "global roots and children[" << i << "]: " << global_children[i] << std::endl;
+    }
+  }
+  */
+
+  delete global_roots_num;
+  delete [] global_roots_nums;
+  delete [] displs_roots;
+  delete [] global_roots;
+
+  delete global_children_num;
+  delete [] global_children_nums;
+  delete [] children_displs;
+  delete [] global_children;
 }
 
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
