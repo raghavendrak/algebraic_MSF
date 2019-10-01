@@ -59,9 +59,13 @@ template <typename dtype>
 void max_vector(CTF::Vector<dtype> & result, CTF::Vector<dtype> & A, CTF::Vector<dtype> & B);
 void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
-void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> *& leaves);
+//void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> *& leaves);
+void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
-void roots_and_children(Vector<int> *p, World *world);
+void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * world);
+void roots_num(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * global_roots_num,  World * world);
+void roots(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * global_roots_num, int * global_roots,  World * world);
+void nontriv(int64_t npairs, Pair<int> * loc_pairs, int * global_roots_num, int * global_roots, int * global_nontriv_num, int ** global_nontriv,  World * world);
 
 // FIXME: below functions are yet to be optimized/reviewed
 // ---------------------------

@@ -245,21 +245,62 @@ void test_batch_subdivide(World *w)
   **/
 }
 
-void test_roots_and_children(World *w) {
-  auto g = new Graph();
-  g->numVertices = 36;
-  for(int b = 0; b < 6; b++){
-    for(int i = 0; i < 5; i++){
-      g->edges->emplace_back(b*6+i, b*6+i+1);
-    }
-  }
-  auto A = g->adjacencyMatrix(w);
-  hook_matrix(36, A, w)->print();
-  int matSize = 36;
-  auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
-  init_pvector(p);
-  supervertex_matrix(matSize, A, p, w)->print();
-  roots_and_children(p, w);
+void test_shortcut2(World *w) { // full complete binary tree h = 3, bad numbering
+  auto p = new Vector<int>(15, *w, MAX_TIMES_SR);  
+  int64_t npairs;
+  Pair<int> * loc_pairs;
+  p->read_local(&npairs, &loc_pairs);
+  loc_pairs[0].d = 0;
+  loc_pairs[1].d = 0;
+  loc_pairs[2].d = 1;
+  loc_pairs[3].d = 1;
+  loc_pairs[4].d = 2;
+  loc_pairs[5].d = 2;
+  loc_pairs[6].d = 3;
+  loc_pairs[7].d = 3;
+  loc_pairs[8].d = 0;
+  loc_pairs[9].d = 8;
+  loc_pairs[10].d = 8;
+  loc_pairs[11].d = 9;
+  loc_pairs[12].d = 9;
+  loc_pairs[13].d = 10;
+  loc_pairs[14].d = 10;
+  p->write(npairs, loc_pairs);
+  delete [] loc_pairs;
+
+  auto p2 = new Vector<int>(15, *w, MAX_TIMES_SR);
+  int64_t npairs2;
+  Pair<int> * loc_pairs2;
+  p2->read_local(&npairs2, &loc_pairs2);
+  loc_pairs2[0].d = 0;
+  loc_pairs2[1].d = 0;
+  loc_pairs2[2].d = 1;
+  loc_pairs2[3].d = 1;
+  loc_pairs2[4].d = 2;
+  loc_pairs2[5].d = 2;
+  loc_pairs2[6].d = 3;
+  loc_pairs2[7].d = 3;
+  loc_pairs2[8].d = 0;
+  loc_pairs2[9].d = 8;
+  loc_pairs2[10].d = 8;
+  loc_pairs2[11].d = 9;
+  loc_pairs2[12].d = 9;
+  loc_pairs2[13].d = 10;
+  loc_pairs2[14].d = 10;
+  p2->write(npairs2, loc_pairs2);
+  delete [] loc_pairs2;
+
+  cout << "P" << endl;
+  p->print();
+
+  shortcut(*p, *p, *p);
+  shortcut2(*p2, *p2, *p2, w);
+
+  cout << "SHORTCUT" << endl;
+  p->print();
+
+  cout << "SHORTCUT2" << endl;
+  p2->print();
 }
 
 Matrix<int>* generate_kronecker(World* w, int order)
@@ -452,6 +493,7 @@ int main(int argc, char** argv)
     //test_6Blocks_simply_connected(w);
     //test_batch_subdivide(w);
     //test_roots_and_children(w);
+    test_shortcut2(w);
   }
   return 0;
 }
