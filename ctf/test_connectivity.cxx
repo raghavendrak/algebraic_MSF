@@ -1,6 +1,5 @@
 #include "connectivity.h"
 
-
 Matrix <wht> preprocess_graph(int           n,
                               World &       dw,
                               Matrix<wht> & A_pre,
@@ -245,62 +244,141 @@ void test_batch_subdivide(World *w)
   **/
 }
 
-void test_shortcut2(World *w) { // full complete binary tree h = 3, bad numbering
-  auto p = new Vector<int>(15, *w, MAX_TIMES_SR);  
-  int64_t npairs;
-  Pair<int> * loc_pairs;
-  p->read_local(&npairs, &loc_pairs);
-  loc_pairs[0].d = 0;
-  loc_pairs[1].d = 0;
-  loc_pairs[2].d = 1;
-  loc_pairs[3].d = 1;
-  loc_pairs[4].d = 2;
-  loc_pairs[5].d = 2;
-  loc_pairs[6].d = 3;
-  loc_pairs[7].d = 3;
-  loc_pairs[8].d = 0;
-  loc_pairs[9].d = 8;
-  loc_pairs[10].d = 8;
-  loc_pairs[11].d = 9;
-  loc_pairs[12].d = 9;
-  loc_pairs[13].d = 10;
-  loc_pairs[14].d = 10;
-  p->write(npairs, loc_pairs);
-  delete [] loc_pairs;
+void test_shortcut2(World *w) { // full complete binary tree h = 3
+  auto g = new Graph();
+  g->numVertices = 36;
+  for(int b = 0; b < 6; b++){
+    for(int i = 0; i < 5; i++){
+      g->edges->emplace_back(b*6+i, b*6+i+1);
+    }
+  }
 
-  auto p2 = new Vector<int>(15, *w, MAX_TIMES_SR);
-  int64_t npairs2;
-  Pair<int> * loc_pairs2;
-  p2->read_local(&npairs2, &loc_pairs2);
-  loc_pairs2[0].d = 0;
-  loc_pairs2[1].d = 0;
-  loc_pairs2[2].d = 1;
-  loc_pairs2[3].d = 1;
-  loc_pairs2[4].d = 2;
-  loc_pairs2[5].d = 2;
-  loc_pairs2[6].d = 3;
-  loc_pairs2[7].d = 3;
-  loc_pairs2[8].d = 0;
-  loc_pairs2[9].d = 8;
-  loc_pairs2[10].d = 8;
-  loc_pairs2[11].d = 9;
-  loc_pairs2[12].d = 9;
-  loc_pairs2[13].d = 10;
-  loc_pairs2[14].d = 10;
-  p2->write(npairs2, loc_pairs2);
-  delete [] loc_pairs2;
+  auto A = g->adjacencyMatrix(w);
+  auto p = new Vector<int>(36, *w, MAX_TIMES_SR);
+  init_pvector(p);
+  (*p)["i"] = (*A)["ij"] * (*p)["j"];
 
-  cout << "P" << endl;
+  auto p2 = new Vector<int>(36, *w, MAX_TIMES_SR);
+  init_pvector(p2);
+  (*p2)["i"] = (*A)["ij"] * (*p2)["j"];
+
+  cout << "P" << endl;  
   p->print();
 
   shortcut(*p, *p, *p);
   shortcut2(*p2, *p2, *p2, w);
 
-  cout << "SHORTCUT" << endl;
+  cout << "SHORTCUT P" << endl;
   p->print();
 
-  cout << "SHORTCUT2" << endl;
-  p2->print();
+  shortcut(*p, *p, *p);
+  shortcut(*p2, *p2, *p2);
+
+  cout << "SHORTCUT SHORTCUT P" << endl;
+  p->print();
+
+  //cout << "SHORTCUT P2" << endl;
+  //p2->print();
+
+  int64_t result = are_vectors_different(*p, *p2);
+  if (w->rank == 0) {
+    if (result) {
+      printf("result vectors are different by %ld: FAIL\n", result);
+    }
+    else {
+      printf("result vectors are same: PASS\n");
+    }
+  }
+  
+  delete p;
+  delete p2;
+}
+
+void test_nontriv(World *w) {
+  auto g = new Graph();
+  int n = 40;
+  g->numVertices = n; 
+  for(int b = 0; b < 6; b++){                                                                            
+    for(int i = 0; i < 5; i++){                                                                          
+      g->edges->emplace_back(b*6+i, b*6+i+1);                                                            
+    }                                                                                                    
+  }                                                                                                      
+  g->edges->emplace_back(36, 36); // root
+  g->edges->emplace_back(37, 36); // child of root
+  g->edges->emplace_back(38, 38); // child of root (due to matrix mult)
+  g->edges->emplace_back(39, 39);
+
+  auto A = g->adjacencyMatrix(w);                                                                        
+  auto p = new Vector<int>(n, *w, MAX_TIMES_SR);                                                        
+  init_pvector(p);                                                                                       
+  (*p)["i"] = (*A)["ij"] * (*p)["j"];
+  
+  int64_t npairs;
+  Pair<int> * loc_pairs;
+  /*if (p->is_sparse){                                                                                      
+    //if we have updated only a subset of the vertices                                                   
+    p->get_local_pairs(&npairs, &loc_pairs, true); // FIXME: out of bounds sometimes
+  } else {                                                                                               
+    //if we have potentially updated all the vertices                                                    
+    p->get_local_pairs(&npairs, &loc_pairs); // FIXME: out of bounds sometimes
+  }*/
+  p->get_local_pairs(&npairs, &loc_pairs);
+
+  for (int i = 0; i < npairs; i++) {
+    cout << "loc_pairs[" << i << "].k: " << loc_pairs[i].k << endl;
+    cout << "loc_pairs[" << i << "].d: " << loc_pairs[i].d << endl;
+  }
+
+  /*
+  //p->print();  
+  int * global_roots_num = new int;                                                                      
+  roots_num(npairs, loc_pairs, global_roots_num, w);
+
+  int * global_roots = new int;
+  roots(npairs, loc_pairs, global_roots_num, global_roots, w);
+
+  int * nontriv_num = new int;
+  int * global_nontriv
+  int ** topass = &global_nontriv;
+  nontriv(npairs, loc_pairs, global_roots_num, global_roots, nontriv_num, topass, w);
+
+  Pair<int> * nontriv_loc_pairs = new Pair<int>[*nontriv_num];
+  Pair<int> * remote_pairs = new Pair<int>[*nontriv_num];
+  for (int64_t i = 0; i < *nontriv_num; i++) {
+    int index = global_nontriv[i];
+    Pair<int> loc_pair = loc_pairs[index];
+    nontriv_loc_pairs[i] = loc_pair;
+
+    remote_pairs[i].k = loc_pair.d;
+  }
+
+  for (int i = 0; i < *nontriv_num; i++) {
+    //cout << "nontriv_loc_pairs[" << i << "].k: " << nontriv_loc_pairs[i].k << endl;
+    //cout << "nontriv_loc_pairs[" << i << "].d: " << nontriv_loc_pairs[i].d << endl;
+  }
+
+  //rec_p.read(*nontriv_num, remote_pairs); // TODO: Segmentation fault: 11
+  
+  //for(int64_t i = 0; i < *nontriv_num; i++) {
+  //  nontriv_loc_pairs[i].d = remote_pairs[i].d;
+  //}
+
+  if (w->rank == 0) {
+    //cout << "roots_num: " << *global_roots_num << endl;
+    for (int i = 0; i < *global_roots_num; i++) {
+      //cout << "global_roots[" << i << "]: " << global_roots[i] << endl;
+    }
+
+    //cout << "nontriv_num: " << *nontriv_num << endl;
+    for (int i = 0; i < *nontriv_num; i++) {
+      //cout << "global_nontriv[" << i << "]: " << global_nontriv[i] << endl;
+    }
+
+    for (int i = 0; i < 0; i++) {
+      //cout << "nontriv_loc_pairs[" << i << "].k: " << nontriv_loc_pairs[i].k << endl;
+    } 
+  }
+  */
 }
 
 Matrix<int>* generate_kronecker(World* w, int order)
@@ -492,8 +570,8 @@ int main(int argc, char** argv)
     }
     //test_6Blocks_simply_connected(w);
     //test_batch_subdivide(w);
-    //test_roots_and_children(w);
-    test_shortcut2(w);
+    //test_shortcut2(w);
+    test_nontriv(w);
   }
   return 0;
 }
