@@ -52,7 +52,7 @@ Matrix <wht> preprocess_graph(int           n,
   } else {
     *n_nnz= n;
     A_pre["ii"] = 0;
-    A_pre.print();
+    //A_pre.print();
     return A_pre;
   }
 //  return n_nnz_rc;
@@ -366,7 +366,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
     sv = supervertex_matrix(matSize, A, p, w);
   }
   else {
-    std::vector<float> fracs = {0.25, 0.35, 0.4};
+    std::vector<float> fracs = {0.5, 0.5};
     std::vector<Matrix<int>*> batches = batch_subdivide(*A, fracs);
     sv = p;
     for(Matrix<int>* mat: batches) {
@@ -482,8 +482,6 @@ int main(int argc, char** argv)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
     int64_t matSize = A.nrow; 
-    if (w->rank == 0)
-      printf("matSize = %ld\n",matSize);
     run_connectivity(&A, matSize, w, batch);
   }
   else {
