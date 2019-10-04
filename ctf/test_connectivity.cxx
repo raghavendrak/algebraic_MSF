@@ -334,12 +334,12 @@ void test_nontriv(World *w) {
   roots_num(npairs, loc_pairs, global_roots_num, w);
 
   int * global_roots = new int;
-  roots(npairs, loc_pairs, global_roots_num, global_roots, w);
+  // roots(npairs, loc_pairs, global_roots_num, global_roots, w);
 
   int * nontriv_num = new int;
   int * global_nontriv;
   int ** topass = &global_nontriv;
-  nontriv(npairs, loc_pairs, global_roots_num, global_roots, nontriv_num, topass, w);
+  nontriv(npairs, loc_pairs, global_roots_num, global_roots, w);
 
   Pair<int> * nontriv_loc_pairs = new Pair<int>[*nontriv_num];
   Pair<int> * remote_pairs = new Pair<int>[*nontriv_num];
