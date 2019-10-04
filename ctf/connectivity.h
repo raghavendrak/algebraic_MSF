@@ -63,8 +63,8 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world);
 void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
 void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * world, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
-void roots_num(int64_t npairs, Pair<int> * loc_pairs, int * global_roots_num,  World * world);
-void nontriv(int64_t npairs, Pair<int> * loc_pairs, int * global_roots_num, int * global_roots,  World * world);
+void roots_num(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * global_roots_num,  World * world);
+void triv(int64_t npairs, int loc_roots_num, Pair<int> * loc_pairs, int * global_roots_num, int * global_roots,  World * world);
 
 // FIXME: below functions are yet to be optimized/reviewed
 // ---------------------------
