@@ -269,63 +269,7 @@ void test_shortcut2(World *w) {
   init_pvector(p2);
   (*p2)["i"] = (A)["ij"] * (*p2)["j"];
 
-  cout << "P" << endl;
-  p->print();
-
-  Vector<int> * nonleaves;
-  Vector<int> * nonleaves2;
-  shortcut(*p, *p, *p, &nonleaves, true);
-  shortcut2(*p2, *p2, *p2, w, &nonleaves2, true);
-  
-  //printf("NONLEAVES");
-  //nonleaves->print();
-
-  //printf("NONLEAVES2\n");
-  //nonleaves2->print();  
-
-  cout << "SHORTCUT P" << endl;
-  p->print();
-
-  cout << "SHORTCUT P2" << endl;
-
-  int64_t result = are_vectors_different(*p, *p2);
-  if (w->rank == 0) {
-    if (result) {
-      printf("result vectors are different by %ld: FAIL\n", result);
-    }
-    else {
-      printf("result vectors are same: PASS\n");
-    }
-  }
-  
-  delete p;
-  delete p2;
-}
-
-void test_shortcut2_2(World *w) { // full complete binary tree h = 3
-  auto g = new Graph();
-  g->numVertices = 36;
-  /*for(int b = 0; b < 6; b++){
-    for(int i = 0; i < 5; i++){
-      g->edges->emplace_back(b*6+i, b*6+i+1);
-    }
-  }*/
-  
-  srand((unsigned)time(0));
-  for(int i = 0; i < 36; i++){
-	g->edges->emplace_back(i, rand() % 36);
-  }
-
-  auto A = g->adjacencyMatrix(w);
-  auto p = new Vector<int>(36, *w, MAX_TIMES_SR);
-  init_pvector(p);
-  (*p)["i"] = (*A)["ij"] * (*p)["j"];
-
-  auto p2 = new Vector<int>(36, *w, MAX_TIMES_SR);
-  init_pvector(p2);
-  (*p2)["i"] = (*A)["ij"] * (*p2)["j"];
-
-  cout << "P" << endl;
+  if (w->rank == 0) { printf("P"); }
   p->print();
   
   Vector<int> * nonleaves;
@@ -333,41 +277,28 @@ void test_shortcut2_2(World *w) { // full complete binary tree h = 3
   shortcut(*p, *p, *p, &nonleaves, true);
   shortcut2(*p2, *p2, *p2, w, &nonleaves2, true);
 
-  //if (w->rank == 0) { printf("NONLEAVES"); }
-  //nonleaves->print(); 
-
-  //if (w->rank == 0) { printf("NONLEAVES2"); }
-  //nonleaves2->print();
-
-  cout << "SHORTCUT P" << endl;
-  p->print();
-
-  cout << "SHORTCUT P2" << endl;
-  p2->print();
-
   int64_t result = are_vectors_different(*p, *p2);
   if (w->rank == 0) {
     if (result) {
-      printf("result vectors are different by %ld: FAIL\n", result);
+      printf("result p vectors are different by %ld: FAIL\n", result);
     }
     else {
-      printf("result vectors are same: PASS\n");
+      printf("result p vectors are same: PASS\n");
     }
   }
   
-  /*int64_t result_nonleaves = are_vectors_different(*nonleaves, *nonleaves2);
+  int64_t result_nonleaves = are_vectors_different(*nonleaves, *nonleaves2);
   if (w->rank == 0) {
-    if (result) {
-      printf("result vectors are different by %ld: FAIL\n", result_nonleaves);
+    if (result_nonleaves) {
+      printf("result nonleaves vectors are different by %ld: FAIL\n", result_nonleaves);
     }
     else {
-      printf("result vectors are same: PASS\n");
+      printf("result nonleaves vectors are same: PASS\n");
     }
-  }*/
+  }
   
   delete p;
   delete p2;
-  
 }
 
 Matrix<int>* generate_kronecker(World* w, int order)
@@ -559,7 +490,7 @@ int main(int argc, char** argv)
     }
     //test_6Blocks_simply_connected(w);
     //test_batch_subdivide(w);
-    test_shortcut2_2(w);
+    test_shortcut2(w);
   }
   return 0;
 }

@@ -130,7 +130,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
   int * loc_triv_num = new int;
   roots_num(npairs, loc_pairs, loc_triv_num, triv_num, world);
   
-  if (true || *triv_num < 1000) {
+  if (*triv_num < 1000) {
     int * global_triv = new int[*triv_num];
     triv(npairs, *loc_triv_num, loc_pairs, triv_num, global_triv, world);
     
@@ -139,14 +139,14 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     Pair<int> * nontriv_loc_pairs = new Pair<int>[loc_nontriv_num];
     Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
 	  
-	  int * nontriv_loc_indices = new int[loc_nontriv_num];
+	  int nontriv_loc_indices[loc_nontriv_num];
 	  bool trivial = false;
 	  int k = 0;
 	  for (int i = 0; i < npairs; i++) { // construct nontrivial local indices
 	    for (int j = 0; j < *triv_num; j++) {
 	      if (loc_pairs[i].k == global_triv[j]) {
-			  trivial = true;
-			  break;
+			    trivial = true;
+			    break;
 		  }
 	  } if (!trivial) {
 		    nontriv_loc_indices[k] = i;
@@ -163,23 +163,23 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
 	
     Timer t_shortcut2_read("CONNECTIVITY_Shortcut2_read");
     t_shortcut2_read.start();
-    rec_p.read(loc_nontriv_num, remote_pairs);
+    rec_p.read(loc_nontriv_num, remote_pairs); //obtains rec_p[q[i]]
     t_shortcut2_read.stop();
     for(int64_t i = 0; i < loc_nontriv_num; i++) {
-      nontriv_loc_pairs[i].d = remote_pairs[i].d;
+      nontriv_loc_pairs[i].d = remote_pairs[i].d; 
     }
     
-    for (int64_t i = 0; i < loc_nontriv_num; i++) {
+    for (int64_t i = 0; i < loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
       int nontriv_index = nontriv_loc_indices[i];
-	    loc_pairs[nontriv_index].d = remote_pairs[i].d;
+	    loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
 	  }
     
-    delete [] remote_pairs;
-    p.write(loc_nontriv_num, nontriv_loc_pairs);
+    p.write(loc_nontriv_num, nontriv_loc_pairs); //enter data into p[i]
     
-    delete [] global_triv; // TODO: check for leaks
+    delete [] remote_pairs;
+    delete [] global_triv;
     delete [] nontriv_loc_pairs;
-	t_shortcut.stop();
+    t_shortcut.stop();
   }
   
   else { // original shortcut
@@ -214,6 +214,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
   
   delete [] loc_pairs;
   delete triv_num;
+  delete loc_triv_num;
 }
 
 void roots_num(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * global_roots_num,  World * world) {
@@ -329,8 +330,8 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world);
     delete rec_A;
     //perform one step of shortcutting to update components of leaves
-    //shortcut2(*p, *q, *rec_p, world);
-    shortcut(*p, *q, *rec_p);
+    (*p)["i"] += (*rec_p)["i"];
+    shortcut2(*p, *q, *rec_p, world);
     delete q;
     delete rec_p;
     return p;
