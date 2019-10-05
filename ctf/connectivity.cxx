@@ -84,13 +84,14 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   }
   Timer t_shortcut_read("CONNECTIVITY_Shortcut_read");
   t_shortcut_read.start();
-  rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]] // TODO: replace with basic array management
+  rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
   t_shortcut_read.stop();
   for (int64_t i=0; i<npairs; i++){
     loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
   }
   delete [] remote_pairs;
   p.write(npairs, loc_pairs); //enter data into p[i]
+  
   //prune out leaves
   if (create_nonleaves){
     *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr);
@@ -104,85 +105,116 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
     (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
     (*nonleaves)->sparsify();
   }
+  
   delete [] loc_pairs;
   t_shortcut.stop();
 }
 
 // p[i] = rec_p[q[i]]
 // if create_nonleaves=true, computing non-leaf vertices in parent forest
-void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * world)
+void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
 {
   Timer t_shortcut("CONNECTIVITY_Shortcut");
   t_shortcut.start();
   int64_t npairs;
   Pair<int> * loc_pairs;
-  if (p.is_sparse){
+  if (q.is_sparse){
     //if we have updated only a subset of the vertices
-    p.get_local_pairs(&npairs, &loc_pairs, true);
+    q.get_local_pairs(&npairs, &loc_pairs, true);
   } else {
     //if we have potentially updated all the vertices
-    p.get_local_pairs(&npairs, &loc_pairs);
+    q.get_local_pairs(&npairs, &loc_pairs);
   }
   
-  int * local_roots_num = new int;
-  int * global_roots_num = new int;
-  roots_num(npairs, loc_pairs, local_roots_num, global_roots_num, world);
-
-  if (*global_roots_num < 1000) {
-    int * global_roots = new int[*global_roots_num];
-    roots(npairs, loc_pairs, local_roots_num, global_roots_num, global_roots, world);
+  int * triv_num = new int;
+  int * loc_triv_num = new int;
+  roots_num(npairs, loc_pairs, loc_triv_num, triv_num, world);
+  
+  if (*triv_num < 1000) {
+    int * global_triv = new int[*triv_num];
+    triv(npairs, *loc_triv_num, loc_pairs, triv_num, global_triv, world);
     
-    int * nontriv_num = new int;
-    int * global_nontriv;
-    int ** topass = &global_nontriv; // allocates global_nontriv in nontriv()
-    nontriv(npairs, loc_pairs, global_roots_num, global_roots, nontriv_num, topass, world); // TODO: reconsider with the fact that q is provided
+    int loc_nontriv_num = npairs - (*loc_triv_num);
 
-    cout << "NONTRIV NUM " << *nontriv_num << endl;
-
-    Pair<int> * nontriv_loc_pairs = new Pair<int>[*nontriv_num];
-    Pair<int> * remote_pairs = new Pair<int>[*nontriv_num];
-    for (int64_t i = 0; i < *nontriv_num; i++) {
-      int index = global_nontriv[i];
-      Pair<int> loc_pair = loc_pairs[index];
-      nontriv_loc_pairs[i] = loc_pair;
-
-      remote_pairs[i].k = loc_pair.d;
-    }
+    Pair<int> * nontriv_loc_pairs = new Pair<int>[loc_nontriv_num];
+    Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
+	  
+	  int nontriv_loc_indices[loc_nontriv_num];
+	  bool trivial = false;
+	  int k = 0;
+	  for (int i = 0; i < npairs; i++) { // construct nontrivial local indices
+	    for (int j = 0; j < *triv_num; j++) {
+	      if (loc_pairs[i].k == global_triv[j]) {
+			    trivial = true;
+			    break;
+		  }
+	  } if (!trivial) {
+		    nontriv_loc_indices[k] = i;
+		    k++;
+	    }
+	    trivial = false;
+	  }
+	
+	  for (int i = 0; i < loc_nontriv_num; i++) { // construct nontrivial local pairs
+	    int nontriv_index = nontriv_loc_indices[i];
+	    nontriv_loc_pairs[i] = loc_pairs[nontriv_index];
+	    remote_pairs[i].k = loc_pairs[nontriv_index].d;
+	  }
+	
     Timer t_shortcut2_read("CONNECTIVITY_Shortcut2_read");
     t_shortcut2_read.start();
-    rec_p.read(*nontriv_num, remote_pairs);
+    rec_p.read(loc_nontriv_num, remote_pairs); //obtains rec_p[q[i]]
     t_shortcut2_read.stop();
-    for(int64_t i = 0; i < *nontriv_num; i++) {
-      nontriv_loc_pairs[i].d = remote_pairs[i].d;
+    for(int64_t i = 0; i < loc_nontriv_num; i++) {
+      nontriv_loc_pairs[i].d = remote_pairs[i].d; 
     }
-    p.write(*nontriv_num, nontriv_loc_pairs);
-
-    delete [] global_roots; // TODO: check for leaks
-    delete nontriv_num;
-    delete [] global_nontriv;
-    delete [] nontriv_loc_pairs;
+    
+    for (int64_t i = 0; i < loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
+      int nontriv_index = nontriv_loc_indices[i];
+	    loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
+	  }
+    
+    p.write(loc_nontriv_num, nontriv_loc_pairs); //enter data into p[i]
+    
     delete [] remote_pairs;
+    delete [] global_triv;
+    delete [] nontriv_loc_pairs;
     t_shortcut.stop();
-  } 
+  }
   
-  else {
+  else { // original shortcut
     Pair<int> * remote_pairs = new Pair<int>[npairs];
     for (int64_t i=0; i<npairs; i++) {
 		  remote_pairs[i].k = loc_pairs[i].d;
-    }                                                                                                                               
+    }
     Timer t_shortcut_read("CONNECTIVITY_Shortcut_read");
     t_shortcut_read.start();
     rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
     t_shortcut_read.stop();
     for (int64_t i=0; i<npairs; i++){
-      loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]                                                                        
-    }   
-    p.write(npairs, loc_pairs); //enter data into p[i]          
+      loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
+    }
+    p.write(npairs, loc_pairs); //enter data into p[i]
+
     delete [] remote_pairs;
   }
-
-  delete local_roots_num;
-  delete global_roots_num;
+  
+  //prune out leaves
+  if (create_nonleaves) {
+	  *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
+	  for (int64_t i=0; i<npairs; i++){
+		  loc_pairs[i].k = loc_pairs[i].d;
+		  loc_pairs[i].d = 1;
+	  }
+	  //FIXME: here and above potential optimization is to avoid duplicate queries to parent
+	  (*nonleaves)->write(npairs, loc_pairs);
+	  (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
+	  (*nonleaves)->sparsify();
+  }
+  
+  delete [] loc_pairs;
+  delete triv_num;
+  delete loc_triv_num;
 }
 
 void roots_num(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * global_roots_num,  World * world) {
@@ -193,17 +225,17 @@ void roots_num(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int *
     }
   }
     
-  MPI_Allreduce(loc_roots_num, global_roots_num, 1, MPI_INT, MPI_SUM, world->comm);  
+  MPI_Allreduce(loc_roots_num, global_roots_num, 1, MPI_INT, MPI_SUM, world->comm);
 }
 
-void roots(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * global_roots_num, int * global_roots,  World * world) {
+void triv(int64_t npairs, int loc_roots_num, Pair<int> * loc_pairs, int * global_roots_num, int * global_roots,  World * world) {
   int world_size;
   MPI_Comm_size(world->comm, &world_size);
-  
-  int loc_roots [*loc_roots_num];
+ 
+  int loc_roots [loc_roots_num];
   int j = 0;
   for (int i=0; i<npairs; i++) {
-    // same computation as before, can store in array
+    // same loop as roots_num but would introduce overhead
     Pair<int> loc_pair = loc_pairs[i];
     if (loc_pair.d == loc_pair.k) {
       loc_roots[j] = loc_pair.k;
@@ -212,7 +244,7 @@ void roots(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * glo
   }
 
   int global_roots_nums [world_size];
-  MPI_Allgather(loc_roots_num, 1, MPI_INT, global_roots_nums, 1, MPI_INT, world->comm); // [3, 1, 2, 0, 4]
+  MPI_Allgather(&loc_roots_num, 1, MPI_INT, global_roots_nums, 1, MPI_INT, world->comm); // [3, 1, 2, 0, 4]
 
   // prefix sum
   int displs_roots [world_size];
@@ -222,50 +254,7 @@ void roots(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * glo
     sum_roots += global_roots_nums[i];
   }
 
-  MPI_Allgatherv(loc_roots, *loc_roots_num, MPI_INT, global_roots, global_roots_nums, displs_roots, MPI_INT, world->comm); // [., ., ., ., ., ., ., ., ., ., .]?
-}
-
-void nontriv(int64_t npairs, Pair<int> * loc_pairs, int * global_roots_num, int * global_roots, int * global_nontriv_num, int ** global_nontriv,  World * world) {
-  int world_size;
-  MPI_Comm_size(world->comm, &world_size);
-  
-  int loc_nontriv_num = 0;
-  vector<int> vec;
-  bool root = false;
-
-  for (int i=0; i<npairs; i++) {
-    Pair<int> loc_pair = loc_pairs[i];
-    for (int j=0; j<(*global_roots_num); j++) {
-      if (loc_pair.d == global_roots[j]) {
-        root = true;
-        break;
-      }
-    }
-    if (!root) {
-      loc_nontriv_num++;
-      vec.push_back(loc_pair.k);
-    }
-    root = false;
-  }
-
-  int loc_nontriv[loc_nontriv_num];
-  std::copy(vec.begin(), vec.end(), loc_nontriv);
-
-  MPI_Allreduce(&loc_nontriv_num, global_nontriv_num, 1, MPI_INT, MPI_SUM, world->comm);
-
-  int global_nontriv_nums [world_size];
-  MPI_Allgather(&loc_nontriv_num, 1, MPI_INT, global_nontriv_nums, 1, MPI_INT, world->comm);
-
-  // prefix sum
-  int displs [world_size];
-  int sum = 0;
-  for (int i=0; i<world_size; i++) {
-    displs[i] = sum;
-    sum += global_nontriv_nums[i];
-  }
-  
-  *global_nontriv = new int[*global_nontriv_num];
-  MPI_Allgatherv(loc_nontriv, loc_nontriv_num, MPI_INT, *global_nontriv, global_nontriv_nums, displs, MPI_INT, world->comm);
+  MPI_Allgatherv(loc_roots, loc_roots_num, MPI_INT, global_roots, global_roots_nums, displs_roots, MPI_INT, world->comm); // [., ., ., ., ., ., ., ., ., ., .]?
 }
 
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
@@ -332,8 +321,7 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     return p;
   } else {
     //compute shortcutting q[i] = q[q[i]], obtain nonleaves or roots (FIXME: can we also remove roots that are by themselves?)
-    shortcut(*q, *q, *q, &nonleaves, true);
-    //shortcut2(*q, *q, *q, world);
+    shortcut2(*q, *q, *q, world, &nonleaves, true);
     if (p->wrld->rank == 0)
       printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
     //project to reduced graph with all vertices
@@ -342,8 +330,8 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world);
     delete rec_A;
     //perform one step of shortcutting to update components of leaves
-    shortcut(*p, *q, *rec_p); 
-    //shortcut2(*p, *q, *rec_p, world);
+    (*p)["i"] += (*rec_p)["i"];
+    shortcut2(*p, *q, *rec_p, world);
     delete q;
     delete rec_p;
     return p;
@@ -372,7 +360,6 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
     shortcut(*p, *p, *p);
-    //shortcut2(*p, *p, *p);
 
     while (are_vectors_different(*pi, *p)){
       delete pi;

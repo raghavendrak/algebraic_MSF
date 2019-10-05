@@ -1,6 +1,5 @@
 #include "connectivity.h"
 
-
 Matrix <wht> preprocess_graph(int           n,
                               World &       dw,
                               Matrix<wht> & A_pre,
@@ -245,62 +244,61 @@ void test_batch_subdivide(World *w)
   **/
 }
 
-void test_shortcut2(World *w) { // full complete binary tree h = 3, bad numbering
-  auto p = new Vector<int>(15, *w, MAX_TIMES_SR);  
-  int64_t npairs;
-  Pair<int> * loc_pairs;
-  p->read_local(&npairs, &loc_pairs);
-  loc_pairs[0].d = 0;
-  loc_pairs[1].d = 0;
-  loc_pairs[2].d = 1;
-  loc_pairs[3].d = 1;
-  loc_pairs[4].d = 2;
-  loc_pairs[5].d = 2;
-  loc_pairs[6].d = 3;
-  loc_pairs[7].d = 3;
-  loc_pairs[8].d = 0;
-  loc_pairs[9].d = 8;
-  loc_pairs[10].d = 8;
-  loc_pairs[11].d = 9;
-  loc_pairs[12].d = 9;
-  loc_pairs[13].d = 10;
-  loc_pairs[14].d = 10;
-  p->write(npairs, loc_pairs);
-  delete [] loc_pairs;
+void test_shortcut2(World *w) {
+  int scale = 10;
+  int ef = 8;
+  uint64_t myseed;
+  int prep = 0;
+  int n_nnz = 0;
+  myseed = SEED;
+  int max_ewht;
+  int batch = 0;
 
-  auto p2 = new Vector<int>(15, *w, MAX_TIMES_SR);
-  int64_t npairs2;
-  Pair<int> * loc_pairs2;
-  p2->read_local(&npairs2, &loc_pairs2);
-  loc_pairs2[0].d = 0;
-  loc_pairs2[1].d = 0;
-  loc_pairs2[2].d = 1;
-  loc_pairs2[3].d = 1;
-  loc_pairs2[4].d = 2;
-  loc_pairs2[5].d = 2;
-  loc_pairs2[6].d = 3;
-  loc_pairs2[7].d = 3;
-  loc_pairs2[8].d = 0;
-  loc_pairs2[9].d = 8;
-  loc_pairs2[10].d = 8;
-  loc_pairs2[11].d = 9;
-  loc_pairs2[12].d = 9;
-  loc_pairs2[13].d = 10;
-  loc_pairs2[14].d = 10;
-  p2->write(npairs2, loc_pairs2);
-  delete [] loc_pairs2;
+  if (w->rank == 0)
+    printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
+  Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+  int64_t matSize = A.nrow;
+  if (w->rank == 0)
+    printf("matSize = %ld\n",matSize);
 
-  cout << "P" << endl;
+  auto p = new Vector<int>(100, *w, MAX_TIMES_SR);
+  init_pvector(p);
+  (*p)["i"] = (A)["ij"] * (*p)["j"];
+
+  auto p2 = new Vector<int>(100, *w, MAX_TIMES_SR);
+  init_pvector(p2);
+  (*p2)["i"] = (A)["ij"] * (*p2)["j"];
+
+  if (w->rank == 0) { printf("P"); }
   p->print();
+  
+  Vector<int> * nonleaves;
+  Vector<int> * nonleaves2;
+  shortcut(*p, *p, *p, &nonleaves, true);
+  shortcut2(*p2, *p2, *p2, w, &nonleaves2, true);
 
-  shortcut(*p, *p, *p);
-  shortcut2(*p2, *p2, *p2, w);
-
-  cout << "SHORTCUT" << endl;
-  p->print();
-
-  cout << "SHORTCUT2" << endl;
-  p2->print();
+  int64_t result = are_vectors_different(*p, *p2);
+  if (w->rank == 0) {
+    if (result) {
+      printf("result p vectors are different by %ld: FAIL\n", result);
+    }
+    else {
+      printf("result p vectors are same: PASS\n");
+    }
+  }
+  
+  int64_t result_nonleaves = are_vectors_different(*nonleaves, *nonleaves2);
+  if (w->rank == 0) {
+    if (result_nonleaves) {
+      printf("result nonleaves vectors are different by %ld: FAIL\n", result_nonleaves);
+    }
+    else {
+      printf("result nonleaves vectors are same: PASS\n");
+    }
+  }
+  
+  delete p;
+  delete p2;
 }
 
 Matrix<int>* generate_kronecker(World* w, int order)
@@ -490,7 +488,6 @@ int main(int argc, char** argv)
     }
     //test_6Blocks_simply_connected(w);
     //test_batch_subdivide(w);
-    //test_roots_and_children(w);
     test_shortcut2(w);
   }
   return 0;
@@ -573,4 +570,5 @@ void test_6Blocks_fully_connected(World *w)
   A->print_matrix();
   hook(g, w)->print();
 }
+
 //-----------------------------------------------------------
