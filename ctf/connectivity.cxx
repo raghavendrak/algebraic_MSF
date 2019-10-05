@@ -91,7 +91,20 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   }
   delete [] remote_pairs;
   p.write(npairs, loc_pairs); //enter data into p[i]
+  
   //prune out leaves
+  if (create_nonleaves){
+    *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr);
+    //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
+    for (int64_t i=0; i<npairs; i++){
+      loc_pairs[i].k = loc_pairs[i].d;
+      loc_pairs[i].d = 1;
+    }
+    //FIXME: here and above potential optimization is to avoid duplicate queries to parent
+    (*nonleaves)->write(npairs, loc_pairs);
+    (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
+    (*nonleaves)->sparsify();
+  }
   
   delete [] loc_pairs;
   t_shortcut.stop();
@@ -123,34 +136,31 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     
     int loc_nontriv_num = npairs - (*loc_triv_num);
 
-	Pair<int> * triv_loc_pairs = new Pair<int>[*loc_triv_num];
     Pair<int> * nontriv_loc_pairs = new Pair<int>[loc_nontriv_num];
     Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
-
-	int k = 0;
-	int m = 0;
-	bool trivial = false;
-	  for (int i = 0; i < npairs; i++) { // adds nontrivial nodes to nontriv_loc_pairs
-	    auto loc_pair = loc_pairs[i];
+	  
+	  int * nontriv_loc_indices = new int[loc_nontriv_num];
+	  bool trivial = false;
+	  int k = 0;
+	  for (int i = 0; i < npairs; i++) { // construct nontrivial local indices
 	    for (int j = 0; j < *triv_num; j++) {
-		    if (loc_pair.k == global_triv[j]) {
-		      trivial = true;
-			    //triv_loc_pairs[m] = loc_pair;
-			    //m++;
-		      break;
-		    }
-	    } if (!trivial) {
-			nontriv_loc_pairs[k] = loc_pair;
-			remote_pairs[k].k = loc_pair.d;
-			k++;
-		}
-		trivial = false;
+	      if (loc_pairs[i].k == global_triv[j]) {
+			  trivial = true;
+			  break;
+		  }
+	  } if (!trivial) {
+		    nontriv_loc_indices[k] = i;
+		    k++;
+	    }
+	    trivial = false;
 	  }
-
-    //for (int i = 0; i < *triv_num; i++) {
-    //  printf("triv_loc_pairs[%d]: %d", i, triv_loc_pairs[i].d);
-    //}
-
+	
+	  for (int i = 0; i < loc_nontriv_num; i++) { // construct nontrivial local pairs
+	    int nontriv_index = nontriv_loc_indices[i];
+	    nontriv_loc_pairs[i] = loc_pairs[nontriv_index];
+	    remote_pairs[i].k = loc_pairs[nontriv_index].d;
+	  }
+	
     Timer t_shortcut2_read("CONNECTIVITY_Shortcut2_read");
     t_shortcut2_read.start();
     rec_p.read(loc_nontriv_num, remote_pairs);
@@ -158,24 +168,18 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     for(int64_t i = 0; i < loc_nontriv_num; i++) {
       nontriv_loc_pairs[i].d = remote_pairs[i].d;
     }
+    
+    for (int64_t i = 0; i < loc_nontriv_num; i++) {
+      int nontriv_index = nontriv_loc_indices[i];
+	    loc_pairs[nontriv_index].d = remote_pairs[i].d;
+	  }
+    
     delete [] remote_pairs;
     p.write(loc_nontriv_num, nontriv_loc_pairs);
     
-	/*if (create_nonleaves) {
-		*nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
-		for (int64_t i=0; i<*triv_num; i++){
-			triv_loc_pairs[i].k = triv_loc_pairs[i].d;
-			triv_loc_pairs[i].d = 1;
-		}
-		//FIXME: here and above potential optimization is to avoid duplicate queries to parent
-		(*nonleaves)->write(*triv_num, triv_loc_pairs);
-		(*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
-		(*nonleaves)->sparsify();
-	}*/
-    
     delete [] global_triv; // TODO: check for leaks
     delete [] nontriv_loc_pairs;
-    t_shortcut.stop();
+	t_shortcut.stop();
   }
   
   else { // original shortcut
@@ -325,7 +329,8 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world);
     delete rec_A;
     //perform one step of shortcutting to update components of leaves
-    shortcut2(*p, *q, *rec_p, world);
+    //shortcut2(*p, *q, *rec_p, world);
+    shortcut(*p, *q, *rec_p);
     delete q;
     delete rec_p;
     return p;
@@ -350,10 +355,10 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
     //auto P = pMatrix(p, world);
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
     //(*s)["i"] = (*P)["ji"] * (*r)["j"];
-    shortcut2(*s, *r, *p, world);
+    shortcut(*s, *r, *p);
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
-    shortcut2(*p, *p, *p, world);
+    shortcut(*p, *p, *p);
 
     while (are_vectors_different(*pi, *p)){
       delete pi;
