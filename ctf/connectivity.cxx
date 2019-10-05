@@ -92,18 +92,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   delete [] remote_pairs;
   p.write(npairs, loc_pairs); //enter data into p[i]
   //prune out leaves
-  if (create_nonleaves){
-    *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr);
-    //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
-    for (int64_t i=0; i<npairs; i++){
-      loc_pairs[i].k = loc_pairs[i].d;
-      loc_pairs[i].d = 1;
-    }
-    //FIXME: here and above potential optimization is to avoid duplicate queries to parent
-    (*nonleaves)->write(npairs, loc_pairs);
-    (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
-    (*nonleaves)->sparsify();
-  }
+  
   delete [] loc_pairs;
   t_shortcut.stop();
 }
@@ -127,33 +116,41 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
   int * triv_num = new int;
   int * loc_triv_num = new int;
   roots_num(npairs, loc_pairs, loc_triv_num, triv_num, world);
-
+  
   if (true || *triv_num < 1000) {
     int * global_triv = new int[*triv_num];
     triv(npairs, *loc_triv_num, loc_pairs, triv_num, global_triv, world);
     
     int loc_nontriv_num = npairs - (*loc_triv_num);
 
+	Pair<int> * triv_loc_pairs = new Pair<int>[*loc_triv_num];
     Pair<int> * nontriv_loc_pairs = new Pair<int>[loc_nontriv_num];
     Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
 
-	  int k = 0;
-    bool trivial = false;
+	int k = 0;
+	int m = 0;
+	bool trivial = false;
 	  for (int i = 0; i < npairs; i++) { // adds nontrivial nodes to nontriv_loc_pairs
 	    auto loc_pair = loc_pairs[i];
 	    for (int j = 0; j < *triv_num; j++) {
 		    if (loc_pair.k == global_triv[j]) {
 		      trivial = true;
+			    //triv_loc_pairs[m] = loc_pair;
+			    //m++;
 		      break;
 		    }
 	    } if (!trivial) {
-        nontriv_loc_pairs[k] = loc_pair;
-        remote_pairs[k].k = loc_pair.d;
-        k++;
-      }
-      trivial = false;
+			nontriv_loc_pairs[k] = loc_pair;
+			remote_pairs[k].k = loc_pair.d;
+			k++;
+		}
+		trivial = false;
 	  }
-    
+
+    //for (int i = 0; i < *triv_num; i++) {
+    //  printf("triv_loc_pairs[%d]: %d", i, triv_loc_pairs[i].d);
+    //}
+
     Timer t_shortcut2_read("CONNECTIVITY_Shortcut2_read");
     t_shortcut2_read.start();
     rec_p.read(loc_nontriv_num, remote_pairs);
@@ -163,6 +160,18 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     }
     delete [] remote_pairs;
     p.write(loc_nontriv_num, nontriv_loc_pairs);
+    
+	/*if (create_nonleaves) {
+		*nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
+		for (int64_t i=0; i<*triv_num; i++){
+			triv_loc_pairs[i].k = triv_loc_pairs[i].d;
+			triv_loc_pairs[i].d = 1;
+		}
+		//FIXME: here and above potential optimization is to avoid duplicate queries to parent
+		(*nonleaves)->write(*triv_num, triv_loc_pairs);
+		(*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
+		(*nonleaves)->sparsify();
+	}*/
     
     delete [] global_triv; // TODO: check for leaks
     delete [] nontriv_loc_pairs;
@@ -182,21 +191,21 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
       loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
     }
     p.write(npairs, loc_pairs); //enter data into p[i]
-	
+
     delete [] remote_pairs;
   }
   
   //prune out leaves
   if (create_nonleaves) {
-	*nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
-	for (int64_t i=0; i<npairs; i++){
-		loc_pairs[i].k = loc_pairs[i].d;
-		loc_pairs[i].d = 1;
-	}
-	//FIXME: here and above potential optimization is to avoid duplicate queries to parent
-	(*nonleaves)->write(npairs, loc_pairs);
-	(*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
-	(*nonleaves)->sparsify();
+	  *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
+	  for (int64_t i=0; i<npairs; i++){
+		  loc_pairs[i].k = loc_pairs[i].d;
+		  loc_pairs[i].d = 1;
+	  }
+	  //FIXME: here and above potential optimization is to avoid duplicate queries to parent
+	  (*nonleaves)->write(npairs, loc_pairs);
+	  (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
+	  (*nonleaves)->sparsify();
   }
   
   delete [] loc_pairs;

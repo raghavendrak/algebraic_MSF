@@ -244,37 +244,49 @@ void test_batch_subdivide(World *w)
   **/
 }
 
-void test_shortcut2(World *w) { // full complete binary tree h = 3
-  auto g = new Graph();
-  g->numVertices = 36;
-  for(int b = 0; b < 6; b++){
-    for(int i = 0; i < 5; i++){
-      g->edges->emplace_back(b*6+i, b*6+i+1);
-    }
-  }
+void test_shortcut2(World *w) {
+  int scale = 10;
+  int ef = 8;
+  uint64_t myseed;
+  int prep = 0;
+  int n_nnz = 0;
+  myseed = SEED;
+  int max_ewht;
+  int batch = 0;
 
-  auto A = g->adjacencyMatrix(w);
-  auto p = new Vector<int>(36, *w, MAX_TIMES_SR);
+  if (w->rank == 0)
+    printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
+  Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+  int64_t matSize = A.nrow;
+  if (w->rank == 0)
+    printf("matSize = %ld\n",matSize);
+
+  auto p = new Vector<int>(100, *w, MAX_TIMES_SR);
   init_pvector(p);
-  (*p)["i"] = (*A)["ij"] * (*p)["j"];
+  (*p)["i"] = (A)["ij"] * (*p)["j"];
 
-  auto p2 = new Vector<int>(36, *w, MAX_TIMES_SR);
+  auto p2 = new Vector<int>(100, *w, MAX_TIMES_SR);
   init_pvector(p2);
-  (*p2)["i"] = (*A)["ij"] * (*p2)["j"];
+  (*p2)["i"] = (A)["ij"] * (*p2)["j"];
 
-  cout << "P" << endl;  
+  cout << "P" << endl;
   p->print();
 
-  shortcut(*p, *p, *p);
-  shortcut2(*p2, *p2, *p2, w);
+  Vector<int> * nonleaves;
+  Vector<int> * nonleaves2;
+  shortcut(*p, *p, *p, &nonleaves, true);
+  shortcut2(*p2, *p2, *p2, w, &nonleaves2, true);
+  
+  //printf("NONLEAVES");
+  //nonleaves->print();
+
+  //printf("NONLEAVES2\n");
+  //nonleaves2->print();  
 
   cout << "SHORTCUT P" << endl;
   p->print();
 
   cout << "SHORTCUT P2" << endl;
-
-  shortcut(*p, *p, *p);
-  shortcut(*p2, *p2, *p2);
 
   int64_t result = are_vectors_different(*p, *p2);
   if (w->rank == 0) {
@@ -288,6 +300,74 @@ void test_shortcut2(World *w) { // full complete binary tree h = 3
   
   delete p;
   delete p2;
+}
+
+void test_shortcut2_2(World *w) { // full complete binary tree h = 3
+  auto g = new Graph();
+  g->numVertices = 36;
+  /*for(int b = 0; b < 6; b++){
+    for(int i = 0; i < 5; i++){
+      g->edges->emplace_back(b*6+i, b*6+i+1);
+    }
+  }*/
+  
+  srand((unsigned)time(0));
+  for(int i = 0; i < 36; i++){
+	g->edges->emplace_back(i, rand() % 36);
+  }
+
+  auto A = g->adjacencyMatrix(w);
+  auto p = new Vector<int>(36, *w, MAX_TIMES_SR);
+  init_pvector(p);
+  (*p)["i"] = (*A)["ij"] * (*p)["j"];
+
+  auto p2 = new Vector<int>(36, *w, MAX_TIMES_SR);
+  init_pvector(p2);
+  (*p2)["i"] = (*A)["ij"] * (*p2)["j"];
+
+  cout << "P" << endl;
+  p->print();
+  
+  Vector<int> * nonleaves;
+  Vector<int> * nonleaves2;
+  shortcut(*p, *p, *p, &nonleaves, true);
+  shortcut2(*p2, *p2, *p2, w, &nonleaves2, true);
+
+  //if (w->rank == 0) { printf("NONLEAVES"); }
+  //nonleaves->print(); 
+
+  //if (w->rank == 0) { printf("NONLEAVES2"); }
+  //nonleaves2->print();
+
+  cout << "SHORTCUT P" << endl;
+  p->print();
+
+  cout << "SHORTCUT P2" << endl;
+  p2->print();
+
+  int64_t result = are_vectors_different(*p, *p2);
+  if (w->rank == 0) {
+    if (result) {
+      printf("result vectors are different by %ld: FAIL\n", result);
+    }
+    else {
+      printf("result vectors are same: PASS\n");
+    }
+  }
+  
+  /*int64_t result_nonleaves = are_vectors_different(*nonleaves, *nonleaves2);
+  if (w->rank == 0) {
+    if (result) {
+      printf("result vectors are different by %ld: FAIL\n", result_nonleaves);
+    }
+    else {
+      printf("result vectors are same: PASS\n");
+    }
+  }*/
+  
+  delete p;
+  delete p2;
+  
 }
 
 Matrix<int>* generate_kronecker(World* w, int order)
@@ -479,7 +559,7 @@ int main(int argc, char** argv)
     }
     //test_6Blocks_simply_connected(w);
     //test_batch_subdivide(w);
-    test_shortcut2(w);
+    test_shortcut2_2(w);
   }
   return 0;
 }
@@ -561,4 +641,5 @@ void test_6Blocks_fully_connected(World *w)
   A->print_matrix();
   hook(g, w)->print();
 }
+
 //-----------------------------------------------------------
