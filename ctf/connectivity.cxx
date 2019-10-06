@@ -117,7 +117,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
   Timer t_shortcut("CONNECTIVITY_Shortcut");
   t_shortcut.start();
   int64_t npairs;
-  Pair<int> * loc_pairs;
+  Pair<int64_t> * loc_pairs;
   if (q.is_sparse){
     //if we have updated only a subset of the vertices
     q.get_local_pairs(&npairs, &loc_pairs, true);
@@ -126,24 +126,24 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     q.get_local_pairs(&npairs, &loc_pairs);
   }
   
-  int * triv_num = new int;
-  int * loc_triv_num = new int;
+  int64_t * triv_num = new int64_t;
+  int64_t * loc_triv_num = new int64_t;
   roots_num(npairs, loc_pairs, loc_triv_num, triv_num, world);
   
   if (*triv_num < 1000) {
-    int * global_triv = new int[*triv_num];
+    int64_t * global_triv = new int64_t[*triv_num];
     triv(npairs, *loc_triv_num, loc_pairs, triv_num, global_triv, world);
     
-    int loc_nontriv_num = npairs - (*loc_triv_num);
+    int64_t loc_nontriv_num = npairs - (*loc_triv_num);
 
-    Pair<int> * nontriv_loc_pairs = new Pair<int>[loc_nontriv_num];
-    Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
+    Pair<int64_t> * nontriv_loc_pairs = new Pair<int64_t>[loc_nontriv_num];
+    Pair<int64_t> * remote_pairs = new Pair<int64_t>[loc_nontriv_num];
 	  
-	  int nontriv_loc_indices[loc_nontriv_num];
+	  int64_t nontriv_loc_indices[loc_nontriv_num];
 	  bool trivial = false;
-	  int k = 0;
-	  for (int i = 0; i < npairs; i++) { // construct nontrivial local indices
-	    for (int j = 0; j < *triv_num; j++) {
+	  int64_t k = 0;
+	  for (int64_t i = 0; i < npairs; i++) { // construct nontrivial local indices
+	    for (int64_t j = 0; j < *triv_num; j++) {
 	      if (loc_pairs[i].k == global_triv[j]) {
 			    trivial = true;
 			    break;
@@ -155,8 +155,8 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
 	    trivial = false;
 	  }
 	
-	  for (int i = 0; i < loc_nontriv_num; i++) { // construct nontrivial local pairs
-	    int nontriv_index = nontriv_loc_indices[i];
+	  for (int64_t i = 0; i < loc_nontriv_num; i++) { // construct nontrivial local pairs
+	    int64_t nontriv_index = nontriv_loc_indices[i];
 	    nontriv_loc_pairs[i] = loc_pairs[nontriv_index];
 	    remote_pairs[i].k = loc_pairs[nontriv_index].d;
 	  }
@@ -170,7 +170,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     }
     
     for (int64_t i = 0; i < loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
-      int nontriv_index = nontriv_loc_indices[i];
+      int64_t nontriv_index = nontriv_loc_indices[i];
 	    loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
 	  }
     
@@ -183,7 +183,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
   }
   
   else { // original shortcut
-    Pair<int> * remote_pairs = new Pair<int>[npairs];
+    Pair<int64_t> * remote_pairs = new Pair<int64_t>[npairs];
     for (int64_t i=0; i<npairs; i++) {
 		  remote_pairs[i].k = loc_pairs[i].d;
     }
@@ -356,15 +356,18 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
     //auto P = pMatrix(p, world);
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
     //(*s)["i"] = (*P)["ji"] * (*r)["j"];
-    shortcut(*s, *r, *p);
+    //shortcut(*s, *r, *p);
+    shortcut2(*s, *r, *p, world);
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
-    shortcut(*p, *p, *p);
+    //shortcut(*p, *p, *p); 
+    shortcut2(*p, *p, *p, world);
 
     while (are_vectors_different(*pi, *p)){
       delete pi;
       pi = new Vector<int>(*p);
-      shortcut(*p, *p, *p);
+      //shortcut(*p, *p, *p);
+      shortcut2(*p, *p, *p, world);
     }
     delete pi;
 
