@@ -46,7 +46,7 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
   */
   // FIXME: below is not benchmarked, nor sure if this is the right way of doing it
   int64_t n = p->len;
-  auto A = new Matrix<int>(n, n, SP, *world, MAX_TIMES_SR);
+  auto A = new Matrix<int>(n, n, SP|SY, *world, MAX_TIMES_SR);
   int64_t npairs;
   Pair<int> * loc_pairs;
   p->read_local(&npairs, &loc_pairs);

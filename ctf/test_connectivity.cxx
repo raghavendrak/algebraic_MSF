@@ -368,7 +368,11 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
     std::vector<float> fracs = {0.5, 0.5};
     std::vector<Matrix<int>*> batches = batch_subdivide(*A, fracs);
     sv = p;
+    bool st = true;
     for(Matrix<int>* mat: batches) {
+      if (!st)
+        mat->operator[]("ij") += pMatrix(sv, sv->wrld)->operator[]("ij");
+      st = false;
       sv = supervertex_matrix(matSize, mat, sv, w);
     }
   }
