@@ -179,7 +179,6 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     delete [] remote_pairs;
     delete [] global_triv;
     delete [] nontriv_loc_pairs;
-    t_shortcut.stop();
   }
   
   else { // original shortcut
@@ -211,6 +210,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
 	  (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
 	  (*nonleaves)->sparsify();
   }
+  t_shortcut.stop();
   
   delete [] loc_pairs;
   delete triv_num;

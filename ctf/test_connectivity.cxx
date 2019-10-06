@@ -343,12 +343,19 @@ Matrix<int>* generate_kronecker(World* w, int order)
 void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
 {
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
+  double stime;
+  double etime;
   auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(pg);
   Scalar<int64_t> count(*w);
   Timer_epoch thm("hook_matrix");
   thm.begin();
+  stime = MPI_Wtime();
   auto hm = hook_matrix(matSize, A, w);
+  etime = MPI_Wtime();
+  if (w->rank == 0) {
+    printf("Time for hook_matrix(): %1.2lf\n", (etime - stime));
+  }
   thm.end();
   count[""] += Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
   int64_t cnt = count.get_val();
@@ -361,6 +368,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
   Timer_epoch tsv("super_vertex");
   tsv.begin();
   Vector<int>* sv;
+  stime = MPI_Wtime();
   if (batch == 0) {
     sv = supervertex_matrix(matSize, A, p, w);
   }
@@ -375,6 +383,10 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
       st = false;
       sv = supervertex_matrix(matSize, mat, sv, w);
     }
+  }
+  etime = MPI_Wtime();
+  if (w->rank == 0) {
+    printf("Time for supervertex_matrix(): %1.2lf\n", (etime - stime));
   }
   tsv.end();
   count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], sv->operator[]("i"));
