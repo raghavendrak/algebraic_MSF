@@ -342,6 +342,7 @@ Matrix<int>* generate_kronecker(World* w, int order)
 
 void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
 {
+  matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(pg);
   Scalar<int64_t> count(*w);

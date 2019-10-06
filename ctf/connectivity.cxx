@@ -125,9 +125,9 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
     //if we have potentially updated all the vertices
     q.get_local_pairs(&npairs, &loc_pairs);
   }
-  
-  int * triv_num = new int;
-  int * loc_triv_num = new int;
+ 
+  int64_t * triv_num = new int64_t;
+  int64_t * loc_triv_num = new int64_t;
   roots_num(npairs, loc_pairs, loc_triv_num, triv_num, world);
   
   if (*triv_num < 1000) {
@@ -217,24 +217,25 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
   delete loc_triv_num;
 }
 
-void roots_num(int64_t npairs, Pair<int> * loc_pairs, int * loc_roots_num, int * global_roots_num,  World * world) {
-  for (int i=0; i<npairs; i++) {
+void roots_num(int64_t npairs, Pair<int> * loc_pairs, int64_t * loc_roots_num, int64_t * global_roots_num,  World * world) {
+  *loc_roots_num = 0;
+  for (int64_t i = 0; i < npairs; i++) {
     Pair<int> loc_pair = loc_pairs[i];
     if (loc_pair.d == loc_pair.k) {
       (*loc_roots_num)++;
     }
   }
     
-  MPI_Allreduce(loc_roots_num, global_roots_num, 1, MPI_INT, MPI_SUM, world->comm);
+  MPI_Allreduce(loc_roots_num, global_roots_num, 1, MPI_LONG_LONG, MPI_SUM, world->comm);
 }
 
-void triv(int64_t npairs, int loc_roots_num, Pair<int> * loc_pairs, int * global_roots_num, int * global_roots,  World * world) {
+void triv(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int64_t * global_roots_num, int * global_roots,  World * world) {
   int world_size;
   MPI_Comm_size(world->comm, &world_size);
  
   int loc_roots [loc_roots_num];
-  int j = 0;
-  for (int i=0; i<npairs; i++) {
+  int64_t j = 0;
+  for (int64_t i=0; i<npairs; i++) {
     // same loop as roots_num but would introduce overhead
     Pair<int> loc_pair = loc_pairs[i];
     if (loc_pair.d == loc_pair.k) {
@@ -248,8 +249,8 @@ void triv(int64_t npairs, int loc_roots_num, Pair<int> * loc_pairs, int * global
 
   // prefix sum
   int displs_roots [world_size];
-  int sum_roots = 0;
-  for (int i=0; i<world_size; i++) {
+  int64_t sum_roots = 0;
+  for (int64_t i=0; i<world_size; i++) {
     displs_roots[i] = sum_roots;
     sum_roots += global_roots_nums[i];
   }
