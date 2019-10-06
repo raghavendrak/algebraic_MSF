@@ -209,7 +209,9 @@ void test_6Blocks_simply_connected(World *w)
   int matSize = 36;
   auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(p);
-  supervertex_matrix(matSize, A, p, w)->print();
+
+  int sc2 = 0;
+  supervertex_matrix(matSize, A, p, w, sc2)->print();
 }
 
 void test_batch_subdivide(World *w)
@@ -252,7 +254,8 @@ void test_shortcut2(World *w) {
   int n_nnz = 0;
   myseed = SEED;
   int max_ewht;
-  int batch = 0;
+  //int batch = 0;
+  int sc2 = 0;
 
   if (w->rank == 0)
     printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
@@ -275,7 +278,7 @@ void test_shortcut2(World *w) {
   Vector<int> * nonleaves;
   Vector<int> * nonleaves2;
   shortcut(*p, *p, *p, &nonleaves, true);
-  shortcut2(*p2, *p2, *p2, w, &nonleaves2, true);
+  shortcut2(*p2, *p2, *p2, sc2, w, &nonleaves2, true);
 
   int64_t result = are_vectors_different(*p, *p2);
   if (w->rank == 0) {
@@ -340,7 +343,7 @@ Matrix<int>* generate_kronecker(World* w, int order)
   return B;
 }
 
-void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
+void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int shortcut)
 {
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   double stime;
@@ -369,11 +372,15 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
   tsv.begin();
   Vector<int>* sv;
   stime = MPI_Wtime();
-  if (batch == 0) {
-    sv = supervertex_matrix(matSize, A, p, w);
+  if (batch == 1) {
+    sv = supervertex_matrix(matSize, A, p, w, shortcut);
   }
   else {
-    std::vector<float> fracs = {0.5, 0.5};
+    std::vector<float> fracs;
+    float frac = 1.0f / batch;
+    for (int i=0; i<batch; i++) {
+      fracs.push_back(frac);
+    }
     std::vector<Matrix<int>*> batches = batch_subdivide(*A, fracs);
     sv = p;
     bool st = true;
@@ -381,7 +388,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch)
       if (!st)
         mat->operator[]("ij") += pMatrix(sv, sv->wrld)->operator[]("ij");
       st = false;
-      sv = supervertex_matrix(matSize, mat, sv, w);
+      sv = supervertex_matrix(matSize, mat, sv, w, shortcut);
     }
   }
   etime = MPI_Wtime();
@@ -436,6 +443,7 @@ int main(int argc, char** argv)
   int ef;
   int prep;
   int batch;
+  int sc2;
 
   int k;
   if (getCmdOption(input_str, input_str+in_num, "-k")) {
@@ -469,8 +477,11 @@ int main(int argc, char** argv)
   } else prep = 0;
   if (getCmdOption(input_str, input_str+in_num, "-batch")){
     batch = atoll(getCmdOption(input_str, input_str+in_num, "-batch"));
-    if (batch != 1) batch = 0;
-  } else batch = 0;
+    if (batch <= 0) batch = 1;
+  } else batch = 1;
+  if (getCmdOption(input_str, input_str+in_num, "-shortcut")){
+    sc2 = atoll(getCmdOption(input_str, input_str+in_num, "-shortcut"));
+  } else sc2 = 0;
 
   if (gfile != NULL){
     int n_nnz = 0;
@@ -478,7 +489,7 @@ int main(int argc, char** argv)
       printf("Reading real graph n = %lld\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
     // A.print_matrix();
-    run_connectivity(&A, n, w, batch);
+    run_connectivity(&A, n, w, batch, sc2);
   }
   else if (k != -1) {
     int64_t matSize = pow(3, k);
@@ -487,7 +498,7 @@ int main(int argc, char** argv)
     if (w->rank == 0) {
       printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
     }
-    run_connectivity(B, matSize, w, batch);
+    run_connectivity(B, matSize, w, batch, sc2);
     delete B;
   }
   else if (scale > 0 && ef > 0){
@@ -497,7 +508,7 @@ int main(int argc, char** argv)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
     int64_t matSize = A.nrow; 
-    run_connectivity(&A, matSize, w, batch);
+    run_connectivity(&A, matSize, w, batch, sc2);
   }
   else {
     if (w->rank == 0) {

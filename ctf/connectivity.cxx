@@ -112,8 +112,13 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
 
 // p[i] = rec_p[q[i]]
 // if create_nonleaves=true, computing non-leaf vertices in parent forest
-void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
+void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
 {
+  if (!sc2) { // run unoptimized shortcut
+    shortcut(p, q, rec_p, nonleaves, create_nonleaves);
+    return;
+  }
+
   Timer t_shortcut("CONNECTIVITY_Shortcut");
   t_shortcut.start();
   int64_t npairs;
@@ -130,7 +135,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, World * wo
   int64_t * loc_triv_num = new int64_t;
   roots_num(npairs, loc_pairs, loc_triv_num, triv_num, world);
   
-  if (*triv_num < 1000) {
+  if (*triv_num > 1000) {
     int * global_triv = new int[*triv_num];
     triv(npairs, *loc_triv_num, loc_pairs, triv_num, global_triv, world);
     
@@ -304,7 +309,7 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
 
 
 //recursive projection based algorithm
-Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world)
+Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world, int sc2)
 {
   Timer t_relax("CONNECTIVITY_Relaxation");
   t_relax.start();
@@ -322,17 +327,17 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     return p;
   } else {
     //compute shortcutting q[i] = q[q[i]], obtain nonleaves or roots (FIXME: can we also remove roots that are by themselves?)
-    shortcut2(*q, *q, *q, world, &nonleaves, true);
+    shortcut2(*q, *q, *q, sc2, world, &nonleaves, true);
     if (p->wrld->rank == 0)
       printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
     //project to reduced graph with all vertices
     auto rec_A = PTAP(A, q);
     //recurse only on nonleaves
-    auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world);
+    auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
     delete rec_A;
     //perform one step of shortcutting to update components of leaves
     (*p)["i"] += (*rec_p)["i"];
-    shortcut2(*p, *q, *rec_p, world);
+    shortcut2(*p, *q, *rec_p, sc2, world);
     delete q;
     delete rec_p;
     return p;
