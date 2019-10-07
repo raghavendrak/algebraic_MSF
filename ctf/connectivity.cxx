@@ -122,53 +122,37 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, W
   Timer t_shortcut("CONNECTIVITY_Shortcut");
   t_shortcut.start();
   
-  int64_t q_npairs, rec_p_npairs;
-  Pair<int> * q_loc_pairs, * rec_p_loc_pairs;
-  if (q.is_sparse) {
-	  q.get_local_pairs(&q_npairs, &q_loc_pairs, true);
+  int64_t rec_p_npairs;
+  Pair<int> * rec_p_loc_pairs;
+  if (rec_p.is_sparse) {
+	  rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs, true);
   } else {
-	  q.get_local_pairs(&q_npairs, &q_loc_pairs);
+	  rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs);
   }
   
-  if (&rec_p == &q) { // try to avoid get_local_pairs twice
-    rec_p_npairs = q_npairs;
-    rec_p_loc_pairs = new Pair<int>[rec_p_npairs];
+  int64_t q_npairs;
+  Pair<int> * q_loc_pairs;
+  if (&q == &rec_p) { // try to avoid get_local_pairs twice
+	q_npairs = rec_p_npairs;
+	q_loc_pairs = new Pair<int>[q_npairs];
 	  for (int64_t i=0; i<q_npairs; i++) {
-      rec_p_loc_pairs[i] = q_loc_pairs[i];
-    }
+		q_loc_pairs[i] = rec_p_loc_pairs[i];
+	}
   } else {
-	  if (rec_p.is_sparse){
-	    //if we have updated only a subset of the vertices
-	    rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs, true);
+	  if (q.is_sparse){
+		//if we have updated only a subset of the vertices
+		q.get_local_pairs(&q_npairs, &q_loc_pairs, true);
 	  } else {
-	    //if we have potentially updated all the vertices
-	    rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs);
+		//if we have potentially updated all the vertices
+		q.get_local_pairs(&q_npairs, &q_loc_pairs);
 	  }
   }
- 
+  
   int64_t * global_roots_num = new int64_t;
   int64_t * loc_roots_num = new int64_t;
   roots_num(rec_p_npairs, rec_p_loc_pairs, loc_roots_num, global_roots_num, world);
   
   if (true || *global_roots_num < 1000) {
-    int64_t rec_p_npairs;
-    Pair<int> * rec_p_loc_pairs;
-	if (&rec_p == &q) { // try to avoid get_local_pairs twice
-	  rec_p_npairs = q_npairs;
-	  rec_p_loc_pairs = new Pair<int>[rec_p_npairs];
-		for (int64_t i=0; i<q_npairs; i++) {
-		  rec_p_loc_pairs[i] = q_loc_pairs[i];
-	  }
-	} else {
-		if (rec_p.is_sparse){
-		  //if we have updated only a subset of the vertices
-		  rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs, true);
-		} else {
-		  //if we have potentially updated all the vertices
-		  rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs);
-		}
-	}
-	
     int * global_roots = new int[*global_roots_num];
     roots(rec_p_npairs, *loc_roots_num, rec_p_loc_pairs, global_roots_num, global_roots, world);
 	  
@@ -252,6 +236,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, W
   }
   
   else { // original shortcut
+	
     Pair<int> * remote_pairs = new Pair<int>[q_npairs];
     for (int64_t i=0; i<q_npairs; i++) {
 		  remote_pairs[i].k = q_loc_pairs[i].d;
