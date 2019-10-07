@@ -64,7 +64,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
 void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, World * world, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 void roots_num(int64_t npairs, Pair<int> * loc_pairs, int64_t * loc_roots_num, int64_t * global_roots_num,  World * world);
-void triv(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int64_t * global_roots_num, int * global_roots,  World * world);
+void roots(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int64_t * global_roots_num, int * global_roots,  World * world);
 
 // FIXME: below functions are yet to be optimized/reviewed
 // ---------------------------
@@ -78,3 +78,4 @@ void shortcut(Vector<int> & pi);
 // ---------------------------
 
 #endif
+
