@@ -343,7 +343,54 @@ Matrix<int>* generate_kronecker(World* w, int order)
   return B;
 }
 
-void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int shortcut)
+void serial_connectivity_dfs(int64_t v, std::vector<std::vector<int64_t> > &adj, bool *visited)
+{
+  visited[v] = true;
+  for (int64_t i = 0; i < adj[v].size(); i++) {
+    if (visited[adj[v][i]] == false) {
+      serial_connectivity_dfs(adj[v][i], adj, visited);
+    }
+  }
+}
+
+int64_t serial_connectivity(Matrix<int>* A)
+{
+  // A->print_matrix();
+  int64_t numpair = 0;
+  Pair<int> *vpairs = nullptr;
+  A->get_all_pairs(&numpair, &vpairs, true);
+  std::vector<std::vector<int64_t> > adj (A->nrow);
+  for (int64_t i = 0; i < numpair; i++) {
+    int64_t rowNo = vpairs[i].k % A->nrow;
+    int64_t colNo = vpairs[i].k / A->nrow;
+    if (rowNo < colNo) {
+      adj[rowNo].push_back(colNo);
+    }
+  }
+  bool visited[A->nrow];
+  for (int64_t i = 0; i < A->nrow; i++) {
+    visited[i] = false;
+  }
+  int64_t connected_components = 0;
+  for(int64_t i = 0; i < adj.size(); i++) {
+    if (visited[i] == false) {
+      serial_connectivity_dfs(i, adj, visited);
+      connected_components++;
+    }
+  }
+
+  std::cout << "Serial code, connected_components: " << connected_components << endl;
+  /*
+  for(int64_t i = 0; i < adj.size(); i++) {
+    for (int64_t j = 0; j < adj[i].size(); j++) {
+      std::cout << "row: " << i << " col: " << adj[i][j] << endl;
+    }
+  }
+  */
+  return connected_components;
+}
+
+void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial)
 {
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   double stime;
@@ -410,7 +457,18 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int 
       printf("result vectors are same: PASS\n");
     }
   }
-
+  if (run_serial) {
+    int64_t serial_cnt;
+    serial_cnt = serial_connectivity(A);
+    if (w->rank == 0) {
+      if (cnt == serial_cnt) {
+        printf("Number of components between supervertex_matrix() and serial_connectivity() are same: PASS\n");
+      }
+      else {
+        printf("Number of components between supervertex_matrix() and serial_connectivity() are different: FAIL\n");
+      }
+    }
+  }
 }
 
 char* getCmdOption(char ** begin,
@@ -444,6 +502,7 @@ int main(int argc, char** argv)
   int prep;
   int batch;
   int sc2;
+  int run_serial;
 
   int k;
   if (getCmdOption(input_str, input_str+in_num, "-k")) {
@@ -480,8 +539,13 @@ int main(int argc, char** argv)
     if (batch <= 0) batch = 1;
   } else batch = 1;
   if (getCmdOption(input_str, input_str+in_num, "-shortcut")){
-    sc2 = atoll(getCmdOption(input_str, input_str+in_num, "-shortcut"));
+    sc2 = atoi(getCmdOption(input_str, input_str+in_num, "-shortcut"));
+    if (sc2 < 0) sc2 = 0;
   } else sc2 = 0;
+  if (getCmdOption(input_str, input_str+in_num, "-serial")){
+    run_serial = atoi(getCmdOption(input_str, input_str+in_num, "-serial"));
+    if (run_serial < 0) run_serial = 0;
+  } else run_serial = 0;
 
   if (gfile != NULL){
     int n_nnz = 0;
@@ -489,7 +553,7 @@ int main(int argc, char** argv)
       printf("Reading real graph n = %lld\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
     // A.print_matrix();
-    run_connectivity(&A, n, w, batch, sc2);
+    run_connectivity(&A, n, w, batch, sc2, run_serial);
   }
   else if (k != -1) {
     int64_t matSize = pow(3, k);
@@ -498,7 +562,7 @@ int main(int argc, char** argv)
     if (w->rank == 0) {
       printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
     }
-    run_connectivity(B, matSize, w, batch, sc2);
+    run_connectivity(B, matSize, w, batch, sc2, run_serial);
     delete B;
   }
   else if (scale > 0 && ef > 0){
@@ -508,7 +572,7 @@ int main(int argc, char** argv)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
     Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
     int64_t matSize = A.nrow; 
-    run_connectivity(&A, matSize, w, batch, sc2);
+    run_connectivity(&A, matSize, w, batch, sc2, run_serial);
   }
   else {
     if (w->rank == 0) {
