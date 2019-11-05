@@ -1,9 +1,12 @@
 include config.mk
 
-all: test_connectivity
+all: test_connectivity test_mst
 
 connectivity.o: connectivity.h connectivity.cxx $(CTFDIR)
 	$(NVCC) $(NVCCFLAGS) -c connectivity.cxx  $(DEFS) $(INCLUDES) 
+
+mst.o: mst.h mst.cxx $(CTFDIR)
+	$(NVCC) $(NVCCFLAGS) -c mst.cxx  $(DEFS) $(INCLUDES) 
 
 graph_io.o: graph_io.cxx graph_aux.h   $(CTFDIR)
 	$(CXX) $(CXXFLAGS) -c graph_io.cxx $(INCLUDES)
@@ -14,5 +17,8 @@ graph_gen.o: graph_gen.cxx graph_aux.h   $(CTFDIR)
 test_connectivity: graph_io.o graph_gen.o connectivity.o test_connectivity.cxx $(CTFDIR) 
 	$(CXX) $(CXXFLAGS) -o test_connectivity test_connectivity.cxx connectivity.o graph_io.o graph_gen.o $(INCLUDES) $(LIBS)
 
+test_mst: graph_io.o graph_gen.o mst.o test_mst.cxx $(CTFDIR) 
+	$(CXX) $(CXXFLAGS) -o test_mst test_mst.cxx mst.o graph_io.o graph_gen.o $(INCLUDES) $(LIBS)
+
 clean:
-	rm -f connectivity.o graph_gen.o graph_io.o test_connectivity
+	rm -f connectivity.o mst.o graph_gen.o graph_io.o test_connectivity test_mst
