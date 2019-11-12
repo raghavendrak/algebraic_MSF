@@ -19,13 +19,13 @@ int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
   return s.get_val();
 }
 
-void init_pvector(Vector<int>* p)
+void init_pvector(Vector<Int64Triple>* p)
 {
   int64_t npairs;
-  Pair<int> * loc_pairs;
+  Pair<Int64Triple> * loc_pairs;
   p->read_local(&npairs, &loc_pairs);
   for (int64_t i = 0; i < npairs; i++){
-    loc_pairs[i].d = loc_pairs[i].k;
+    loc_pairs[i].d = Int64Triple(loc_pairs[i].k, -1, loc_pairs[i].k);
   }
   p->write(npairs, loc_pairs);
   delete [] loc_pairs;
