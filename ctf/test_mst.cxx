@@ -2,8 +2,26 @@
 
 namespace CTF {
   template <>
-  inline void Set<Int64Triple>::print(char const * a, FILE * fp) const {
-    fprintf(fp, "(%zu %zu %zu)", ((Int64Triple*)a)[0].i1, ((Int64Triple*)a)[0].i2, ((Int64Triple*)a)[0].i3);
+  inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
+    fprintf(fp, "(%zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent);
+  }
+}
+
+EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b){
+  if (a.parent < b.parent)
+    return a.weight < b.weight ? a : b;
+  else
+    return a;
+}
+
+void EdgeExt_red(EdgeExt const * a,
+                 EdgeExt * b,
+                 int n){
+#ifdef _OPENMP
+  #pragma omp parallel for
+#endif
+  for (int i=0; i<n; i++){
+    b[i] = EdgeExtMin(a[i], b[i]);
   }
 }
 
@@ -13,68 +31,61 @@ void test_simple(World * w) {
   // (key, weight, parent in p) 
   // entries in A: (key, weight, -1) 
   // entries in P: (key, -1, parent in p)
-  static Semiring<Int64Triple> MIN_TIMES_SR( // TODO: mpi runtime error when in .h file
-    Int64Triple(INT_MAX, INT_MAX, -1),
-    [](Int64Triple a, Int64Triple b) {
-      if (a.i3 > a.i1 && b.i3 > b.i1)
-        return Int64Triple(INT_MAX, INT_MAX, -1);
-      else
-        return Int64Triple(0, 0, 0);
-        //return a.i2 < b.i2 ? a.i3 : b.i3;
-    },
-    MPI_MAX,
-    Int64Triple(-1, -1, -1),
-    [](Int64Triple a, Int64Triple b) {
-      return Int64Triple(a.i1, a.i2, b.i2);
-    });
+  MPI_Op omee;
+
+  MPI_Op_create(
+      [](void * a, void * b, int * n, MPI_Datatype*){ 
+        EdgeExt_red((EdgeExt*)a, (EdgeExt*)b, *n);
+      },
+      1, &omee);
+
+  static Monoid<EdgeExt> MIN_EDGE(EdgeExt(INT_MAX, INT_MAX, INT_MAX), EdgeExtMin, omee);
 
   printf("test_simple\n");
   
   int nrow = 7;
   int ncol = 7;
-  Matrix<Int64Triple> * A = new Matrix<Int64Triple>(nrow, ncol, SP|SY, *w, MIN_TIMES_SR);
+  Matrix<Edge> * A = new Matrix<Edge>(nrow, ncol, SP, *w, Set<Edge>());
 
   int64_t npair = 11;
-  Pair<Int64Triple> * pairs = new Pair<Int64Triple>[npair];
-  pairs[0] = Pair<Int64Triple>(0 * nrow + 1, Int64Triple(0, 7, -1));
-  pairs[1] = Pair<Int64Triple>(0 * nrow + 3, Int64Triple(0, 5, -1));
-  pairs[2] = Pair<Int64Triple>(1 * nrow + 2, Int64Triple(1, 8, -1));
-  pairs[3] = Pair<Int64Triple>(1 * nrow + 3, Int64Triple(1, 9, -1));
-  pairs[4] = Pair<Int64Triple>(1 * nrow + 4, Int64Triple(1, 7, -1));
-  pairs[5] = Pair<Int64Triple>(2 * nrow + 4, Int64Triple(2, 5, -1));
-  pairs[6] = Pair<Int64Triple>(3 * nrow + 4, Int64Triple(3, 15, -1));
-  pairs[7] = Pair<Int64Triple>(3 * nrow + 5, Int64Triple(3, 6, -1));
-  pairs[8] = Pair<Int64Triple>(4 * nrow + 5, Int64Triple(4, 8, -1));
-  pairs[9] = Pair<Int64Triple>(4 * nrow + 6, Int64Triple(4, 9, -1));
-  pairs[10] = Pair<Int64Triple>(5 * nrow + 6, Int64Triple(5, 11, -1));
+  Pair<Edge> * pairs = new Pair<Edge>[npair];
+  pairs[0] = Pair<Edge>(0 * nrow + 1, Edge(0, 7));
+  pairs[1] = Pair<Edge>(0 * nrow + 3, Edge(0, 5));
+  pairs[2] = Pair<Edge>(1 * nrow + 2, Edge(1, 8));
+  pairs[3] = Pair<Edge>(1 * nrow + 3, Edge(1, 9));
+  pairs[4] = Pair<Edge>(1 * nrow + 4, Edge(1, 7));
+  pairs[5] = Pair<Edge>(2 * nrow + 4, Edge(2, 5));
+  pairs[6] = Pair<Edge>(3 * nrow + 4, Edge(3, 15));
+  pairs[7] = Pair<Edge>(3 * nrow + 5, Edge(3, 6));
+  pairs[8] = Pair<Edge>(4 * nrow + 5, Edge(4, 8));
+  pairs[9] = Pair<Edge>(4 * nrow + 6, Edge(4, 9));
+  pairs[10] = Pair<Edge>(5 * nrow + 6, Edge(5, 11));
 
   A->write(npair, pairs);
 
   A->print_matrix();
 
-  // DELETE
-  int64_t temp_npairs;
-  Pair<Int64Triple> * temp_loc_pairs;
-  A->get_local_pairs(&temp_npairs, &temp_loc_pairs, true);
-
-  for (int i=0; i<temp_npairs; i++) {
-    printf("(%zu %zu %zu)\n", temp_loc_pairs[i].d.i1, temp_loc_pairs[i].d.i2, temp_loc_pairs[i].d.i3);
-  }
-  // END DELETE
-
-  auto p = new Vector<Int64Triple>(nrow, *w, MIN_TIMES_SR);
+  auto p = new Vector<int>(nrow, *w);
   init_pvector(p);
 
   printf("p:\n");
   p->print();
 
   // relax all edges //
-  auto q = new Vector<Int64Triple>(nrow, SP*p->is_sparse, *w, MIN_TIMES_SR);
-  (*q)["i"] = (*p)["i"];
-  (*q)["i"] += (*A)["ij"] * (*p)["j"];
+  auto q = new Vector<EdgeExt>(nrow, SP*p->is_sparse, *w, MIN_EDGE);
+  //(*q)["i"] = (*p)["i"];
+  (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
+  //(*q)["i"] += (*A)["ij"] * (*p)["j"];
+  Bivar_Function<Edge,int,EdgeExt> fmv([](Edge e, int p){ return EdgeExt(e.key, e.weight, p); });
+  fmv.intersect_only=true;
+  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+  (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
 
   printf("q:\n");
   q->print();
+  
+  printf("p:\n");
+  p->print();
 
   delete q;
   delete p;
