@@ -2,6 +2,11 @@
 
 namespace CTF {
   template <>
+  inline void Set<Edge>::print(char const * a, FILE * fp) const {
+    fprintf(fp, "(%zu %zu)", ((Edge*)a)[0].key, ((Edge*)a)[0].weight);
+  }
+
+  template <>
   inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
     fprintf(fp, "(%zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent);
   }
@@ -43,7 +48,7 @@ void test_simple(World * w) {
 
   printf("test_simple\n");
   
-  int nrow = 7;
+  int nrow = 7; 
   int ncol = 7;
   Matrix<Edge> * A = new Matrix<Edge>(nrow, ncol, SP, *w, Set<Edge>());
 
@@ -63,6 +68,7 @@ void test_simple(World * w) {
 
   A->write(npair, pairs);
 
+  printf("A:\n");
   A->print_matrix();
 
   auto p = new Vector<int>(nrow, *w);
@@ -72,13 +78,11 @@ void test_simple(World * w) {
   p->print();
 
   // relax all edges //
-  auto q = new Vector<EdgeExt>(nrow, SP*p->is_sparse, *w, MIN_EDGE);
-  //(*q)["i"] = (*p)["i"];
+  auto q = new Vector<EdgeExt>(nrow, SP, *w, MIN_EDGE); // TODO: SP*p->is_sparse ruins q
   (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
-  //(*q)["i"] += (*A)["ij"] * (*p)["j"];
   Bivar_Function<Edge,int,EdgeExt> fmv([](Edge e, int p){ return EdgeExt(e.key, e.weight, p); });
   fmv.intersect_only=true;
-  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);  // TODO: errors
   (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
 
   printf("q:\n");
