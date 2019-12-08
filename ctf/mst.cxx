@@ -2,18 +2,54 @@
 
 /* TODO: add shortcut2 (originally omitted for readbilitity) */
 
+EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b){
+  if (a.parent < b.parent)
+    return a.weight < b.weight ? a : b;
+  else
+    return a;
+}
+
+void EdgeExt_red(EdgeExt const * a,
+                 EdgeExt * b,
+                 int n){
+#ifdef _OPENMP
+  #pragma omp parallel for
+#endif
+  for (int i=0; i<n; i++){
+    b[i] = EdgeExtMin(a[i], b[i]);
+  } 
+}
+
+Monoid<EdgeExt> get_minedge_monoid(){
+    MPI_Op omee;
+    MPI_Op_create(
+      [](void * a, void * b, int * n, MPI_Datatype*){ 
+        EdgeExt_red((EdgeExt*)a, (EdgeExt*)b, *n);
+      },
+    1, 
+    &omee);
+
+   Monoid<EdgeExt> MIN_EDGE(
+      EdgeExt(INT_MAX, INT_MAX, INT_MAX), 
+      [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
+      omee);
+
+  return MIN_EDGE; 
+}
+
 // NOTE: can't use bool as return
-template <typename dtype>
-int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B)
+int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B)
 {
   CTF::Scalar<int64_t> s;
   if (!A.is_sparse && !B.is_sparse){
-    s[""] += CTF::Function<dtype,dtype,int64_t>([](dtype a, dtype b){ return a!=b; })(A["i"],B["i"]);
+    s[""] += CTF::Function<int,EdgeExt,int64_t>([](int a, EdgeExt b){ return a!=b.key; })(A["i"],B["i"]);
   } else {
-    auto C = Vector<dtype>(A.len, SP*A.is_sparse, *A.wrld);
+    auto C = Vector<int>(A.len, SP*A.is_sparse, *A.wrld);
     C["i"] += A["i"];
-    ((int64_t)-1)*C["i"] += B["i"];
-    s[""] += CTF::Function<dtype,int64_t>([](dtype a){ return (int64_t)(a!=0); })(C["i"]);
+    auto B_keys = Vector<int>(B.len, SP*B.is_sparse, *B.wrld);
+    B_keys["i"] = CTF::Function<EdgeExt,int64_t>([](EdgeExt b){ return b.key; })(B["i"]);
+    ((int64_t)-1)*C["i"] += B_keys["i"];
+    s[""] += CTF::Function<int,int64_t>([](int a){ return (int64_t)(a!=0); })(C["i"]);
 
   }
   return s.get_val();
@@ -152,15 +188,24 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
 
 
 //recursive projection based algorithm
-Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world, int sc2)
+Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* world, int sc2)
 {
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid(); // TODO: correct usage?
+
+  //relax all edges
   Timer t_relax("CONNECTIVITY_Relaxation");
   t_relax.start();
-  //relax all edges
-  auto q = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
-  (*q)["i"] = (*p)["i"];
-  (*q)["i"] += (*A)["ij"] * (*p)["j"];
+  auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
+  (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
+  Bivar_Function<Edge,int,EdgeExt> fmv([](Edge e, int p){ return EdgeExt(e.key, e.weight, p); });
+  fmv.intersect_only=true;
+  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+  (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
+  printf("q:\n");
+  q->print();
   t_relax.stop();
+
+  /*
   Vector<int> * nonleaves;
   //check for convergence
   int64_t diff = are_vectors_different(*q, *p);
@@ -183,5 +228,5 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     delete q;
     delete rec_p;
     return p;
-  }
+  }*/
 }

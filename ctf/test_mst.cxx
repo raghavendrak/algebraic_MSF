@@ -1,56 +1,18 @@
 #include "mst.h"
 
-namespace CTF {
-  template <>
-  inline void Set<Edge>::print(char const * a, FILE * fp) const {
-    fprintf(fp, "(%zu %zu)", ((Edge*)a)[0].key, ((Edge*)a)[0].weight);
-  }
-
-  template <>
-  inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
-    fprintf(fp, "(%zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent);
-  }
-}
-
-EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b){
-  if (a.parent < b.parent)
-    return a.weight < b.weight ? a : b;
-  else
-    return a;
-}
-
-void EdgeExt_red(EdgeExt const * a,
-                 EdgeExt * b,
-                 int n){
-#ifdef _OPENMP
-  #pragma omp parallel for
-#endif
-  for (int i=0; i<n; i++){
-    b[i] = EdgeExtMin(a[i], b[i]);
-  }
-}
-
 // graph pictured here: https://i0.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-1.png?zoom=2.625&resize=368%2C236&ssl=1
 // mst pictured here: https://i1.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-12.png?zoom=2&resize=382%2C237&ssl=1
 void test_simple(World * w) {
   // (key, weight, parent in p) 
   // entries in A: (key, weight, -1) 
   // entries in P: (key, -1, parent in p)
-  MPI_Op omee;
-
-  MPI_Op_create(
-      [](void * a, void * b, int * n, MPI_Datatype*){ 
-        EdgeExt_red((EdgeExt*)a, (EdgeExt*)b, *n);
-      },
-      1, &omee);
-
-  static Monoid<EdgeExt> MIN_EDGE(EdgeExt(INT_MAX, INT_MAX, INT_MAX), EdgeExtMin, omee);
 
   printf("test_simple\n");
+
+  //static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
   
   int nrow = 7; 
-  int ncol = 7;
-  Matrix<Edge> * A = new Matrix<Edge>(nrow, ncol, SP, *w, Set<Edge>());
+  Matrix<Edge> * A = new Matrix<Edge>(nrow, nrow, SP, *w, Set<Edge>());
 
   int64_t npair = 11;
   Pair<Edge> * pairs = new Pair<Edge>[npair];
@@ -68,30 +30,58 @@ void test_simple(World * w) {
 
   A->write(npair, pairs);
 
-  printf("A:\n");
-  A->print_matrix();
+  //printf("A:\n");
+  //A->print_matrix();
 
-  auto p = new Vector<int>(nrow, *w);
+  auto p = new Vector<int>(nrow, SP, *w);
   init_pvector(p);
 
-  printf("p:\n");
-  p->print();
+  //printf("p:\n");
+  //p->print();
 
-  // relax all edges //
-  auto q = new Vector<EdgeExt>(nrow, SP, *w, MIN_EDGE); // TODO: SP*p->is_sparse ruins q
+  //int sc2 = 0;
+  //supervertex_matrix(nrow, A, p, w, sc2);
+  
+  // tests setup
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid(); // TODO: correct usage?
+  auto q = new Vector<EdgeExt>(nrow, p->is_sparse, *w, MIN_EDGE);
   (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
   Bivar_Function<Edge,int,EdgeExt> fmv([](Edge e, int p){ return EdgeExt(e.key, e.weight, p); });
   fmv.intersect_only=true;
-  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);  // TODO: errors
+  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
   (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
+  // tests setup end
 
-  printf("q:\n");
-  q->print();
-  
+  // test are_vectors_different // TODO: convergence when p["i"] == q["i"].key?
+  printf("test are_vectors_different\n");
   printf("p:\n");
   p->print();
 
-  delete q;
+  printf("q:\n");
+  q->print();
+
+  //int64_t diff = are_vectors_different(*p, *q);
+  //if (p->wrld->rank == 0)
+  //  printf("Diff is %ld\n",diff);
+  // end test are_vectors_different //
+
+  // test shortcut1 // TODO: template shortcut?
+  //printf("test shortcut1\n");
+  //Vector<int> * nonleaves;
+  //shortcut(*q, *q, *q, &nonleaves, true);
+  //if (p->wrld->rank == 0)
+  //  printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
+  // end test shortcut //
+  
+  // test PTAP //
+  //auto rec_A = PTAP(A, q);
+  // end test PTAP //
+  
+  // test shortcut2 //
+  //auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
+  //shortcut(*p, *q, *rec_p);
+  // end test shortcut2 //
+
   delete p;
   delete [] pairs;
   delete A;

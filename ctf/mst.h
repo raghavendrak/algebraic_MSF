@@ -32,6 +32,18 @@ struct Edge {
   Edge(int64_t key_, int64_t weight_) { key = key_; weight = weight_; }
 };
 
+namespace CTF {
+  template <>
+  inline void Set<Edge>::print(char const * a, FILE * fp) const {
+    fprintf(fp, "(%zu %zu)", ((Edge*)a)[0].key, ((Edge*)a)[0].weight);
+  }
+
+  template <>
+  inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
+    fprintf(fp, "(%zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent);
+  }
+}
+
 static Semiring<int> MAX_TIMES_SR(0,
     [](int a, int b) {
     return std::max(a, b);
@@ -41,26 +53,6 @@ static Semiring<int> MAX_TIMES_SR(0,
     [](int a, int b) {
     return a * b;
     });
-
-/*
-// (key, weight, parent in p) 
-// entries in A: (key, weight, -1) 
-// entries in P: (key, -1, parent in p)
-static Semiring<EdgeExt> MIN_TIMES_SR(
-  EdgeExt(INT_MAX, INT_MAX, -1),
-  [](EdgeExt a, EdgeExt b) {
-    if (a.parent > a.key && b.parent > b.key)
-      return EdgeExt(INT_MAX, INT_MAX, -1);
-    else
-      return EdgeExt(0, 0, 0);
-      //return a.weight < b.weight ? a.parent : b.parent;
-  },
-  MPI_MAX,
-  EdgeExt(-1, -1, -1),
-  [](EdgeExt a, EdgeExt b) {
-    return EdgeExt(a.key, a.weight, b.weight);
-  });
-*/
 
 class Graph {
   public:
@@ -73,12 +65,14 @@ class Graph {
 };
 
 // MST
+EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b);
+void EdgeExt_red(EdgeExt const * a, EdgeExt * b, int n);
+Monoid<EdgeExt> get_minedge_monoid();
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
-Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world, int sc2);
+Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* world, int sc2);
 
 // Utility functions
-template <typename dtype>
-int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B);
+int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B);
 void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
 void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
