@@ -52,7 +52,7 @@ void test_simple(World * w) {
   (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
   // tests setup end
 
-  // test are_vectors_different // TODO: convergence when p["i"] == q["i"].key?
+  // test are_vectors_different // TODO: convergence when p["i"] == q["i"].key? or .parent?
   printf("test are_vectors_different\n");
   printf("p:\n");
   p->print();
@@ -65,12 +65,12 @@ void test_simple(World * w) {
   //  printf("Diff is %ld\n",diff);
   // end test are_vectors_different //
 
-  // test shortcut1 // TODO: template shortcut?
-  //printf("test shortcut1\n");
-  //Vector<int> * nonleaves;
-  //shortcut(*q, *q, *q, &nonleaves, true);
-  //if (p->wrld->rank == 0)
-  //  printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
+  // test shortcut1 //
+  printf("test shortcut1\n");
+  Vector<int> * nonleaves;
+  //shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
+  if (p->wrld->rank == 0)
+    printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
   // end test shortcut //
   
   // test PTAP //

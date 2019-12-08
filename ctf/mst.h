@@ -6,6 +6,7 @@
 #include <math.h>
 #include "graph_aux.h"
 
+
 using namespace CTF;
 #define SEED 23
 // From btwn_central
@@ -75,7 +76,9 @@ Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* w
 int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B);
 void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
-void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
+
+template <typename T>
+void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
 
 #endif
