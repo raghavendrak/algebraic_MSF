@@ -68,7 +68,7 @@ void test_simple(World * w) {
   // test shortcut1 //
   printf("test shortcut1\n");
   Vector<int> * nonleaves;
-  //shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
+  shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
   if (p->wrld->rank == 0)
     printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
   // end test shortcut //

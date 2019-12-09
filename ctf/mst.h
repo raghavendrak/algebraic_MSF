@@ -79,6 +79,9 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world);
 
 template <typename T>
 void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
+#include "mst.txx"
+
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
+
 
 #endif
