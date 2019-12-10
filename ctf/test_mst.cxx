@@ -1,5 +1,38 @@
 #include "mst.h"
 
+void test_are_vectors_different(Vector<int> * p, Vector<EdgeExt> * q) {
+  printf("test are_vectors_different\n");
+  printf("p:\n");
+  p->print();
+
+  printf("q:\n");
+  q->print();
+
+  int64_t diff = are_vectors_different(*p, *q);
+  if (p->wrld->rank == 0)
+    printf("Diff is %ld\n",diff);
+}
+
+void test_shortcut1(Vector<int> * p, Vector<EdgeExt> * q, Vector<int> * nonleaves) {
+  printf("test shortcut1\n");
+  shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
+  if (p->wrld->rank == 0)
+    printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
+}
+
+/*
+void test_PTAP(Matrix<Edge> * A, Vector<EdgeExt> * q) {
+  auto rec_A = PTAP(*A, q);
+}
+*/
+
+/*
+void test_shortcut2(int n, Matrix<Edge> * A, Vector<int> * nonleaves, World * w, int sc2) {
+  auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
+  shortcut(*p, *q, *rec_p);
+}
+*/
+
 // graph pictured here: https://i0.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-1.png?zoom=2.625&resize=368%2C236&ssl=1
 // mst pictured here: https://i1.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-12.png?zoom=2&resize=382%2C237&ssl=1
 void test_simple(World * w) {
@@ -9,7 +42,8 @@ void test_simple(World * w) {
 
   printf("test_simple\n");
 
-  //static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
+  //const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
+  const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
   
   int nrow = 7; 
   Matrix<Edge> * A = new Matrix<Edge>(nrow, nrow, SP, *w, Set<Edge>());
@@ -33,7 +67,7 @@ void test_simple(World * w) {
   //printf("A:\n");
   //A->print_matrix();
 
-  auto p = new Vector<int>(nrow, SP, *w);
+  auto p = new Vector<int>(nrow, SP, *w, MAX_TIMES_SR); // TODO: MAX_TIMES_SR necessary? for nonleaves too?
   init_pvector(p);
 
   //printf("p:\n");
@@ -43,7 +77,6 @@ void test_simple(World * w) {
   //supervertex_matrix(nrow, A, p, w, sc2);
   
   // tests setup
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid(); // TODO: correct usage?
   auto q = new Vector<EdgeExt>(nrow, p->is_sparse, *w, MIN_EDGE);
   (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
   Bivar_Function<Edge,int,EdgeExt> fmv([](Edge e, int p){ return EdgeExt(e.key, e.weight, p); });
@@ -51,36 +84,15 @@ void test_simple(World * w) {
   (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
   (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
   // tests setup end
+  
+  //test_are_vectors_different(p, q);
 
-  // test are_vectors_different // TODO: convergence when p["i"] == q["i"].key? or .parent?
-  printf("test are_vectors_different\n");
-  printf("p:\n");
-  p->print();
-
-  printf("q:\n");
-  q->print();
-
-  //int64_t diff = are_vectors_different(*p, *q);
-  //if (p->wrld->rank == 0)
-  //  printf("Diff is %ld\n",diff);
-  // end test are_vectors_different //
-
-  // test shortcut1 //
-  printf("test shortcut1\n");
   Vector<int> * nonleaves;
-  shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
-  if (p->wrld->rank == 0)
-    printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
-  // end test shortcut //
-  
-  // test PTAP //
-  //auto rec_A = PTAP(A, q);
-  // end test PTAP //
-  
-  // test shortcut2 //
-  //auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
-  //shortcut(*p, *q, *rec_p);
-  // end test shortcut2 //
+  test_shortcut1(p, q, nonleaves);
+
+  //test_PTAP(A, q);
+
+  //test_shortcut2(n, A, nonleaves, w, sc2);
 
   delete p;
   delete [] pairs;

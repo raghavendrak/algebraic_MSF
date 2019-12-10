@@ -20,6 +20,7 @@ void EdgeExt_red(EdgeExt const * a,
   } 
 }
 
+/*
 Monoid<EdgeExt> get_minedge_monoid(){
     MPI_Op omee;
     MPI_Op_create(
@@ -29,10 +30,30 @@ Monoid<EdgeExt> get_minedge_monoid(){
     1, 
     &omee);
 
-   Monoid<EdgeExt> MIN_EDGE(
+    Monoid<EdgeExt> MIN_EDGE(
       EdgeExt(INT_MAX, INT_MAX, INT_MAX), 
       [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
       omee);
+
+  return MIN_EDGE; 
+}
+*/
+
+Semiring<EdgeExt> get_minedge_sr(){
+    MPI_Op omee;
+    MPI_Op_create(
+      [](void * a, void * b, int * n, MPI_Datatype*){ 
+        EdgeExt_red((EdgeExt*)a, (EdgeExt*)b, *n);
+      },
+    1, 
+    &omee);
+
+   Semiring<EdgeExt> MIN_EDGE(
+      EdgeExt(INT_MAX, INT_MAX, INT_MAX), 
+      [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
+      omee,
+      EdgeExt(INT_MAX, INT_MAX, INT_MAX), // mult needed for p.write in shortcut
+      [](EdgeExt a, EdgeExt b) { return a; } );
 
   return MIN_EDGE; 
 }
@@ -140,7 +161,7 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   return PTAP;
 }
 
-
+/*
 //recursive projection based algorithm
 Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* world, int sc2)
 {
@@ -161,7 +182,7 @@ Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* w
 
   Vector<int> * nonleaves;
   //check for convergence
-  /*int64_t diff = are_vectors_different(*q, *p);
+  int64_t diff = are_vectors_different(*q, *p);
   if (p->wrld->rank == 0)
     printf("Diff is %ld\n",diff);
   if (!diff){
@@ -181,5 +202,6 @@ Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* w
     delete q;
     delete rec_p;
     return p;
-  }*/
+  }
 }
+*/

@@ -68,9 +68,12 @@ class Graph {
 // MST
 EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b);
 void EdgeExt_red(EdgeExt const * a, EdgeExt * b, int n);
-Monoid<EdgeExt> get_minedge_monoid();
+//Monoid<EdgeExt> get_minedge_monoid();
+Semiring<EdgeExt> get_minedge_sr();
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
 Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* world, int sc2);
+
+Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p);
 
 // Utility functions
 int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B);
@@ -82,6 +85,5 @@ void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int>
 #include "mst.txx"
 
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
-
 
 #endif
