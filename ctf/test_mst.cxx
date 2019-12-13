@@ -15,7 +15,7 @@ void test_are_vectors_different(Vector<int> * p, Vector<EdgeExt> * q) {
 
 void test_shortcut1(Vector<int> * p, Vector<EdgeExt> * q, Vector<int> * nonleaves) {
   printf("test shortcut1\n");
-  shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
+  shortcut_EdgeExt(*q, *q, *q, &nonleaves, true);
   if (p->wrld->rank == 0)
     printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
 }
@@ -44,23 +44,23 @@ void test_simple(World * w) {
 
   //const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
   const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
-  
-  int nrow = 7; 
-  Matrix<Edge> * A = new Matrix<Edge>(nrow, nrow, SP, *w, Set<Edge>());
+ 
+  int nrow = 7;
+  Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP|SY, *w, MIN_EDGE);
 
   int64_t npair = 11;
-  Pair<Edge> * pairs = new Pair<Edge>[npair];
-  pairs[0] = Pair<Edge>(0 * nrow + 1, Edge(0, 7));
-  pairs[1] = Pair<Edge>(0 * nrow + 3, Edge(0, 5));
-  pairs[2] = Pair<Edge>(1 * nrow + 2, Edge(1, 8));
-  pairs[3] = Pair<Edge>(1 * nrow + 3, Edge(1, 9));
-  pairs[4] = Pair<Edge>(1 * nrow + 4, Edge(1, 7));
-  pairs[5] = Pair<Edge>(2 * nrow + 4, Edge(2, 5));
-  pairs[6] = Pair<Edge>(3 * nrow + 4, Edge(3, 15));
-  pairs[7] = Pair<Edge>(3 * nrow + 5, Edge(3, 6));
-  pairs[8] = Pair<Edge>(4 * nrow + 5, Edge(4, 8));
-  pairs[9] = Pair<Edge>(4 * nrow + 6, Edge(4, 9));
-  pairs[10] = Pair<Edge>(5 * nrow + 6, Edge(5, 11));
+  Pair<EdgeExt> * pairs = new Pair<EdgeExt>[npair];
+  pairs[0] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(0, 7, 0));
+  pairs[1] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 5, 0));
+  pairs[2] = Pair<EdgeExt>(1 * nrow + 2, EdgeExt(1, 8, 1));
+  pairs[3] = Pair<EdgeExt>(1 * nrow + 3, EdgeExt(1, 9, 1));
+  pairs[4] = Pair<EdgeExt>(1 * nrow + 4, EdgeExt(1, 7, 1));
+  pairs[5] = Pair<EdgeExt>(2 * nrow + 4, EdgeExt(2, 5, 2));
+  pairs[6] = Pair<EdgeExt>(3 * nrow + 4, EdgeExt(3, 15, 3));
+  pairs[7] = Pair<EdgeExt>(3 * nrow + 5, EdgeExt(3, 6, 3));
+  pairs[8] = Pair<EdgeExt>(4 * nrow + 5, EdgeExt(4, 8, 4));
+  pairs[9] = Pair<EdgeExt>(4 * nrow + 6, EdgeExt(4, 9, 4));
+  pairs[10] = Pair<EdgeExt>(5 * nrow + 6, EdgeExt(5, 11, 5));
 
   A->write(npair, pairs);
 
@@ -73,27 +73,33 @@ void test_simple(World * w) {
   //printf("p:\n");
   //p->print();
 
-  //int sc2 = 0;
-  //supervertex_matrix(nrow, A, p, w, sc2);
+  int sc2 = 0;
+  auto super_res = supervertex_matrix(nrow, A, p, w, sc2);
+  super_res->print();
   
+  /*
   // tests setup
+  
   auto q = new Vector<EdgeExt>(nrow, p->is_sparse, *w, MIN_EDGE);
   (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
   Bivar_Function<Edge,int,EdgeExt> fmv([](Edge e, int p){ return EdgeExt(e.key, e.weight, p); });
   fmv.intersect_only=true;
   (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
   (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
+
   // tests setup end
   
   //test_are_vectors_different(p, q);
-
+  
   Vector<int> * nonleaves;
   test_shortcut1(p, q, nonleaves);
-
+  
   //test_PTAP(A, q);
-
+  printf("test_PTAP\n");
+  Matrix<EdgeExt>* PTAP_res = PTAP(A, q);
+  PTAP_res->print();
   //test_shortcut2(n, A, nonleaves, w, sc2);
-
+  */
   delete p;
   delete [] pairs;
   delete A;
