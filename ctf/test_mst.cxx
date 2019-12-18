@@ -17,6 +17,8 @@ void test_are_vectors_different(Vector<int> * p, Vector<EdgeExt> * q) {
     printf("Diff is %ld\n",diff);
 }
 
+
+
 void test_shortcut1(Vector<int> * p, Vector<EdgeExt> * q, Vector<int> * nonleaves) {
   printf("test shortcut1\n");
   shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
@@ -30,12 +32,12 @@ Matrix<EdgeExt> * test_PTAP(Matrix<EdgeExt> * A, Vector<EdgeExt> * q) {
   return rec_A;
 }
 
-/*
-void test_shortcut2(int n, Matrix<Edge> * A, Vector<int> * nonleaves, World * w, int sc2) {
-  auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
-  shortcut(*p, *q, *rec_p);
-}
-*/
+
+//void test_shortcut2(int n, Matrix<Edge> * A, Vector<int> * nonleaves, World * w, int sc2) {
+//  auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
+//  shortcut<int>(*p, *q, *rec_p);
+//}
+
 
 // graph pictured here: https://i0.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-1.png?zoom=2.625&resize=368%2C236&ssl=1
 // mst pictured here: https://i1.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-12.png?zoom=2&resize=382%2C237&ssl=1
