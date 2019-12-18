@@ -118,43 +118,43 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
 
 
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
-Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
+Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<EdgeExt>* p){
   Timer t_ptap("CONNECTIVITY_PTAP");
   t_ptap.start();
   int np = p->wrld->np;
   int64_t n = p->len;
-  Pair<int> * pprs;
+  Pair<EdgeExt> * pprs;
   int64_t npprs;
   //get local part of p
   p->get_local_pairs(&npprs, &pprs);
   assert((npprs <= (n+np-1)/np) && (npprs >= (n/np)));
   assert(A->ncol == n);
   assert(A->nrow == n);
-  Pair<int> * A_prs;
+  Pair<EdgeExt> * A_prs;
   int64_t nprs;
   {
     //map matrix so rows are distributed as elements of p, ensures for each element of p, this process also owns the row of A (A1)
-    Matrix<int> A1(n, n, "ij", Partition(1,&np)["i"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
+    Matrix<EdgeExt> A1(n, n, "ij", Partition(1,&np)["i"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
     A1["ij"] = A->operator[]("ij");
     A1.get_local_pairs(&nprs, &A_prs, true);
     //use fact p and rows of A are distributed cyclically, to compute P^T * A
     for (int64_t i=0; i<nprs; i++){
-      A_prs[i].k = (A_prs[i].k/n)*n + pprs[(A_prs[i].k%n)/np].d;
+      A_prs[i].k = (A_prs[i].k/n)*n + pprs[(A_prs[i].k%n)/np].d.parent;
     }
   }
   {
     //map matrix so rows are distributed as elements of p, ensures for each element of p, this process also owns the column of A (A1)
-    Matrix<int> A2(n, n, "ij", Partition(1,&np)["j"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
+    Matrix<EdgeExt> A2(n, n, "ij", Partition(1,&np)["j"], Idx_Partition(), SP*(A->is_sparse), *A->wrld, *A->sr);
     //write in P^T A into A2
     A2.write(nprs, A_prs);
     delete [] A_prs;
     A2.get_local_pairs(&nprs, &A_prs, true);
     //use fact p and cols of A are distributed cyclically, to compute P^T A * P
     for (int64_t i=0; i<nprs; i++){
-      A_prs[i].k = (A_prs[i].k%n) + pprs[(A_prs[i].k/n)/np].d*n;
+      A_prs[i].k = (A_prs[i].k%n) + pprs[(A_prs[i].k/n)/np].d.parent*n;
     }
   }
-  Matrix<int> * PTAP = new Matrix<int>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
+  Matrix<EdgeExt> * PTAP = new Matrix<EdgeExt>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
   PTAP->write(nprs, A_prs);
   delete [] A_prs;
   t_ptap.stop();

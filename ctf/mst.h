@@ -73,7 +73,7 @@ Semiring<EdgeExt> get_minedge_sr();
 Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
 Vector<int>* supervertex_matrix(int n, Matrix<Edge>* A, Vector<int>* p, World* world, int sc2);
 
-Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p);
+Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<EdgeExt>* p);
 
 // Utility functions
 int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B);
@@ -82,7 +82,8 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world);
 
 template <typename T>
 void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
-#include "mst.txx"
+//#include "mst.txx"
+#include "mst_templates.cxx"
 
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
 
