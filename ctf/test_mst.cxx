@@ -33,18 +33,60 @@ void test_shortcut2(int n, Matrix<Edge> * A, Vector<int> * nonleaves, World * w,
 }
 */
 
+// does not use path compression
+unsigned int find(unsigned int p[], unsigned int i) {
+  while (p[i] != i) {
+    i = p[i];
+  }
+
+  return i;
+}
+
+// not a smart union
+void union1(unsigned int p[], unsigned int a, unsigned int b) {
+  unsigned int a_parent = find(p, a);
+  unsigned int b_parent = find(p, b);
+
+  p[a_parent] = b_parent;
+}
+
+// Kruskal
+Vector<int> * serial_mst(Matrix<EdgeExt> * A) {
+  int64_t npair;
+  Pair<EdgeExt> * pairs;
+  A->get_all_pairs(&npair, &pairs, true);
+
+  EdgeExt edges[npair];
+  for (unsigned int i = 0; i < npair; ++i) {
+    edges[i] = EdgeExt(pairs[i].k / A->nrow, pairs[i].d.weight, pairs[i].d.parent);
+  }
+
+  std::sort(edges, edges + npair, [](const EdgeExt & lhs, const EdgeExt & rhs) { return lhs.weight < rhs.weight; });
+
+  unsigned int p[A->nrow];
+  for (unsigned int i = 0; i < A->nrow; ++i) {
+    p[i] = i;
+  }
+
+  for (unsigned int i = 0; i < npair; ++i) {
+    if (find(p, edges[i].key) != find(p, edges[i].parent)) {
+      union1(p, edges[i].key, edges[i].parent);
+      printf("key, weight, parent: %d, %d, %d\n", edges[i].key, edges[i].weight, edges[i].parent); // TODO: store in hashset
+    }
+  }
+
+  Vector<int> * mst = new Vector<int>();
+  return mst;
+}
+
 // graph pictured here: https://i0.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-1.png?zoom=2.625&resize=368%2C236&ssl=1
 // mst pictured here: https://i1.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-12.png?zoom=2&resize=382%2C237&ssl=1
 void test_simple(World * w) {
-  // (key, weight, parent in p) 
-  // entries in A: (key, weight, -1) 
-  // entries in P: (key, -1, parent in p)
-
   printf("test_simple\n");
 
   //const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
   const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
- 
+  
   int nrow = 7;
   Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP|SY, *w, MIN_EDGE);
 
@@ -64,42 +106,20 @@ void test_simple(World * w) {
 
   A->write(npair, pairs);
 
-  //printf("A:\n");
-  //A->print_matrix();
-
+  /* supervertex matrix. */
   auto p = new Vector<int>(nrow, SP, *w, MAX_TIMES_SR); // TODO: MAX_TIMES_SR necessary? for nonleaves too?
   init_pvector(p);
 
-  //printf("p:\n");
-  //p->print();
-
   int sc2 = 0;
   auto super_res = supervertex_matrix(nrow, A, p, w, sc2);
+  printf("super_res\n");
   super_res->print();
-  
-  /*
-  // tests setup
-  
-  auto q = new Vector<EdgeExt>(nrow, p->is_sparse, *w, MIN_EDGE);
-  (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
-  Bivar_Function<Edge,int,EdgeExt> fmv([](Edge e, int p){ return EdgeExt(e.key, e.weight, p); });
-  fmv.intersect_only=true;
-  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
-  (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
 
-  // tests setup end
+  /* Sequential Kruskal. */
+  auto p_seq = serial_mst(A);
+  printf("p_seq\n");
+  //p_seq->print();
   
-  //test_are_vectors_different(p, q);
-  
-  Vector<int> * nonleaves;
-  test_shortcut1(p, q, nonleaves);
-  
-  //test_PTAP(A, q);
-  printf("test_PTAP\n");
-  Matrix<EdgeExt>* PTAP_res = PTAP(A, q);
-  PTAP_res->print();
-  //test_shortcut2(n, A, nonleaves, w, sc2);
-  */
   delete p;
   delete [] pairs;
   delete A;
@@ -112,5 +132,6 @@ int main(int argc, char** argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &np);
   auto w = new World(argc, argv);
+
   test_simple(w);
 }
