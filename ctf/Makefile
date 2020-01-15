@@ -5,7 +5,7 @@ all: test_connectivity test_mst
 connectivity.o: connectivity.h connectivity.cxx $(CTFDIR)
 	$(NVCC) $(NVCCFLAGS) -c connectivity.cxx  $(DEFS) $(INCLUDES) 
 
-mst.o: mst.h mst.cxx mst.txx $(CTFDIR)
+mst.o: mst.h mst.cxx mst_templates.cxx $(CTFDIR)
 	$(NVCC) $(NVCCFLAGS) -c mst.cxx  $(DEFS) $(INCLUDES) 
 
 graph_io.o: graph_io.cxx graph_aux.h   $(CTFDIR)

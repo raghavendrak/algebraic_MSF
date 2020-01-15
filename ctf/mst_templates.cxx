@@ -19,11 +19,11 @@ CTF::Vector<int> * get_nonleaves(CTF::Vector<T> & p, int64_t npairs, CTF::Pair<T
   return nonleaves;
 }
 
+// template specialization
 template <>
-CTF::Vector<int> * get_nonleaves<int>(CTF::Vector<int> & p, int64_t npairs, CTF::Pair<int> * updated_loc_pairs){
+inline CTF::Vector<int> * get_nonleaves<int>(CTF::Vector<int> & p, int64_t npairs, CTF::Pair<int> * updated_loc_pairs){
   return NULL;
 }
-
 
 // p[i] = rec_p[q[i]]
 // if create_nonleaves=true, computing non-leaf vertices in parent forest

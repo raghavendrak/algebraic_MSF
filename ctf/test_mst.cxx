@@ -1,9 +1,5 @@
 #include "mst.h"
 
-Vector<int> serial_mst(Graph g) {
-
-}
-
 void test_are_vectors_different(Vector<int> * p, Vector<EdgeExt> * q) {
   printf("test are_vectors_different\n");
   printf("p:\n");
@@ -21,7 +17,7 @@ void test_are_vectors_different(Vector<int> * p, Vector<EdgeExt> * q) {
 
 void test_shortcut1(Vector<int> * p, Vector<EdgeExt> * q, Vector<int> * nonleaves) {
   printf("test shortcut1\n");
-  shortcut_EdgeExt(*q, *q, *q, &nonleaves, true);
+  shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
   if (p->wrld->rank == 0)
     printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
 }
@@ -137,18 +133,17 @@ void test_simple(World * w) {
   
   //test_are_vectors_different(p, q);
 
-  Vector<int> * nonleaves;
-  test_shortcut1(p, q, nonleaves);
+  //Vector<int> * nonleaves;
+  //test_shortcut1(p, q, nonleaves);
 
-  auto rec_A = test_PTAP(A, q);
+  //auto rec_A = test_PTAP(A, q);
+  //printf("rec_A:\n");
+  //rec_A->print();
 
-  printf("rec_A:\n");
-  rec_A->print();
+  //printf("q:\n");
+  //q->print();
 
-  printf("q:\n");
-  q->print();
-
-  shortcut<int>(*p, *q, *p);
+  //shortcut<int>(*p, *q, *p);
   //test_shortcut2(n, A, nonleaves, w, sc2);
 
   delete p;
