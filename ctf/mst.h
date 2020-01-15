@@ -80,8 +80,9 @@ int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B);
 void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
 
-void shortcut_EdgeExt(Vector<EdgeExt> & p, Vector<EdgeExt> & q, Vector<EdgeExt> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
-void shortcut_int(Vector<int> & p, Vector<EdgeExt> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
+template <typename T>
+void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
+#include "mst_templates.cxx"
 
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
 
