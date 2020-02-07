@@ -379,7 +379,6 @@ int64_t serial_connectivity(Matrix<int>* A)
     }
   }
 
-  std::cout << "Serial code, connected_components: " << connected_components << endl;
   /*
   for(int64_t i = 0; i < adj.size(); i++) {
     for (int64_t j = 0; j < adj[i].size(); j++) {
@@ -407,7 +406,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int 
     printf("Time for hook_matrix(): %1.2lf\n", (etime - stime));
   }
   thm.end();
-  count[""] += Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
+  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
   int64_t cnt = count.get_val();
   if (w->rank == 0) {
     printf("Found %ld components with hook_matrix, pg is of length %d, hm of length %d, matSize is %ld.\n",cnt,pg->len,hm->len,matSize);
@@ -443,11 +442,29 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int 
     printf("Time for supervertex_matrix(): %1.2lf\n", (etime - stime));
   }
   tsv.end();
-  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], sv->operator[]("i"));
+  count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], sv->operator[]("i")); // TODO: returning incorrect result on multiple processes
   cnt = count.get_val();
+
+  if (w->rank == 0) {
+    printf("SV:\n");
+  }
+  sv->print();
+  if (w->rank == 0) {
+    printf("\n");
+  printf("PG\n");
+  }
+  pg->print();
+  if (w->rank == 0) {
+    printf("\n");
+
+    printf("count\n");
+  }
+  count.print();
+
   if (w->rank == 0) {
     printf("Found %ld components with supervertex_matrix.\n",cnt);
   }
+
   int64_t result = are_vectors_different(*hm, *sv);
   if (w->rank == 0) {
     if (result) {
@@ -461,6 +478,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int 
     int64_t serial_cnt;
     serial_cnt = serial_connectivity(A);
     if (w->rank == 0) {
+      printf("Found %d components with serial_connectivity\n", serial_cnt);
       if (cnt == serial_cnt) {
         printf("Number of components between supervertex_matrix() and serial_connectivity() are same: PASS\n");
       }
