@@ -58,24 +58,6 @@ Semiring<EdgeExt> get_minedge_sr(){
   return MIN_EDGE; 
 }
 
-// NOTE: can't use bool as return
-int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B)
-{
-  CTF::Scalar<int64_t> s;
-  if (!A.is_sparse && !B.is_sparse){
-    s[""] += CTF::Function<int,EdgeExt,int64_t>([](int a, EdgeExt b){ return a!=b.parent; })(A["i"],B["i"]);
-  } else {
-    auto C = Vector<int>(A.len, SP*A.is_sparse, *A.wrld);
-    C["i"] += A["i"];
-    auto B_keys = Vector<int>(B.len, SP*B.is_sparse, *B.wrld);
-    B_keys["i"] = CTF::Function<EdgeExt,int64_t>([](EdgeExt b){ return b.parent; })(B["i"]);
-    ((int64_t)-1)*C["i"] += B_keys["i"];
-    s[""] += CTF::Function<int,int64_t>([](int a){ return (int64_t)(a!=0); })(C["i"]);
-
-  }
-  return s.get_val();
-}
-
 void init_pvector(Vector<int>* p)
 {
   int64_t npairs;
@@ -169,7 +151,7 @@ Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World
   //relax all edges
   Timer t_relax("CONNECTIVITY_Relaxation");
   t_relax.start();
-  auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
+   auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
   (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
   Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
   fmv.intersect_only=true;
@@ -195,9 +177,56 @@ Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World
     auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
     delete rec_A;
     //perform one step of shortcutting to update components of leaves
-    shortcut<int>(*p, *q, *rec_p);
+    shortcut<int>(*p, *q, *rec_p, NULL, false);
     delete q;
     delete rec_p;
     return p;
   }
+}
+
+Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
+{
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
+
+  auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
+  init_pvector(p);
+  auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
+
+  while (are_vectors_different(*p, *prev)) {
+    (*prev)["i"] = (*p)["i"];
+    //auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
+    Timer t_relax("CONNECTIVITY_Relaxation");
+    t_relax.start();
+    auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
+    (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
+    Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
+    fmv.intersect_only=true;
+    (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
+    //(*q)["i"] = (*A)["ij"] * (*p)["j"];
+    t_relax.stop();
+    auto r = new Vector<int>(n, *world, MAX_TIMES_SR);
+    max_vector(*r, *p, *q);
+    //auto P = pMatrix(p, world);
+    auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
+    //(*s)["i"] = (*P)["ji"] * (*r)["j"];
+    //shortcut(*s, *r, *p);
+    shortcut(*s, *r, *p, NULL, false);
+    max_vector(*p, *p, *s);
+    Vector<int> * pi = new Vector<int>(*p);
+    //shortcut(*p, *p, *p);
+    shortcut(*p, *p, *p, NULL, false);
+
+    while (are_vectors_different(*pi, *p)){
+      delete pi;
+      pi = new Vector<int>(*p);
+      shortcut(*p, *p, *p, NULL, false);
+    }
+    delete pi;
+
+    delete q;
+    delete r;
+    delete s;
+  }
+  return p;
 }

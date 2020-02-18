@@ -70,7 +70,7 @@ EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b);
 void EdgeExt_red(EdgeExt const * a, EdgeExt * b, int n);
 //Monoid<EdgeExt> get_minedge_monoid();
 Semiring<EdgeExt> get_minedge_sr();
-Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world);
+Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world);
 Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World* world, int sc2);
 
 Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<EdgeExt>* p);
@@ -80,8 +80,8 @@ int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B);
 void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
 
-template <typename T>
-void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
+//template <typename T>
+//void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 #include "mst_templates.cxx"
 
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);

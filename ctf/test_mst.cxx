@@ -114,8 +114,12 @@ void test_simple(World * w) {
 
   int sc2 = 0;
   auto super_res = supervertex_matrix(nrow, A, p, w, sc2);
-  printf("super_res\n");
-  super_res->print();
+  //printf("super_res\n");
+  //super_res->print();
+
+  auto hm = hook_matrix(A->nrow, A, w);
+  printf("hook_matrix\n");
+  hm->print();
 
   /* Sequential Kruskal. */
   auto p_seq = serial_mst(A);
@@ -123,12 +127,12 @@ void test_simple(World * w) {
   //p_seq->print();
   
   // tests setup
-  auto q = new Vector<EdgeExt>(nrow, p->is_sparse, *w, MIN_EDGE);
-  (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
-  Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
-  fmv.intersect_only=true;
-  (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
-  (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
+  //auto q = new Vector<EdgeExt>(nrow, p->is_sparse, *w, MIN_EDGE);
+  //(*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
+  //Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
+  //fmv.intersect_only=true;
+  //(*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+  //(*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
   // tests setup end
   
   //test_are_vectors_different(p, q);
