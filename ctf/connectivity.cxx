@@ -363,7 +363,8 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     return p;
   } else {
     //compute shortcutting q[i] = q[q[i]], obtain nonleaves or roots (FIXME: can we also remove roots that are by themselves?)
-    shortcut2(*q, *q, *q, sc2, world, &nonleaves, true);
+    //shortcut2(*q, *q, *q, sc2, world, &nonleaves, true);
+    shortcut(*q, *q, *q, &nonleaves, true);
     if (p->wrld->rank == 0)
       printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
     //project to reduced graph with all vertices
@@ -372,7 +373,8 @@ Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* wo
     auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
     delete rec_A;
     //perform one step of shortcutting to update components of leaves
-    shortcut2(*p, *q, *rec_p, sc2, world);
+    shortcut(*p, *q, *rec_p);
+    //shortcut2(*p, *q, *rec_p, 0, world);
     delete q;
     delete rec_p;
     return p;
@@ -397,15 +399,17 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
     //auto P = pMatrix(p, world);
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
     //(*s)["i"] = (*P)["ji"] * (*r)["j"];
-    shortcut(*s, *r, *p);
+    //shortcut(*s, *r, *p);
+    shortcut2(*s, *r, *p, 1, world);
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
-    shortcut(*p, *p, *p);
+    //shortcut(*p, *p, *p);
+    shortcut2(*p, *p, *p, 1, world);
 
     while (are_vectors_different(*pi, *p)){
       delete pi;
       pi = new Vector<int>(*p);
-      shortcut(*p, *p, *p);
+      shortcut2(*p, *p, *p, 1, world);
     }
     delete pi;
 

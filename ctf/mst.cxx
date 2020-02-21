@@ -3,10 +3,7 @@
 /* TODO: add shortcut2 (originally omitted for readbilitity) */
 
 EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b){
-  if (a.parent < b.parent)
-    return a.weight < b.weight ? a : b;
-  else
-    return a;
+  return a.weight < b.weight ? a : b;
 }
 
 void EdgeExt_red(EdgeExt const * a,
@@ -168,7 +165,7 @@ Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World
     return p;
   } else {
     //compute shortcutting q[i] = q[q[i]], obtain nonleaves or roots (FIXME: can we also remove roots that are by themselves?)
-    shortcut<EdgeExt>(*q, *q, *q, &nonleaves, true);
+    shortcut<EdgeExt, EdgeExt>(*q, *q, *q, &nonleaves, true);
     if (p->wrld->rank == 0)
       printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
     //project to reduced graph with all vertices
@@ -177,13 +174,14 @@ Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World
     auto rec_p = supervertex_matrix(n, rec_A, nonleaves, world, sc2);
     delete rec_A;
     //perform one step of shortcutting to update components of leaves
-    shortcut<int>(*p, *q, *rec_p, NULL, false);
+    shortcut<int, EdgeExt>(*p, *q, *rec_p, NULL, false);
     delete q;
     delete rec_p;
     return p;
   }
 }
 
+/*
 Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
 {
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
@@ -211,22 +209,70 @@ Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
     auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
     //(*s)["i"] = (*P)["ji"] * (*r)["j"];
     //shortcut(*s, *r, *p);
-    shortcut(*s, *r, *p, NULL, false);
+    shortcut<int, int>(*s, *r, *p, NULL, false);
     max_vector(*p, *p, *s);
     Vector<int> * pi = new Vector<int>(*p);
     //shortcut(*p, *p, *p);
-    shortcut(*p, *p, *p, NULL, false);
+    shortcut<int, int>(*p, *p, *p, NULL, false);
 
     while (are_vectors_different(*pi, *p)){
       delete pi;
       pi = new Vector<int>(*p);
-      shortcut(*p, *p, *p, NULL, false);
+      shortcut<int, int>(*p, *p, *p, NULL, false);
     }
     delete pi;
 
     delete q;
     delete r;
     delete s;
+  }
+  return p;
+}
+*/
+
+Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
+{
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
+
+  auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
+  init_pvector(p);
+  auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
+
+  while (are_vectors_different(*p, *prev)) {
+    (*prev)["i"] = (*p)["i"];
+    Timer t_relax("CONNECTIVITY_Relaxation");
+    t_relax.start();
+    auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
+    (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
+    Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
+    fmv.intersect_only=true;
+    (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    (*p)["i"] += Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
+    t_relax.stop();
+
+    /* 
+    // zero out edges taken in A
+    int64_t p_n;
+    Pair<int> * p_loc_pairs;
+    p->read_local(&p_n, &p_loc_pairs);
+
+    CTF::Pair<EdgeExt> * updated_loc_pairs = new CTF::Pair<EdgeExt>[n];
+    for (int64_t i = 0; i < p_n; ++i) {
+      updated_loc_pairs[i].k = p_loc_pairs[i].k + p_loc_pairs[i].d * p_n;
+      updated_loc_pairs[i].d = EdgeExt(INT_MAX, INT_MAX, INT_MAX);
+    }
+    A->write(n, updated_loc_pairs);
+    */
+
+    Vector<int> * pi = new Vector<int>(*p);
+    while (are_vectors_different(*pi, *p)){
+      delete pi;
+      pi = new Vector<int>(*p);
+      shortcut<int, int>(*p, *p, *p, NULL, false);
+    }
+    delete pi;
+
+    delete q;
   }
   return p;
 }
