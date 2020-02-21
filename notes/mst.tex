@@ -88,6 +88,7 @@
 \begin{document}
 \maketitle
 
+\section{First cut implementation}
 \textbf{Edge relaxation/conditional hooking:} Let $p$ be a vector of ints and A be a matrix of EdgeExt (key, weight, parent).\\
 Analgous to $p["i"] += A["i"] * p["j"]$ for hooking.
 
@@ -121,7 +122,9 @@ Potential fixes: ``zeroing out'' entries in $A$ to signify that the correspondin
 
 We also must consider how to track mst, as $p$ will only contain information about the current forest (ie not where edges originally came from/were going to).
 
-Meeting on 20-Feb:
+\section{Meeting Notes}
+20-Feb:
+\\
 Comment after discussion: The other edges will still be taken (similar to connectivity). An example graph of 3 nodes where 0 is connected to 2 with edge weight 10, and 0 is also connected to 1 with edge weight 30. 0 would pick node 1 in the 1st iteration, and 1 would pick 3 ``through'' 0 in the next iteration.
 The parent vector can also have a pseudo parent vector which keeps track of the edge each node initially took to get connected. This will essentially capture the MST.
 
