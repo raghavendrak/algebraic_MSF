@@ -3,7 +3,9 @@
 /* TODO: add shortcut2 (originally omitted for readbilitity) */
 
 EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b){
-  return a.weight < b.weight ? a : b;
+  return (a.parent > b.parent || 
+          ((a.parent == b.parent) && 
+           (a.weight < b.weight))) ? a : b;
 }
 
 void EdgeExt_red(EdgeExt const * a,
@@ -36,6 +38,7 @@ Monoid<EdgeExt> get_minedge_monoid(){
 }
 */
 
+// MIN_EDGE semiring: type EdgeExt is 3-tuple (key, weight, parent), additive operator performs a op b = a.weight < b.weight ? a : b, multiplicative operator performs FIXME become Monoid
 Semiring<EdgeExt> get_minedge_sr(){
     MPI_Op omee;
     MPI_Op_create(
@@ -46,7 +49,7 @@ Semiring<EdgeExt> get_minedge_sr(){
     &omee);
 
    Semiring<EdgeExt> MIN_EDGE(
-      EdgeExt(INT_MAX, INT_MAX, INT_MAX), 
+      EdgeExt(INT_MAX, INT_MAX, -1),
       [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
       omee,
       EdgeExt(INT_MAX, INT_MAX, INT_MAX), // mult needed for p.write in shortcut
@@ -243,10 +246,16 @@ Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
     Timer t_relax("CONNECTIVITY_Relaxation");
     t_relax.start();
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
+    // q_i = (inf, inf, p_i)
     (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
+    // fmv(e, p) = (e.key, e.w, p)
     Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
-    fmv.intersect_only=true;
+    // fmv should only be applied to nonzeros
+    // fmv.intersect_only=true;
+    // q_i = minweight_{i} fmv(a_{ij},p_j)}
+    //printf("HERE0\n");
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    //printf("HERE\n");
     (*p)["i"] += Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
     t_relax.stop();
 

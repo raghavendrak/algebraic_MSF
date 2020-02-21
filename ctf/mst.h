@@ -44,8 +44,7 @@ namespace CTF {
     fprintf(fp, "(%zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent);
   }
 }
-
-static Semiring<int> MAX_TIMES_SR(0,
+static Semiring<int> MAX_TIMES_SR(-1,
     [](int a, int b) {
     return std::max(a, b);
     },
