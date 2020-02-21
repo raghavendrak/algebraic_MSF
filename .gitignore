@@ -1,5 +1,11 @@
+*.pdf
+*.aux
 *.jar
 *.iml
 .idea/
 out/
 
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
