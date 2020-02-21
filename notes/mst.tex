@@ -96,7 +96,7 @@ Algorithm:
   while $p_prev != p$:
     $p_prev = p$
     $p["i"] += A["i"] * p["j"]$
-    
+
     while $s_prev != p$
       $s_prev = p$
       $p[p[i]] = s_prev$
@@ -115,10 +115,14 @@ For current mst implementation, $p["i"] += A["i"] * p["j"]$ is computed with the
       (*p)["i"] += Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
 \end{lstlisting}
 
-For all $i$, this routine finds computes $minedge = \min_{j} A["ij"]$ and sets $p[i] = minedge.parent$. However, our current implementation fails to perform any hooking after the initial step. The nodes are "happy" with their miniumum edge and do not want to take any other edge.\\
+For all $i$, this routine finds computes $minedge = \min_{j} A["ij"]$ and sets $p[i] = minedge.parent$. However, our current implementation fails to perform any hooking after the initial step. The nodes are ``happy'' with their minimum edge and do not want to take any other edge.\\
 
-Potential fixes: "zeroing out" entries in $A$ to signify that the corresponding edge has already been taken, project matrix to $\#(stars) x \#(stars)$, or enlarge EdgeExt to have an additional boolean parameter $taken$.\\
+Potential fixes: ``zeroing out'' entries in $A$ to signify that the corresponding edge has already been taken, project matrix to $\#(stars) x \#(stars)$, or enlarge EdgeExt to have an additional boolean parameter $taken$.\\
 
 We also must consider how to track mst, as $p$ will only contain information about the current forest (ie not where edges originally came from/were going to).
+
+Meeting on 20-Feb:
+Comment after discussion: The other edges will still be taken (similar to connectivity). An example graph of 3 nodes where 0 is connected to 2 with edge weight 10, and 0 is also connected to 1 with edge weight 30. 0 would pick node 1 in the 1st iteration, and 1 would pick 3 ``through'' 0 in the next iteration.
+The parent vector can also have a pseudo parent vector which keeps track of the edge each node initially took to get connected. This will essentially capture the MST.
 
 \end{document}
