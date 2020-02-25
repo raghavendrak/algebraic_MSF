@@ -86,8 +86,8 @@ Vector<int> * serial_mst(Matrix<EdgeExt> * A) {
 void test_simple(World * w) {
   printf("test_simple\n");
 
-  //const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
-  const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr();
+  //const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
  
   /* 
   int nrow = 7;
