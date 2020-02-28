@@ -49,7 +49,7 @@ Semiring<EdgeExt> get_minedge_sr(){
     &omee);
 
    Semiring<EdgeExt> MIN_EDGE(
-      EdgeExt(INT_MAX, INT_MAX, -1),
+      EdgeExt(INT_MAX, INT_MAX, 0),
       [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
       omee,
       EdgeExt(INT_MAX, INT_MAX, INT_MAX), // mult needed for p.write in shortcut
@@ -251,7 +251,7 @@ Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
     // fmv(e, p) = (e.key, e.w, p)
     Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
     // fmv should only be applied to nonzeros
-    // fmv.intersect_only=true;
+    fmv.intersect_only=true;
     // q_i = minweight_{i} fmv(a_{ij},p_j)}
     //printf("HERE0\n");
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);

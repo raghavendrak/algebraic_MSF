@@ -113,8 +113,8 @@ void test_simple(World * w) {
 
   int64_t npair = 2;
   Pair<EdgeExt> * pairs = new Pair<EdgeExt>[npair];
-  pairs[0] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(0, 30, 0));
-  pairs[1] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 10, 0));
+  pairs[0] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 30, 0));
+  pairs[1] = Pair<EdgeExt>(0 * nrow + 6, EdgeExt(0, 10, 0));
 
   A->write(npair, pairs);
 
