@@ -89,7 +89,7 @@ void test_simple(World * w) {
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr();
   //const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
  
-  /* 
+   
   int nrow = 7;
   Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP|SY, *w, MIN_EDGE);
 
@@ -106,16 +106,20 @@ void test_simple(World * w) {
   pairs[8] = Pair<EdgeExt>(4 * nrow + 5, EdgeExt(4, 8, 4));
   pairs[9] = Pair<EdgeExt>(4 * nrow + 6, EdgeExt(4, 9, 4));
   pairs[10] = Pair<EdgeExt>(5 * nrow + 6, EdgeExt(5, 11, 5));
-  */
+  
 
+  /*
   int nrow = 3;
   Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP|SY, *w, MIN_EDGE);
 
   int64_t npair = 2;
   Pair<EdgeExt> * pairs = new Pair<EdgeExt>[npair];
-  pairs[0] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 30, 0));
-  pairs[1] = Pair<EdgeExt>(0 * nrow + 6, EdgeExt(0, 10, 0));
-
+  //pairs[0] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(0, 30, 1));
+  //pairs[1] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 10, 2));
+  pairs[0] = Pair<EdgeExt>(1 * nrow + 0, EdgeExt(0, 30, 0));
+  pairs[1] = Pair<EdgeExt>(2 * nrow + 0, EdgeExt(0, 10, 0));
+  // pairs[2] = Pair<EdgeExt>(2 * nrow + 1, EdgeExt(1, 5, 0));
+  */
   A->write(npair, pairs);
 
   /* supervertex matrix. */

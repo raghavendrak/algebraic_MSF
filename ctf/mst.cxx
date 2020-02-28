@@ -1,12 +1,18 @@
 #include "mst.h"
 
 /* TODO: add shortcut2 (originally omitted for readbilitity) */
-
 EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b){
   return (a.parent > b.parent || 
           ((a.parent == b.parent) && 
            (a.weight < b.weight))) ? a : b;
 }
+
+/*
+EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b){
+  if ((a.weight < b.weight) && (a.parent > b.parent)) return a;
+  else return b;
+}
+*/
 
 void EdgeExt_red(EdgeExt const * a,
                  EdgeExt * b,
@@ -49,7 +55,7 @@ Semiring<EdgeExt> get_minedge_sr(){
     &omee);
 
    Semiring<EdgeExt> MIN_EDGE(
-      EdgeExt(INT_MAX, INT_MAX, 0),
+      EdgeExt(INT_MAX, INT_MAX, -1),
       [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
       omee,
       EdgeExt(INT_MAX, INT_MAX, INT_MAX), // mult needed for p.write in shortcut
@@ -236,10 +242,23 @@ Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
 Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
 {
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
+  //const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
 
+  A->print_matrix();
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
   init_pvector(p);
+  /*
+  auto mst = new Vector<int>(n, *world, MAX_TIMES_SR);
+  init_pvector(mst);
+  */
+  auto ref = new Vector<int>(n, *world, MAX_TIMES_SR);
+  init_pvector(ref);
   auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
+
+  auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
+  (*mst)["i"] = Function<int, EdgeExt>([](int p) {return EdgeExt(p, p, p); })((*ref)["i"]);
+  mst->print();
+
 
   while (are_vectors_different(*p, *prev)) {
     (*prev)["i"] = (*p)["i"];
@@ -254,9 +273,40 @@ Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
     fmv.intersect_only=true;
     // q_i = minweight_{i} fmv(a_{ij},p_j)}
     //printf("HERE0\n");
+    printf("q before:\n");
+    q->print();
+    printf("p before:\n");
+    p->print();
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    printf("q:\n");
+    q->print();
     //printf("HERE\n");
     (*p)["i"] += Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
+    /*
+    (*mst)["i"] = Function<EdgeExt, int, int, int, int>([](EdgeExt e, int p, int ref, int m) {
+        // m == ref: my first hook
+        // p != ref: only if the parent has changed 
+        if (m == ref && p != ref) return e.key;
+        else return m;
+        })((*q)["i"], (*p)["i"], (*ref)["i"], (*mst)["i"]);
+        */
+
+
+    Bivar_Function<EdgeExt,EdgeExt,EdgeExt> mstf([](EdgeExt e, EdgeExt r){ 
+        if (r.key == r.weight && e.parent > r.weight && e.key != r.weight) return EdgeExt(e.key, r.weight, r.parent);
+        else if (r.key == r.weight && e.parent > r.weight && e.key == r.weight) return EdgeExt(e.parent, r.weight, r.parent);
+        else return EdgeExt(r.key, r.weight, r.parent); 
+        });
+    // mstf.intersect_only=true;
+    // can use Bivar_Transform
+    // (*mst)["i"] = mstf((*q)["i"], (*mst)["i"]);
+    
+    auto mstt = new Vector<EdgeExt>(n, *world, MIN_EDGE);
+    (*mstt)["i"] = Function<EdgeExt, EdgeExt>([](EdgeExt e) {return EdgeExt(e.key, e.weight, e.parent); })((*mst)["i"]);
+    (*mst)["i"] = mstf((*q)["i"], (*mstt)["i"]);
+
+    printf("mst:\n");
+    mst->print();
     t_relax.stop();
 
     /* 
