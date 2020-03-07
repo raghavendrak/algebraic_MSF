@@ -20,11 +20,11 @@ typedef double REAL;
 uint64_t gen_graph(int scale, int edgef, uint64_t seed, uint64_t **edges);
 
 struct EdgeExt {
-  int64_t key, weight, parent;
+  int64_t key, weight, parent, comp;
   EdgeExt() { }
-  EdgeExt(int64_t key_, int64_t weight_, int64_t parent_) { key = key_; weight = weight_; parent = parent_; }
+  EdgeExt(int64_t key_, int64_t weight_, int64_t parent_, int64_t comp_) { key = key_; weight = weight_; parent = parent_; comp = comp_; }
 
-  EdgeExt(EdgeExt const & other) { key = other.key; weight = other.weight; parent = other.parent; }
+  EdgeExt(EdgeExt const & other) { key = other.key; weight = other.weight; parent = other.parent; comp = other.comp; }
 };
 
 struct Edge {
@@ -41,7 +41,7 @@ namespace CTF {
 
   template <>
   inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
-    fprintf(fp, "(%zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent);
+    fprintf(fp, "(%zu %zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent, ((EdgeExt*)a)[0].comp);
   }
 }
 static Semiring<int> MAX_TIMES_SR(0,

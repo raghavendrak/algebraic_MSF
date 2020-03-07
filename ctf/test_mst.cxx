@@ -60,7 +60,7 @@ Vector<int> * serial_mst(Matrix<EdgeExt> * A) {
 
   EdgeExt edges[npair];
   for (unsigned int i = 0; i < npair; ++i) {
-    edges[i] = EdgeExt(pairs[i].k / A->nrow, pairs[i].d.weight, pairs[i].d.parent);
+    edges[i] = EdgeExt(pairs[i].k / A->nrow, pairs[i].d.weight, pairs[i].d.parent, pairs[i].d.comp);
   }
 
   std::sort(edges, edges + npair, [](const EdgeExt & lhs, const EdgeExt & rhs) { return lhs.weight < rhs.weight; });
@@ -86,28 +86,38 @@ Vector<int> * serial_mst(Matrix<EdgeExt> * A) {
 void test_simple(World * w) {
   printf("test_simple\n");
 
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr();
-  //const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
+  //const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr();
+  const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr();
  
    
   int nrow = 7;
-  Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP|SY, *w, MIN_EDGE);
+  Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP, *w, MIN_EDGE);
 
-  int64_t npair = 11;
+  int64_t npair = 22;
   Pair<EdgeExt> * pairs = new Pair<EdgeExt>[npair];
-  pairs[0] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(0, 7, 0));
-  pairs[1] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 5, 0));
-  pairs[2] = Pair<EdgeExt>(1 * nrow + 2, EdgeExt(1, 8, 1));
-  pairs[3] = Pair<EdgeExt>(1 * nrow + 3, EdgeExt(1, 9, 1));
-  pairs[4] = Pair<EdgeExt>(1 * nrow + 4, EdgeExt(1, 7, 1));
-  pairs[5] = Pair<EdgeExt>(2 * nrow + 4, EdgeExt(2, 5, 2));
-  pairs[6] = Pair<EdgeExt>(3 * nrow + 4, EdgeExt(3, 15, 3));
-  pairs[7] = Pair<EdgeExt>(3 * nrow + 5, EdgeExt(3, 6, 3));
-  pairs[8] = Pair<EdgeExt>(4 * nrow + 5, EdgeExt(4, 8, 4));
-  pairs[9] = Pair<EdgeExt>(4 * nrow + 6, EdgeExt(4, 9, 4));
-  pairs[10] = Pair<EdgeExt>(5 * nrow + 6, EdgeExt(5, 11, 5));
+  pairs[0] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(0, 7, 0, 1));
+  pairs[1] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 5, 0, 3));
+  pairs[2] = Pair<EdgeExt>(1 * nrow + 2, EdgeExt(1, 8, 1, 2));
+  pairs[3] = Pair<EdgeExt>(1 * nrow + 3, EdgeExt(1, 9, 1, 3));
+  pairs[4] = Pair<EdgeExt>(1 * nrow + 4, EdgeExt(1, 7, 1, 4));
+  pairs[5] = Pair<EdgeExt>(2 * nrow + 4, EdgeExt(2, 5, 2, 4));
+  pairs[6] = Pair<EdgeExt>(3 * nrow + 4, EdgeExt(3, 15, 3, 4));
+  pairs[7] = Pair<EdgeExt>(3 * nrow + 5, EdgeExt(3, 6, 3, 5));
+  pairs[8] = Pair<EdgeExt>(4 * nrow + 5, EdgeExt(4, 8, 4, 5));
+  pairs[9] = Pair<EdgeExt>(4 * nrow + 6, EdgeExt(4, 9, 4, 6));
+  pairs[10] = Pair<EdgeExt>(5 * nrow + 6, EdgeExt(5, 11, 5, 6));
   
-
+  pairs[11] = Pair<EdgeExt>(1 * nrow + 0, EdgeExt(0, 7, 0, 0));
+  pairs[12] = Pair<EdgeExt>(3 * nrow + 0, EdgeExt(0, 5, 0, 0));
+  pairs[13] = Pair<EdgeExt>(2 * nrow + 1, EdgeExt(1, 8, 1, 1));
+  pairs[14] = Pair<EdgeExt>(3 * nrow + 1, EdgeExt(1, 9, 1, 1));
+  pairs[15] = Pair<EdgeExt>(4 * nrow + 1, EdgeExt(1, 7, 1, 1));
+  pairs[16] = Pair<EdgeExt>(4 * nrow + 2, EdgeExt(2, 5, 2, 2));
+  pairs[17] = Pair<EdgeExt>(4 * nrow + 3, EdgeExt(3, 15, 3, 3));
+  pairs[18] = Pair<EdgeExt>(5 * nrow + 3, EdgeExt(3, 6, 3, 3));
+  pairs[19] = Pair<EdgeExt>(5 * nrow + 4, EdgeExt(4, 8, 4, 4));
+  pairs[20] = Pair<EdgeExt>(6 * nrow + 4, EdgeExt(4, 9, 4, 4));
+  pairs[21] = Pair<EdgeExt>(6 * nrow + 5, EdgeExt(5, 11, 5, 5));
   /*
   int nrow = 3;
   Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP|SY, *w, MIN_EDGE);

@@ -88,7 +88,8 @@ void shortcut(CTF::Vector<T> & p, CTF::Vector<S> & q, CTF::Vector<T> & rec_p, CT
   CTF::Pair<S> * loc_pairs;
   if (q.is_sparse){
     //if we have updated only a subset of the vertices
-    q.get_local_pairs(&npairs, &loc_pairs, true);
+    //q.get_local_pairs(&npairs, &loc_pairs, true);
+    q.get_local_pairs(&npairs, &loc_pairs);
   } else {
     //if we have potentially updated all the vertices
     q.get_local_pairs(&npairs, &loc_pairs);
@@ -103,7 +104,8 @@ void shortcut(CTF::Vector<T> & p, CTF::Vector<S> & q, CTF::Vector<T> & rec_p, CT
   t_shortcut_read.start();
   rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
   t_shortcut_read.stop();
-  
+ 
+  rec_p.print(); 
   CTF::Pair<T> * updated_loc_pairs = new CTF::Pair<T>[npairs];
   for (int64_t i=0; i<npairs; i++){
       updated_loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
