@@ -22,11 +22,13 @@ void test_shortcut1(Vector<int> * p, Vector<EdgeExt> * q, Vector<int> * nonleave
     printf("Number of nonleaves or roots is %ld\n",nonleaves->nnz_tot);
 }
 
+/*
 Matrix<EdgeExt> * test_PTAP(Matrix<EdgeExt> * A, Vector<EdgeExt> * q) {
   printf("test_PTAP\n");
   auto rec_A = PTAP(A, q);
   return rec_A;
 }
+*/
 
 
 //void test_shortcut2(int n, Matrix<Edge> * A, Vector<int> * nonleaves, World * w, int sc2) {
@@ -141,38 +143,15 @@ void test_simple(World * w) {
   //printf("super_res\n");
   //super_res->print();
 
-  auto hm = hook_matrix(A->nrow, A, w);
   printf("hook_matrix\n");
+  auto hm = hook_matrix(A->nrow, A, w);
   hm->print();
+  delete hm;
 
-  /* Sequential Kruskal. */
-  //auto p_seq = serial_mst(A);
-  //printf("p_seq\n");
-  //p_seq->print();
-  
-  // tests setup
-  //auto q = new Vector<EdgeExt>(nrow, p->is_sparse, *w, MIN_EDGE);
-  //(*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
-  //Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
-  //fmv.intersect_only=true;
-  //(*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
-  //(*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
-  // tests setup end
-  
-  //test_are_vectors_different(p, q);
-
-  //Vector<int> * nonleaves;
-  //test_shortcut1(p, q, nonleaves);
-
-  //auto rec_A = test_PTAP(A, q);
-  //printf("rec_A:\n");
-  //rec_A->print();
-
-  //printf("q:\n");
-  //q->print();
-
-  //shortcut<int>(*p, *q, *p);
-  //test_shortcut2(n, A, nonleaves, w, sc2);
+  printf("hook_matrix_alt\n");
+  auto hm_alt = hook_matrix_alt(A->nrow, A, w);
+  hm_alt->print();
+  delete hm_alt;
 
   delete p;
   delete [] pairs;

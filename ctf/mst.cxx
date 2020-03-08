@@ -123,12 +123,12 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
 
 
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
-Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<EdgeExt>* p){
+Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<int>* p){
   Timer t_ptap("CONNECTIVITY_PTAP");
   t_ptap.start();
   int np = p->wrld->np;
   int64_t n = p->len;
-  Pair<EdgeExt> * pprs;
+  Pair<int> * pprs;
   int64_t npprs;
   //get local part of p
   p->get_local_pairs(&npprs, &pprs);
@@ -144,7 +144,7 @@ Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<EdgeExt>* p){
     A1.get_local_pairs(&nprs, &A_prs, true);
     //use fact p and rows of A are distributed cyclically, to compute P^T * A
     for (int64_t i=0; i<nprs; i++){
-      A_prs[i].k = (A_prs[i].k/n)*n + pprs[(A_prs[i].k%n)/np].d.parent;
+      A_prs[i].k = (A_prs[i].k/n)*n + pprs[(A_prs[i].k%n)/np].d;
     }
   }
   {
@@ -156,7 +156,7 @@ Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<EdgeExt>* p){
     A2.get_local_pairs(&nprs, &A_prs, true);
     //use fact p and cols of A are distributed cyclically, to compute P^T A * P
     for (int64_t i=0; i<nprs; i++){
-      A_prs[i].k = (A_prs[i].k%n) + pprs[(A_prs[i].k/n)/np].d.parent*n;
+      A_prs[i].k = (A_prs[i].k%n) + pprs[(A_prs[i].k/n)/np].d*n;
     }
   }
   Matrix<EdgeExt> * PTAP = new Matrix<EdgeExt>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
@@ -166,6 +166,7 @@ Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<EdgeExt>* p){
   return PTAP;
 }
 
+/*
 //recursive projection based algorithm
 Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World* world, int sc2)
 {
@@ -206,60 +207,11 @@ Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World
     return p;
   }
 }
-
-/*
-Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
-{
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
-
-  auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
-  init_pvector(p);
-  auto prev = new Vector<int>(n, *world, MAX_TIMES_SR);
-
-  while (are_vectors_different(*p, *prev)) {
-    (*prev)["i"] = (*p)["i"];
-    //auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
-    Timer t_relax("CONNECTIVITY_Relaxation");
-    t_relax.start();
-    auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
-    (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p); })((*p)["i"]);
-    Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.key, e.weight, p); });
-    fmv.intersect_only=true;
-    (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
-    (*p)["i"] = Function<EdgeExt,int>([](EdgeExt e){ return e.parent; })((*q)["i"]);
-    //(*q)["i"] = (*A)["ij"] * (*p)["j"];
-    t_relax.stop();
-    auto r = new Vector<int>(n, *world, MAX_TIMES_SR);
-    max_vector(*r, *p, *q);
-    //auto P = pMatrix(p, world);
-    auto s = new Vector<int>(n, *world, MAX_TIMES_SR);
-    //(*s)["i"] = (*P)["ji"] * (*r)["j"];
-    //shortcut(*s, *r, *p);
-    shortcut<int, int>(*s, *r, *p, NULL, false);
-    max_vector(*p, *p, *s);
-    Vector<int> * pi = new Vector<int>(*p);
-    //shortcut(*p, *p, *p);
-    shortcut<int, int>(*p, *p, *p, NULL, false);
-
-    while (are_vectors_different(*pi, *p)){
-      delete pi;
-      pi = new Vector<int>(*p);
-      shortcut<int, int>(*p, *p, *p, NULL, false);
-    }
-    delete pi;
-
-    delete q;
-    delete r;
-    delete s;
-  }
-  return p;
-}
 */
 
-Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
+Vector<EdgeExt>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
 {
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
-  //const static Semiring<EdgeExt> MIN_EDGE = get_minedge_sr(); // TODO: correct usage?
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_sr();
 
   A->print_matrix();
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -424,5 +376,7 @@ Vector<int>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
 
     delete q;
   }
-  return p;
+  return mst;
 }
+
+#include "mst_alt.cxx"
