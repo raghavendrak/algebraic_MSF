@@ -20,28 +20,17 @@ typedef double REAL;
 uint64_t gen_graph(int scale, int edgef, uint64_t seed, uint64_t **edges);
 
 struct EdgeExt {
-  int64_t key, weight, parent, comp;
-  EdgeExt() { }
-  EdgeExt(int64_t key_, int64_t weight_, int64_t parent_, int64_t comp_) { key = key_; weight = weight_; parent = parent_; comp = comp_; }
+  int64_t src, weight, dest, parent;
+  EdgeExt() { src = INT_MAX; weight = INT_MAX; dest = INT_MAX; parent = 0; }
+  EdgeExt(int64_t src_, int64_t weight_, int64_t dest_, int64_t parent_) { src = src_; weight = weight_; dest = dest_; parent = parent_; }
 
-  EdgeExt(EdgeExt const & other) { key = other.key; weight = other.weight; parent = other.parent; comp = other.comp; }
-};
-
-struct Edge {
-  int64_t key, weight;
-  Edge() { key = 0; weight = 0; }
-  Edge(int64_t key_, int64_t weight_) { key = key_; weight = weight_; }
+  EdgeExt(EdgeExt const & other) { src = other.src; weight = other.weight; dest = other.dest; parent = other.parent; }
 };
 
 namespace CTF {
   template <>
-  inline void Set<Edge>::print(char const * a, FILE * fp) const {
-    fprintf(fp, "(%zu %zu)", ((Edge*)a)[0].key, ((Edge*)a)[0].weight);
-  }
-
-  template <>
   inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
-    fprintf(fp, "(%zu %zu %zu %zu)", ((EdgeExt*)a)[0].key, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].parent, ((EdgeExt*)a)[0].comp);
+    fprintf(fp, "(%zu %zu %zu %zu)", ((EdgeExt*)a)[0].src, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].dest, ((EdgeExt*)a)[0].parent);
   }
 }
 static Semiring<int> MAX_TIMES_SR(0,
@@ -57,7 +46,7 @@ static Semiring<int> MAX_TIMES_SR(0,
 class Graph {
   public:
     int numVertices;
-    vector<Edge>* edges;
+    vector<EdgeExt>* edges;
 
     Graph();
 
@@ -67,13 +56,8 @@ class Graph {
 // MST
 EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b);
 void EdgeExt_red(EdgeExt const * a, EdgeExt * b, int n);
-// alt MST
-EdgeExt EdgeExtMin_alt(EdgeExt a, EdgeExt b);
-void EdgeExt_red_alt(EdgeExt const * a, EdgeExt * b, int n);
-Semiring<EdgeExt> get_minedge_sr();
-Monoid<EdgeExt> get_minedge_monoid_alt();
+Monoid<EdgeExt> get_minedge_monoid();
 Vector<EdgeExt>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world);
-Vector<EdgeExt>* hook_matrix_alt(int n, Matrix<EdgeExt> * A, World* world);
 Vector<int>* supervertex_matrix(int n, Matrix<EdgeExt>* A, Vector<int>* p, World* world, int sc2);
 
 Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<int>* p);
@@ -82,11 +66,7 @@ Matrix<EdgeExt>* PTAP(Matrix<EdgeExt>* A, Vector<int>* p);
 int64_t are_vectors_different(CTF::Vector<int> & A, CTF::Vector<EdgeExt> & B);
 void init_pvector(Vector<int>* p);
 Matrix<int>* pMatrix(Vector<int>* p, World* world);
-
-//template <typename T>
-//void shortcut(Vector<T> & p, Vector<EdgeExt> & q, Vector<T> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
-#include "mst_templates.cxx"
-
+void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 std::vector< Matrix<int>* > batch_subdivide(Matrix<int> & A, std::vector<float> batch_fracs);
 
 #endif
