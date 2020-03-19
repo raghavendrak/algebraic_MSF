@@ -120,7 +120,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
     remote_pairs[i].k = loc_pairs[i].d;
   }
   Timer t_shortcut_read("CONNECTIVITY_Shortcut_read");
-  //t_shortcut_read.start();
+  t_shortcut_read.start();
   rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
   t_shortcut_read.stop();
   for (int64_t i=0; i<npairs; i++){
@@ -160,25 +160,23 @@ Vector<EdgeExt>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world) {
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
-    // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j \in [n]}
+    // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
-    Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ 
-      return EdgeExt(e.src, e.weight, e.dest, p);
-    });
-    fmv.intersect_only=true; // fmv should only be applied to nonzeros
-    (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    (*q)["i"] = Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int p) {
+      return e.parent != p ? EdgeExt(e.src, e.weight, e.dest, p) : EdgeExt();                
+    })((*A)["ij"], (*p)["j"]);
 
     // r[p[j]] = q[j] over MINWEIGHT
     auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
 
     // hook only onto larger stars and update p
-    (*p)["i"] = Bivar_Function<EdgeExt, int, int>([](EdgeExt e, int a){ return e.parent > a ? e.parent : a; })((*r)["i"], (*p)["i"]);
+    (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
 
     // hook only onto larger stars and update mst
-    (*mst)["i"] = Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent > a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
+    (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
 
-    // Aggressive shortcutting
+    // aggressive shortcutting
     Vector<int> * pi = new Vector<int>(*p);
     shortcut(*p, *p, *p, NULL, false);
     while (are_vectors_different(*pi, *p)){
@@ -187,98 +185,10 @@ Vector<EdgeExt>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world) {
       shortcut(*p, *p, *p, NULL, false);
     }
     delete pi;
+    
+    // update edges parent in A[ij]
+    Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
   }
-}
 
-/*
-Vector<EdgeExt>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world)
-{
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
-
-  auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
-  init_pvector(p);
-
-  auto mst = new Vector<int>(n, *world, MAX_TIMES_SR);
-
-  auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
-
-  while (are_vectors_different(*p, *p_prev)) {
-    (*p_prev)["i"] = (*p)["i"];
-    Timer t_relax("CONNECTIVITY_Relaxation");
-    t_relax.start();
-    auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
-    // q_i = (inf, inf, p_i)
-    (*q)["i"] = Function<int,EdgeExt>([](int p){ return EdgeExt(INT_MAX, INT_MAX, p, INT_MAX); })((*p)["i"]);
-    // fmv(e, p) = (e.src, e.w, p)
-    Bivar_Function<EdgeExt,int,EdgeExt> fmv([](EdgeExt e, int p){ return EdgeExt(e.src, e.weight, p, e.parent); });
-    // fmv should only be applied to nonzeros
-    fmv.intersect_only=true;
-    // q_i = minweight_{i} fmv(a_{ij},p_j)}
-    (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
-
-    auto oldp = new Vector<int>(n, *world, MAX_TIMES_SR);
-    (*oldp)["i"] = (*p)["i"];
-    // Replace this function to check if the dest has an edge emanating from it which is not the same edge this node is using to hook onto
-    (*p)["i"] += Function<EdgeExt,int>([](EdgeExt e){ return e.dest; })((*q)["i"]);
-
-    // Aggressive shortcut
-    Vector<int> * pi = new Vector<int>(*p);
-    shortcut<int, int>(*p, *p, *p, NULL, false);
-    p->print();
-    while (are_vectors_different(*pi, *p)){
-      delete pi;
-      pi = new Vector<int>(*p);
-      shortcut<int, int>(*p, *p, *p, NULL, false);
-    }
-    delete pi;
-    
-    Bivar_Function<int, int, int> ch([](int n, int o) {
-          if (n == o) return 0;
-          else return n;
-        });
-    auto updated = new Vector<int>(n, *world, MAX_TIMES_SR);
-    (*updated)["i"] = ch((*p)["i"], (*oldp)["i"]); 
-    
-    printf("updated:\n");
-    updated->print();
-    
-    int64_t u_n;
-    Pair<int> * u_loc_pairs;
-    updated->get_local_pairs(&u_n, &u_loc_pairs, true);
-    for (int64_t i = 0; i < u_n; ++i) {
-      int rowno = u_loc_pairs[i].k; // row no changed
-      int parentno = u_loc_pairs[i].d; // rowno has a new parentonent
-      int nrow_read = A->nrow;
-      Pair<EdgeExt> *row_read = new Pair<EdgeExt>[nrow_read];
-      for(int j = 0; j < nrow_read; j++) {
-        row_read[j].k = rowno + j * nrow_read; // get the whole row data
-      }
-      A->read(nrow_read, row_read);
-      for(int j = 0; j < nrow_read; j++) {
-        EdgeExt e = row_read[j].d;
-        if (e.dest == -1) continue;
-        row_read[j].d = EdgeExt(e.src, e.weight, e.dest, parentno); // update with new parentonent number
-      }
-      A->write(nrow_read, row_read);
-    }
-
-    // mst: <src/mst, ref, dest>
-    Bivar_Function<EdgeExt,EdgeExt,EdgeExt> mstf([](EdgeExt e, EdgeExt r){ 
-        if (r.src == r.weight && e.dest > r.weight && e.src != r.weight) return EdgeExt(e.src, r.weight, r.dest, e.parent);
-        else if (r.src == r.weight && e.dest > r.weight && e.src == r.weight) return EdgeExt(e.dest, r.weight, r.dest, e.parent);
-        else return EdgeExt(r.src, r.weight, r.dest, r.parent); 
-        });
-    
-    auto mstt = new Vector<EdgeExt>(n, *world, MIN_EDGE);
-    (*mstt)["i"] = Function<EdgeExt, EdgeExt>([](EdgeExt e) {return EdgeExt(e.src, e.weight, e.dest, e.parent); })((*mst)["i"]);
-    (*mst)["i"] = mstf((*q)["i"], (*mstt)["i"]);
-
-    printf("mst:\n");
-    mst->print();
-    t_relax.stop();
-
-    delete q;
-  }
   return mst;
 }
-*/

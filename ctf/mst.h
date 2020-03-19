@@ -21,7 +21,7 @@ uint64_t gen_graph(int scale, int edgef, uint64_t seed, uint64_t **edges);
 
 struct EdgeExt {
   int64_t src, weight, dest, parent;
-  EdgeExt() { src = INT_MAX; weight = INT_MAX; dest = INT_MAX; parent = 0; }
+  EdgeExt() { src = INT_MAX; weight = INT_MAX; dest = INT_MAX; parent = 0; } // addid
   EdgeExt(int64_t src_, int64_t weight_, int64_t dest_, int64_t parent_) { src = src_; weight = weight_; dest = dest_; parent = parent_; }
 
   EdgeExt(EdgeExt const & other) { src = other.src; weight = other.weight; dest = other.dest; parent = other.parent; }
