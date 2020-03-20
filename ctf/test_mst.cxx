@@ -1,55 +1,44 @@
 #include "mst.h"
+#include "mst_serial.cxx"
 
-// does not use path compression
-int64_t find(int64_t p[], int64_t i) {
-  while (p[i] != i) {
-    i = p[i];
+// requires edge weights to be distinct
+int64_t compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) {
+  int64_t a_n;
+  Pair<EdgeExt> * a_pairs; 
+  a->get_all_pairs(&a_n, &a_pairs, true);
+  std::sort(a_pairs, a_pairs + a_n, [](const Pair<EdgeExt> & lhs, const Pair<EdgeExt> & rhs) { return lhs.d.weight < rhs.d.weight; });
+
+  int64_t b_n;
+  Pair<EdgeExt> * b_pairs; 
+  b->get_all_pairs(&b_n, &b_pairs, true);
+  std::sort(b_pairs, b_pairs + b_n, [](const Pair<EdgeExt> & lhs, const Pair<EdgeExt> & rhs) { return lhs.d.weight < rhs.d.weight; });
+
+  for (int64_t i = 0; i < a_n; ++i) {
+    a_pairs[i].k = i;
+    b_pairs[i].k = i;
   }
 
-  return i;
-}
+  a->write(a_n, a_pairs);
+  b->write(b_n, b_pairs);
 
-// not a smart union
-void union1(int64_t p[], int64_t a, int64_t b) {
-  int64_t a_dest = find(p, a);
-  int64_t b_dest = find(p, b);
+  // mst may store edge from src to parent or parent to src
+  CTF::Scalar<int64_t> s;
+  s[""] += CTF::Function<EdgeExt,EdgeExt,int64_t>([](EdgeExt a, EdgeExt b){ 
+    return !(((a.src == b.src && a.dest == b.dest) || (a.src == b.dest && a.dest == b.src)) && a.weight == b.weight) ; 
+  })((*a)["i"],(*b)["i"]);
 
-  p[a_dest] = b_dest;
-}
+  delete b_pairs;
+  delete a_pairs;
 
-// Kruskal
-Vector<int> * serial_mst(Matrix<EdgeExt> * A) {
-  int64_t npair;
-  Pair<EdgeExt> * pairs;
-  A->get_all_pairs(&npair, &pairs, true);
-
-  EdgeExt edges[npair];
-  for (int64_t i = 0; i < npair; ++i) {
-    edges[i] = EdgeExt(pairs[i].k / A->nrow, pairs[i].d.weight, pairs[i].d.dest, pairs[i].d.parent);
-  }
-
-  std::sort(edges, edges + npair, [](const EdgeExt & lhs, const EdgeExt & rhs) { return lhs.weight < rhs.weight; });
-
-  int64_t p[A->nrow];
-  for (int64_t i = 0; i < A->nrow; ++i) {
-    p[i] = i;
-  }
-
-  for (int64_t i = 0; i < npair; ++i) {
-    if (find(p, edges[i].src) != find(p, edges[i].dest)) {
-      union1(p, edges[i].src, edges[i].dest);
-      printf("src, weight, dest: %d, %d, %d\n", edges[i].src, edges[i].weight, edges[i].dest); // TODO: store in hashset
-    }
-  }
-
-  Vector<int> * mst = new Vector<int>();
-  return mst;
+  return s.get_val();
 }
 
 // graph pictured here: https://i0.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-1.png?zoom=2.625&resize=368%2C236&ssl=1
 // mst pictured here: https://i1.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-12.png?zoom=2&resize=382%2C237&ssl=1
 void test_simple(World * w) {
-  printf("test_simple\n");
+  if (w->rank == 0) {
+    printf("test_simple\n");
+  }
 
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
    
@@ -70,64 +59,40 @@ void test_simple(World * w) {
   pairs[9] = Pair<EdgeExt>(6 * nrow + 4, EdgeExt(4, 9, 6, 4));
   pairs[10] = Pair<EdgeExt>(6 * nrow + 5, EdgeExt(5, 11, 6, 5));
 
-  pairs[11] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(1, 7, 0, 1));
-  pairs[12] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(3, 5, 0, 3));
-  pairs[13] = Pair<EdgeExt>(1 * nrow + 2, EdgeExt(2, 8, 1, 2));
-  pairs[14] = Pair<EdgeExt>(1 * nrow + 3, EdgeExt(3, 9, 1, 3));
-  pairs[15] = Pair<EdgeExt>(1 * nrow + 4, EdgeExt(4, 7, 1, 4));
-  pairs[16] = Pair<EdgeExt>(2 * nrow + 4, EdgeExt(4, 5, 2, 4));
-  pairs[17] = Pair<EdgeExt>(3 * nrow + 4, EdgeExt(4, 15, 3, 4));
-  pairs[18] = Pair<EdgeExt>(3 * nrow + 5, EdgeExt(5, 6, 3, 5));
-  pairs[19] = Pair<EdgeExt>(4 * nrow + 5, EdgeExt(5, 8, 4, 5));
-  pairs[20] = Pair<EdgeExt>(4 * nrow + 6, EdgeExt(6, 9, 4, 6));
-  pairs[21] = Pair<EdgeExt>(5 * nrow + 6, EdgeExt(6, 11, 5, 6));
+  // perturb edge weights and produce anti symmetry
+  std::srand(std::time(NULL));
+  for (int64_t i = 0; i < npair / 2; ++i) {
+    pairs[i].d.weight += std::rand() / (double) RAND_MAX;
 
-  /*
-  int64_t npair = 22;
-  Pair<EdgeExt> * pairs = new Pair<EdgeExt>[npair];
-  pairs[0] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(0, 7, 0, 1));
-  pairs[1] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 5, 0, 3));
-  pairs[2] = Pair<EdgeExt>(1 * nrow + 2, EdgeExt(1, 8, 1, 2));
-  pairs[3] = Pair<EdgeExt>(1 * nrow + 3, EdgeExt(1, 9, 1, 3));
-  pairs[4] = Pair<EdgeExt>(1 * nrow + 4, EdgeExt(1, 7, 1, 4));
-  pairs[5] = Pair<EdgeExt>(2 * nrow + 4, EdgeExt(2, 5, 2, 4));
-  pairs[6] = Pair<EdgeExt>(3 * nrow + 4, EdgeExt(3, 15, 3, 4));
-  pairs[7] = Pair<EdgeExt>(3 * nrow + 5, EdgeExt(3, 6, 3, 5));
-  pairs[8] = Pair<EdgeExt>(4 * nrow + 5, EdgeExt(4, 8, 4, 5));
-  pairs[9] = Pair<EdgeExt>(4 * nrow + 6, EdgeExt(4, 9, 4, 6));
-  pairs[10] = Pair<EdgeExt>(5 * nrow + 6, EdgeExt(5, 11, 5, 6));
-  
-  pairs[11] = Pair<EdgeExt>(1 * nrow + 0, EdgeExt(0, 7, 0, 0));
-  pairs[12] = Pair<EdgeExt>(3 * nrow + 0, EdgeExt(0, 5, 0, 0));
-  pairs[13] = Pair<EdgeExt>(2 * nrow + 1, EdgeExt(1, 8, 1, 1));
-  pairs[14] = Pair<EdgeExt>(3 * nrow + 1, EdgeExt(1, 9, 1, 1));
-  pairs[15] = Pair<EdgeExt>(4 * nrow + 1, EdgeExt(1, 7, 1, 1));
-  pairs[16] = Pair<EdgeExt>(4 * nrow + 2, EdgeExt(2, 5, 2, 2));
-  pairs[17] = Pair<EdgeExt>(4 * nrow + 3, EdgeExt(3, 15, 3, 3));
-  pairs[18] = Pair<EdgeExt>(5 * nrow + 3, EdgeExt(3, 6, 3, 3));
-  pairs[19] = Pair<EdgeExt>(5 * nrow + 4, EdgeExt(4, 8, 4, 4));
-  pairs[20] = Pair<EdgeExt>(6 * nrow + 4, EdgeExt(4, 9, 4, 4));
-  pairs[21] = Pair<EdgeExt>(6 * nrow + 5, EdgeExt(5, 11, 5, 5));
-  */
+    pairs[i + npair / 2].k = (pairs[i].k % nrow) * nrow + pairs[i].k / nrow;
+    pairs[i + npair / 2].d = EdgeExt(pairs[i].d.dest, pairs[i].d.weight, pairs[i].d.src, pairs[i].d.dest);
+  }
 
-  /*
-  int nrow = 3;
-  Matrix<EdgeExt> * A = new Matrix<EdgeExt>(nrow, nrow, SP|SY, *w, MIN_EDGE);
-
-  int64_t npair = 2;
-  Pair<EdgeExt> * pairs = new Pair<EdgeExt>[npair];
-  //pairs[0] = Pair<EdgeExt>(0 * nrow + 1, EdgeExt(0, 30, 1));
-  //pairs[1] = Pair<EdgeExt>(0 * nrow + 3, EdgeExt(0, 10, 2));
-  pairs[0] = Pair<EdgeExt>(1 * nrow + 0, EdgeExt(0, 30, 0));
-  pairs[1] = Pair<EdgeExt>(2 * nrow + 0, EdgeExt(0, 10, 0));
-  // pairs[2] = Pair<EdgeExt>(2 * nrow + 1, EdgeExt(1, 5, 0));
-  */
   A->write(npair, pairs);
 
-  printf("hook_matrix\n");
+  auto kr = serial_mst(A, w);
+  if (w->rank == 0) {
+    printf("serial mst\n");
+  }
+  kr->print();
+
   auto hm = hook_matrix(A->nrow, A, w);
-  printf("mst\n");
+  if (w->rank == 0) {
+    printf("hook_matrix mst\n");
+  }
   hm->print();
+
+  int64_t res = compare_mst(kr, hm);
+  if (w->rank == 0) {
+    if (res) {
+      printf("result mst vectors are different by %zu: FAIL\n", res);
+    }
+    else {
+      printf("result mst vectors are same: PASS\n");
+    }
+  }
+
+  delete kr;
   delete hm;
 
   delete [] pairs;

@@ -142,7 +142,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
     (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
     (*nonleaves)->sparsify();
   }
-  
+   
   delete [] loc_pairs;
   t_shortcut.stop();
 }
@@ -176,6 +176,9 @@ Vector<EdgeExt>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world) {
     // hook only onto larger stars and update mst
     (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
 
+    delete r;
+    delete q;
+
     // aggressive shortcutting
     Vector<int> * pi = new Vector<int>(*p);
     shortcut(*p, *p, *p, NULL, false);
@@ -189,6 +192,9 @@ Vector<EdgeExt>* hook_matrix(int n, Matrix<EdgeExt> * A, World* world) {
     // update edges parent in A[ij]
     Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
   }
+
+  delete p;
+  delete p_prev;
 
   return mst;
 }
