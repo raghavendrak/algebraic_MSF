@@ -2,11 +2,14 @@ include config.mk
 
 all: test_connectivity test_mst
 
-connectivity.o: connectivity.h connectivity.cxx $(CTFDIR)
-	$(NVCC) $(NVCCFLAGS) -c connectivity.cxx  $(DEFS) $(INCLUDES) 
+alg_graph.o: alg_graph.h alg_graph.cxx $(CTFDIR)
+	$(NVCC) $(NVCCFLAGS) -c alg_graph.cxx  $(DEFS) $(INCLUDES) 
 
-mst.o: mst.h mst.cxx mst_templates.cxx $(CTFDIR)
-	$(NVCC) $(NVCCFLAGS) -c mst.cxx  $(DEFS) $(INCLUDES) 
+connectivity.o: alg_graph.o connectivity.h connectivity.cxx $(CTFDIR)
+	$(NVCC) $(NVCCFLAGS) -c connectivity.cxx alg_graph.o $(DEFS) $(INCLUDES) 
+
+mst.o: alg_graph.o mst.h mst.cxx $(CTFDIR)
+	$(NVCC) $(NVCCFLAGS) -c mst.cxx alg_graph.o $(DEFS) $(INCLUDES) 
 
 graph_io.o: graph_io.cxx graph_aux.h   $(CTFDIR)
 	$(CXX) $(CXXFLAGS) -c graph_io.cxx $(INCLUDES)
@@ -14,11 +17,14 @@ graph_io.o: graph_io.cxx graph_aux.h   $(CTFDIR)
 graph_gen.o: graph_gen.cxx graph_aux.h   $(CTFDIR)
 	$(CXX) $(CXXFLAGS) -c graph_gen.cxx $(INCLUDES)
 
-test_connectivity: graph_io.o graph_gen.o connectivity.o test_connectivity.cxx $(CTFDIR) 
-	$(CXX) $(CXXFLAGS) -o test_connectivity test_connectivity.cxx connectivity.o graph_io.o graph_gen.o $(INCLUDES) $(LIBS)
+test.o: alg_graph.o mst.o test.h test.cxx $(CTFDIR)
+	$(CXX) $(CXXFLAGS) -c test.cxx mst.o alg_graph.o $(INCLUDES)
 
-test_mst: graph_io.o graph_gen.o mst.o test_mst.cxx $(CTFDIR) 
-	$(CXX) $(CXXFLAGS) -o test_mst test_mst.cxx mst.o graph_io.o graph_gen.o $(INCLUDES) $(LIBS)
+test_connectivity: alg_graph.o graph_io.o graph_gen.o connectivity.o mst.o test.o test_connectivity.cxx $(CTFDIR) 
+	$(CXX) $(CXXFLAGS) -o test_connectivity test_connectivity.cxx test.o connectivity.o mst.o graph_io.o graph_gen.o alg_graph.o $(INCLUDES) $(LIBS)
+
+test_mst: alg_graph.o graph_io.o graph_gen.o mst.o test.o test_mst.cxx $(CTFDIR) 
+	$(CXX) $(CXXFLAGS) -o test_mst test_mst.cxx test.o mst.o graph_io.o graph_gen.o alg_graph.o $(INCLUDES) $(LIBS)
 
 clean:
-	rm -f connectivity.o mst.o graph_gen.o graph_io.o test_connectivity test_mst
+	rm -f alg_graph.o connectivity.o mst.o graph_gen.o graph_io.o test.o test_connectivity test_mst
