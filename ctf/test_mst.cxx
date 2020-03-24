@@ -1,6 +1,6 @@
 #include "test.h"
 #include "mst.h"
-
+#include <ctime>
 // does not use path compression
 int64_t find(int64_t p[], int64_t i) {
   while (p[i] != i) {
@@ -186,7 +186,7 @@ void test_trivial(World * w) {
   pairs[3] = Pair<EdgeExt>(4 * nrow + 3, EdgeExt(3, 10, 4, 3));
 
   // perturb edge weights and produce anti symmetry
-  std::srand(std::time(NULL));
+  std::srand(time(NULL));
   for (int64_t i = 0; i < npair / 2; ++i) {
     pairs[i].d.weight += (std::rand() / (double) RAND_MAX) / 1000;
 
@@ -305,7 +305,7 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
     printf("Time for hook_matrix(): %1.2lf\n", (etime - stime));
     printf("hook_matrix() mst:\n");
   }
-  hm->print();
+  // hm->print();
   thm.end();
 
   if (run_serial) {
@@ -338,10 +338,6 @@ int main(int argc, char** argv)
 {
   int rank;
   int np;
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &np);
-  auto w = new World(argc, argv);
   int const in_num = argc;
   char** input_str = argv;
   uint64_t myseed;
@@ -358,79 +354,86 @@ int main(int argc, char** argv)
   int run_serial;
 
   int k;
-  if (getCmdOption(input_str, input_str+in_num, "-k")) {
-    k = atoi(getCmdOption(input_str, input_str+in_num, "-k"));
-    if (k < 0) k = 5;
-  } else k = -1;
-  // K13 : 1594323 (matrix size)
-  // K6 : 729; 531441 vertices
-  // k5 : 243
-  // k7 : 2187
-  // k8 : 6561
-  // k9 : 19683
-  if (getCmdOption(input_str, input_str+in_num, "-f")){
-    gfile = getCmdOption(input_str, input_str+in_num, "-f");
-  } else gfile = NULL;
-  if (getCmdOption(input_str, input_str+in_num, "-n")){
-    n = atoll(getCmdOption(input_str, input_str+in_num, "-n"));
-    if (n < 0) n = 27;
-  } else n = 27;
-  if (getCmdOption(input_str, input_str+in_num, "-S")){
-    scale = atoi(getCmdOption(input_str, input_str+in_num, "-S"));
-    if (scale < 0) scale=10;
-  } else scale=0;
-  if (getCmdOption(input_str, input_str+in_num, "-E")){
-    ef = atoi(getCmdOption(input_str, input_str+in_num, "-E"));
-    if (ef < 0) ef=16;
-  } else ef=0;
-  if (getCmdOption(input_str, input_str+in_num, "-prep")){
-    prep = atoll(getCmdOption(input_str, input_str+in_num, "-prep"));
-    if (prep < 0) prep = 0;
-  } else prep = 0;
-  if (getCmdOption(input_str, input_str+in_num, "-batch")){
-    batch = atoll(getCmdOption(input_str, input_str+in_num, "-batch"));
-    if (batch <= 0) batch = 1;
-  } else batch = 1;
-  if (getCmdOption(input_str, input_str+in_num, "-shortcut")){
-    sc2 = atoi(getCmdOption(input_str, input_str+in_num, "-shortcut"));
-    if (sc2 < 0) sc2 = 0;
-  } else sc2 = 0;
-  if (getCmdOption(input_str, input_str+in_num, "-serial")){
-    run_serial = atoi(getCmdOption(input_str, input_str+in_num, "-serial"));
-    if (run_serial < 0) run_serial = 0;
-  } else run_serial = 0;
+  MPI_Init(&argc, &argv);
+  auto w = new World(argc, argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &np);
+  {
+    if (getCmdOption(input_str, input_str+in_num, "-k")) {
+      k = atoi(getCmdOption(input_str, input_str+in_num, "-k"));
+      if (k < 0) k = 5;
+    } else k = -1;
+    // K13 : 1594323 (matrix size)
+    // K6 : 729; 531441 vertices
+    // k5 : 243
+    // k7 : 2187
+    // k8 : 6561
+    // k9 : 19683
+    if (getCmdOption(input_str, input_str+in_num, "-f")){
+      gfile = getCmdOption(input_str, input_str+in_num, "-f");
+    } else gfile = NULL;
+    if (getCmdOption(input_str, input_str+in_num, "-n")){
+      n = atoll(getCmdOption(input_str, input_str+in_num, "-n"));
+      if (n < 0) n = 27;
+    } else n = 27;
+    if (getCmdOption(input_str, input_str+in_num, "-S")){
+      scale = atoi(getCmdOption(input_str, input_str+in_num, "-S"));
+      if (scale < 0) scale=10;
+    } else scale=0;
+    if (getCmdOption(input_str, input_str+in_num, "-E")){
+      ef = atoi(getCmdOption(input_str, input_str+in_num, "-E"));
+      if (ef < 0) ef=16;
+    } else ef=0;
+    if (getCmdOption(input_str, input_str+in_num, "-prep")){
+      prep = atoll(getCmdOption(input_str, input_str+in_num, "-prep"));
+      if (prep < 0) prep = 0;
+    } else prep = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-batch")){
+      batch = atoll(getCmdOption(input_str, input_str+in_num, "-batch"));
+      if (batch <= 0) batch = 1;
+    } else batch = 1;
+    if (getCmdOption(input_str, input_str+in_num, "-shortcut")){
+      sc2 = atoi(getCmdOption(input_str, input_str+in_num, "-shortcut"));
+      if (sc2 < 0) sc2 = 0;
+    } else sc2 = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-serial")){
+      run_serial = atoi(getCmdOption(input_str, input_str+in_num, "-serial"));
+      if (run_serial < 0) run_serial = 0;
+    } else run_serial = 0;
 
-  if (gfile != NULL){
-    //int n_nnz = 0;
-    //if (w->rank == 0)
+    if (gfile != NULL){
+      //int n_nnz = 0;
+      //if (w->rank == 0)
       //printf("Reading real graph n = %lld\n", n);
-    //Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
-    //run_connectivity(&A, n, w, batch, sc2, run_serial);
-  }
-  else if (k != -1) {
-    //int64_t matSize = pow(3, k);
-    //auto B = generate_kronecker(w, k);
-
-    //if (w->rank == 0) {
-      //printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
-    //}
-    //run_connectivity(B, matSize, w, batch, sc2, run_serial);
-    //delete B;
-  }
-  else if (scale > 0 && ef > 0){
-    int n_nnz = 0;
-    myseed = SEED;
-    if (w->rank == 0)
-      printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
-    Matrix<EdgeExt> A = gen_rmat_matrix<EdgeExt>(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
-    int64_t matSize = A.nrow; 
-    run_mst(&A, matSize, w, batch, sc2, run_serial);
-  }
-  else {
-    if (w->rank == 0) {
-      printf("Running mst on simple 7x7 graph\n");
+      //Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
+      //run_connectivity(&A, n, w, batch, sc2, run_serial);
     }
-    test_simple(w);
+    else if (k != -1) {
+      //int64_t matSize = pow(3, k);
+      //auto B = generate_kronecker(w, k);
+
+      //if (w->rank == 0) {
+      //printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
+      //}
+      //run_connectivity(B, matSize, w, batch, sc2, run_serial);
+      //delete B;
+    }
+    else if (scale > 0 && ef > 0){
+      int n_nnz = 0;
+      myseed = SEED;
+      if (w->rank == 0)
+        printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
+      Matrix<EdgeExt> A = gen_rmat_matrix<EdgeExt>(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+      int64_t matSize = A.nrow; 
+      run_mst(&A, matSize, w, batch, sc2, run_serial);
+    }
+    else {
+      if (w->rank == 0) {
+        printf("Running mst on simple 7x7 graph\n");
+      }
+      test_simple(w);
+    }
   }
+  MPI_Finalize();
   return 0;
 }

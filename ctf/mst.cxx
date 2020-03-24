@@ -96,10 +96,16 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
 
   auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
 
+  Timer_epoch cQ("Compute q");
+  Timer_epoch proj("Project");
+  Timer_epoch uP("Update p");
+  Timer_epoch uMST("Update mst");
+  Timer_epoch uA("Update A");
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
+    cQ.begin();
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Bivar_Function<EdgeExt, int, EdgeExt> fmv([](EdgeExt e, int p) {
       return e.parent != p ? EdgeExt(e.src, e.weight, e.dest, p) : EdgeExt();
@@ -107,16 +113,23 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     fmv.intersect_only = true;
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
     q->sparsify(); // when a node does any edges that lead to a new component, p[e.src=-1] will mess up project
+    cQ.end();
 
     // r[p[j]] = q[j] over MINWEIGHT
+    proj.begin();
     auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
+    proj.end();
 
     // hook only onto larger stars and update p
+    uP.begin();
     (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
+    uP.end();
 
     // hook only onto larger stars and update mst
+    uMST.begin();
     (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
+    uMST.end();
 
     delete r;
     delete q;
@@ -132,7 +145,9 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     delete pi;
 
     // update edges parent in A[ij]
+    uA.begin();
     Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
+    uA.end();
 
     //A = PTAP<EdgeExt>(A, p); // optional possible optimization (NOT WORKING)
   }
