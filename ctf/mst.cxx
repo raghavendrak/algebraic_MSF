@@ -35,8 +35,8 @@ Monoid<EdgeExt> get_minedge_monoid(){
 // r[p[j]] = q[j] over MINWEIGHT
 void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
 {
-  Timer t_project("CONNECTIVITY_Project");
-  t_project.start();
+  //Timer t_project("CONNECTIVITY_Project");
+  //t_project.start();
   
   int64_t q_npairs;
   Pair<EdgeExt> * q_loc_pairs;
@@ -81,7 +81,7 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
   delete [] r_loc_pairs;
   delete [] q_loc_pairs;
   delete [] p_read_pairs;
-  t_project.stop();
+  //t_project.stop();
 }
 
 Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
@@ -122,12 +122,13 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     delete q;
 
     // aggressive shortcutting
+    int sc2 = 1000;
     Vector<int> * pi = new Vector<int>(*p);
-    shortcut2(*p, *p, *p, 1000, world, NULL, false);
+    shortcut2(*p, *p, *p, sc2, world, NULL, false);
     while (are_vectors_different(*pi, *p)){
       delete pi;
       pi = new Vector<int>(*p);
-      shortcut2(*p, *p, *p, 1000, world, NULL, false);
+      shortcut2(*p, *p, *p, sc2, world, NULL, false);
     }
     delete pi;
 
