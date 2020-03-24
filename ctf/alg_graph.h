@@ -37,7 +37,7 @@ class Int64Pair {
 struct EdgeExt {
   int64_t src, dest, parent;
   double weight;
-  EdgeExt() { src = INT_MAX; weight = DBL_MAX; dest = INT_MAX; parent = 0; } // addid
+  EdgeExt() { src = -1; weight = DBL_MAX; dest = -1; parent = -1; } // addid
   EdgeExt(int64_t src_, double weight_, int64_t dest_, int64_t parent_) { src = src_; weight = weight_; dest = dest_; parent = parent_; }
 
   EdgeExt(EdgeExt const & other) { src = other.src; weight = other.weight; dest = other.dest; parent = other.parent; }
@@ -46,7 +46,7 @@ struct EdgeExt {
 namespace CTF {
   template <>
   inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
-    fprintf(fp, "(%zu %f %zu %zu)", ((EdgeExt*)a)[0].src, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].dest, ((EdgeExt*)a)[0].parent);
+    fprintf(fp, "(%" PRId64 " %f " " % " PRId64 " % " PRId64 ")", ((EdgeExt*)a)[0].src, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].dest, ((EdgeExt*)a)[0].parent);
   }
 }
 

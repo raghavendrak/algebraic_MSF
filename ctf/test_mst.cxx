@@ -113,6 +113,25 @@ Vector<EdgeExt> * as(Matrix<EdgeExt> * A, World * world) {
 
 // requires edge weights to be distinct
 // can also store mst in hashset
+double compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) { // TODO: last entry of msts may be INT_MAX and mess up sum
+  Monoid<double> m(0.0,
+           [](double a, double b){ return a + b; },
+           MPI_MIN);
+
+  Function<EdgeExt,double> sum_weights([](EdgeExt a){ return a.weight; });
+
+  Scalar<double> s_a(0.0, *(a->wrld), m);
+  s_a[""] = sum_weights((*a)["i"]);
+
+  Scalar<double> s_b(0.0, *(b->wrld), m);
+  s_b[""] = sum_weights((*b)["i"]);
+
+  return s_a.get_val() - s_b.get_val();
+}
+
+// requires edge weights to be distinct
+// can also store mst in hashset
+/*
 int64_t compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) {
   int64_t a_n;
   Pair<EdgeExt> * a_pairs; 
@@ -143,6 +162,7 @@ int64_t compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) {
 
   return s.get_val();
 }
+*/
 
 //  0 --- 1
 //  |   /     3 -- 4
@@ -188,13 +208,13 @@ void test_trivial(World * w) {
   }
   hm->print();
 
-  int64_t res = compare_mst(kr, hm);
+  auto res = compare_mst(kr, hm);
   if (w->rank == 0) {
     if (res) {
-      printf("result mst vectors are different by %zu: FAIL\n", res);
+      printf("result weight of mst vectors are different by %f: FAIL\n", res);
     }
     else {
-      printf("result mst vectors are same: PASS\n");
+      printf("result weight mst vectors are same: PASS\n");
     }
   }
 
@@ -254,13 +274,13 @@ void test_simple(World * w) {
   }
   hm->print();
 
-  int64_t res = compare_mst(kr, hm);
+  auto res = compare_mst(kr, hm);
   if (w->rank == 0) {
     if (res) {
-      printf("result mst vectors are different by %zu: FAIL\n", res);
+      printf("result weight of mst vectors are different by %f: FAIL\n", res);
     }
     else {
-      printf("result mst vectors are same: PASS\n");
+      printf("result weight of mst vectors are same: PASS\n");
     }
   }
 
@@ -290,8 +310,9 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
 
   if (run_serial) {
     auto serial= serial_mst(A, w);
+    if(w->rank == 0) printf("serial\n");
     serial->print();
-    int64_t res = compare_mst(serial, hm);
+    auto res = compare_mst(serial, hm);
     if (w->rank == 0) {
       if (res) {
         printf("result mst vectors are different by %zu: FAIL\n", res);

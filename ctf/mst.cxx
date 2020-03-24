@@ -25,7 +25,7 @@ Monoid<EdgeExt> get_minedge_monoid(){
     &omee);
 
     Monoid<EdgeExt> MIN_EDGE(
-      EdgeExt(INT_MAX, INT_MAX, INT_MAX, 0), 
+      EdgeExt(-1, DBL_MAX, -1, -1), 
       [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
       omee);
 
@@ -37,17 +37,7 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
 {
   Timer t_project("CONNECTIVITY_Project");
   t_project.start();
-
-  int64_t p_npairs;
-  Pair<int> * p_loc_pairs;
-  if (p.is_sparse){
-    //if we have updated only a subset of the vertices
-    p.get_local_pairs(&p_npairs, &p_loc_pairs, true);
-  } else {
-    //if we have potentially updated all the vertices
-    p.get_local_pairs(&p_npairs, &p_loc_pairs);
-  }
-
+  
   int64_t q_npairs;
   Pair<EdgeExt> * q_loc_pairs;
   if (q.is_sparse){
@@ -58,16 +48,39 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
     q.get_local_pairs(&q_npairs, &q_loc_pairs);
   }
 
-  Pair<EdgeExt> * remote_pairs = new Pair<EdgeExt>[q_npairs];
-  for (int64_t i = 0; i < q_npairs; ++i){
-    remote_pairs[i].k = p_loc_pairs[i].d;
-    remote_pairs[i].d = q_loc_pairs[i].d;
+  Pair<int> * p_read_pairs = new Pair<int>[q_npairs];
+  int64_t p_npairs = 0;
+  for(int64_t i = 0; i < q_npairs; ++i) {
+    p_read_pairs[i].k = q_loc_pairs[i].d.src;
   }
-  r.write(q_npairs, remote_pairs); // enter data into r[i], accumulates over MINWEIGHT
+  p.read(q_npairs, p_read_pairs);
+  /* // TODO: alternative to q->sparsify() in hook, unclear why this does not work
+  int64_t p_npairs = 0;
+  for(int64_t i = 0; i < q_npairs; ++i) {
+    EdgeExt e = q_loc_pairs[i].d;
+    if (q_loc_pairs[i].d.src != -1) {
+      printf("(%" PRId64 " %f " " % " PRId64 " % " PRId64 ")", e.src, e.weight, e.dest, e.parent);
+      p_read_pairs[p_npairs].k = q_loc_pairs[p_npairs].d.src;
+      ++p_npairs;
+    }
+  }
+  printf("before\n");
+  printf("%" PRId64, p_npairs);
+  if (p_npairs != 0) {
+    p.read(q_npairs, p_read_pairs);
+  }
+  */
+
+  Pair<EdgeExt> * r_loc_pairs = new Pair<EdgeExt>[q_npairs];
+  for (int64_t i = 0; i < q_npairs; ++i){
+    r_loc_pairs[i].k = p_read_pairs[i].d;
+    r_loc_pairs[i].d = q_loc_pairs[i].d;
+  }
+  r.write(q_npairs, r_loc_pairs); // enter data into r[i], accumulates over MINWEIGHT
   
-  delete [] remote_pairs;
+  delete [] r_loc_pairs;
   delete [] q_loc_pairs;
-  delete [] p_loc_pairs;
+  delete [] p_read_pairs;
   t_project.stop();
 }
 
@@ -88,9 +101,12 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
-    (*q)["i"] = Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int p) {
-      return e.parent != p ? EdgeExt(e.src, e.weight, e.dest, p) : EdgeExt();                
-    })((*A)["ij"], (*p)["j"]);
+    Bivar_Function<EdgeExt, int, EdgeExt> fmv([](EdgeExt e, int p) {
+      return e.parent != p ? EdgeExt(e.src, e.weight, e.dest, p) : EdgeExt();
+    });
+    fmv.intersect_only = true;
+    (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    q->sparsify(); // when a node does any edges that lead to a new component, p[e.src=-1] will mess up project
 
     // r[p[j]] = q[j] over MINWEIGHT
     auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
@@ -118,7 +134,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     // update edges parent in A[ij]
     Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
 
-    A = PTAP<EdgeExt>(A, p); // optional possible optimization
+    //A = PTAP<EdgeExt>(A, p); // optional possible optimization (NOT WORKING)
   }
 
   delete p;

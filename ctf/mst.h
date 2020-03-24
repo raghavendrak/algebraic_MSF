@@ -7,6 +7,8 @@ EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b);
 void EdgeExt_red(EdgeExt const * a, EdgeExt * b, int n);
 Monoid<EdgeExt> get_minedge_monoid();
 
+void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q);
+
 Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world);
 
 #endif

@@ -21,19 +21,19 @@ Scalar<EdgeExt> init_addid(World & dw) {
 }
 
 template<typename T>
-Matrix<T> init_A(int n, World * dw, char const * name);
+Matrix<T> * init_A(int n, World * dw, char const * name);
 
 template<>
-Matrix<int> init_A(int n, World * dw, char const * name) {
-  Matrix<int> A_pre(n, n, SP, *dw, MAX_TIMES_SR, name);
+Matrix<int> * init_A(int n, World * dw, char const * name) {
+  Matrix<int> * A_pre = new Matrix<int>(n, n, SP, *dw, MAX_TIMES_SR, name);
 
   return A_pre;
 }
 
 template<>
-Matrix<EdgeExt> init_A(int n, World * dw, char const * name) {
+Matrix<EdgeExt> * init_A(int n, World * dw, char const * name) {
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
-  Matrix<EdgeExt> A_pre(n, n, SP, *dw, MIN_EDGE, name);
+  Matrix<EdgeExt> * A_pre = new Matrix<EdgeExt>(n, n, SP, *dw, MIN_EDGE, name);
 
   return A_pre;
 }
@@ -59,7 +59,7 @@ Matrix <T> preprocess_graph(int           n,
       A_loc_pairs[i].d = T();
     }
   }
-  A_pre = init_A<T>(n, &dw, "A_rmat");
+  A_pre = *init_A<T>(n, &dw, "A_rmat");
   A_pre.write(A_n, A_loc_pairs);
   /* workaround end. */
   //printf("after zero on diagonal\n");
@@ -89,7 +89,7 @@ Matrix <T> preprocess_graph(int           n,
       }
     }
     if (dw.rank == 0) printf("n_nnz_rc = %d of %d vertices kept, %d are 0-degree, %d are 1-degree\n", n_nnz_rc, n,(n-n_nnz_rc),n_single);
-    Matrix<T> A = init_A<T>(n_nnz_rc, &dw, "A");
+    Matrix<T> A = *init_A<T>(n_nnz_rc, &dw, "A");
     int * pntrs[] = {all_rc, all_rc};
 
     A.permute(T(), A_pre, pntrs, T()); // TODO: fix beta and alpha?
@@ -106,7 +106,7 @@ Matrix <T> preprocess_graph(int           n,
         A_loc_pairs[i].d = T();
       }
     }
-    A_pre = init_A<T>(n, &dw, "A_rmat");
+    A_pre = *init_A<T>(n, &dw, "A_rmat");
     A_pre.write(A_n, A_loc_pairs);
     /* workaround end. */
     *n_nnz = n_nnz_rc;
@@ -123,7 +123,7 @@ Matrix <T> preprocess_graph(int           n,
         A_loc_pairs[i].d = T();
       }
     }
-    A_pre = init_A<T>(n, &dw, "A_rmat");
+    A_pre = *init_A<T>(n, &dw, "A_rmat");
     A_pre.write(A_n, A_loc_pairs);
     /* workaround end. */
     A_pre.print();
@@ -157,7 +157,8 @@ void setup_A(Matrix<EdgeExt> & A, uint64_t * edge, uint64_t nedges, int64_t * in
   int n = A.nrow;
   for (int64_t i=0; i<nedges; i++){
     inds[i] = (edge[2*i]+(edge[2*i+1])*n);
-    vals[i] = EdgeExt(inds[i] / n, (rand()%max_ewht) + 1, inds[i] % n, inds[i] / n);
+    //vals[i] = EdgeExt(inds[i] / n, (rand()%max_ewht) + 1, inds[i] % n, inds[i] / n);
+    vals[i] = EdgeExt(inds[i] % n, (rand()%100000) + 1, inds[i] / n, inds[i] % n);
 
     // produce antisymmetry (i, weight, j, parent) = (j, weight, i, parent)
     inds[i + nedges] = (inds[i] % n) * n + inds[i] / n;
@@ -178,7 +179,7 @@ Matrix <T> read_matrix(World  &     dw,
   uint64_t my_nedges = 0;
 
   //random adjacency matrix
-  Matrix<T> A_pre = init_A<T>(n, &dw, "A_rmat");
+  Matrix<T> A_pre = *init_A<T>(n, &dw, "A_rmat");
  
 #ifdef MPIIO
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
@@ -229,7 +230,7 @@ Matrix<T> gen_rmat_matrix(World  & dw,
   uint64_t nedges = 0;
   //random adjacency matrix
   int n = pow(2,scale);
-  Matrix<T> A_pre = init_A<T>(n, &dw, "A_rmat");
+  Matrix<T> A_pre = *init_A<T>(n, &dw, "A_rmat");
   if (dw.rank == 0) printf("Running graph generator n = %d... ",n);
   nedges = gen_graph(scale, ef, gseed, &edge);
   if (dw.rank == 0) printf("done.\n");
@@ -242,7 +243,8 @@ Matrix<T> gen_rmat_matrix(World  & dw,
   free(inds);
   free(vals);
 
-  return preprocess_graph<T>(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
+  //return preprocess_graph<T>(n,dw,A_pre,remove_singlets,n_nnz,max_ewht); // TODO: not working
+  return A_pre;
 }
 template Matrix<wht> gen_rmat_matrix(World  & dw,
                              int      scale,
