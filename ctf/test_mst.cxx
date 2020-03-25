@@ -113,17 +113,13 @@ Vector<EdgeExt> * as(Matrix<EdgeExt> * A, World * world) {
 
 // requires edge weights to be distinct
 // can also store mst in hashset
-double compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) { // TODO: last entry of msts may be INT_MAX and mess up sum
-  Monoid<double> m(0.0,
-           [](double a, double b){ return a + b; },
-           MPI_MIN);
+double compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) {
+  Function<EdgeExt,double> sum_weights([](EdgeExt a){ return a.src != -1 ? a.weight : 0; });
 
-  Function<EdgeExt,double> sum_weights([](EdgeExt a){ return a.weight; });
-
-  Scalar<double> s_a(0.0, *(a->wrld), m);
+  Scalar<double> s_a;
   s_a[""] = sum_weights((*a)["i"]);
 
-  Scalar<double> s_b(0.0, *(b->wrld), m);
+  Scalar<double> s_b;
   s_b[""] = sum_weights((*b)["i"]);
 
   return s_a.get_val() - s_b.get_val();
@@ -305,7 +301,7 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
     printf("Time for hook_matrix(): %1.2lf\n", (etime - stime));
     printf("hook_matrix() mst:\n");
   }
-  // hm->print();
+  hm->print();
   thm.end();
 
   if (run_serial) {
@@ -315,7 +311,7 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
     auto res = compare_mst(serial, hm);
     if (w->rank == 0) {
       if (res) {
-        printf("result mst vectors are different by %zu: FAIL\n", res);
+        printf("result mst vectors are different by %f: FAIL\n", res);
       }
       else {
         printf("result mst vectors are same: PASS\n");
