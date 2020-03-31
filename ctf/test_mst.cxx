@@ -60,8 +60,123 @@ Vector<EdgeExt> * serial_mst(Matrix<EdgeExt> * A, World * world) {
   return mst;
 }
 
-/*
-// modification of Awerbuch and Shiloach
+static Monoid<bool> OR_STAR(
+    true,
+    [](bool a, bool b) { return a || b; },
+    MPI_LOR);
+
+Vector<bool> * star_check(Vector<int> * p) {
+  Vector<bool> * star = new Vector<bool>(p->len, *(p->wrld), OR_STAR);
+
+  int64_t p_npairs;
+  Pair<int> * p_loc_pairs;
+  p->get_local_pairs(&p_npairs, &p_loc_pairs);
+
+  // If F(i) =/= GF(i) then ST(i) <- FALSE and ST(GF(i)) <- FALSE
+  // excludes vertices that have nontrivial grandparent or grandchild
+  Pair<int> * p_parents = new Pair<int>[p_npairs];
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    p_parents[i].k = p_loc_pairs[i].d;
+  } 
+  p->read(p_npairs, p_parents);
+
+  Pair<bool> * nontriv_grandX = new Pair<bool>[p_npairs];
+  int64_t grandX_npairs = 0;
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    if (p_loc_pairs[i].d != p_parents[i].d) {
+      nontriv_grandX[i].k = p_loc_pairs[i].k;
+      nontriv_grandX[i].d = false;
+
+      nontriv_grandX[i].k = p_parents[i].d;
+      nontriv_grandX[i].d = false;
+
+      ++grandX_npairs;
+    }
+  }
+  star->write(grandX_npairs, nontriv_grandX);
+
+  // ST(i) <- ST(F(i))
+  // excludes vertices that have nontrivial nephews
+  Pair<bool> * nontriv_nephews = new Pair<bool>[p_npairs];
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    nontriv_nephews[i].k = p_loc_pairs[i].d;
+  }
+  star->read(p_npairs, nontriv_nephews);
+
+  Pair<bool> * updated_nephews = new Pair<bool>[p_npairs];
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    updated_nephews[i].k = p_loc_pairs[i].k;
+    updated_nephews[i].d = nontriv_nephews[i].d;
+  }
+  star->write(p_npairs, updated_nephews);
+
+  delete [] updated_nephews;
+  delete [] nontriv_nephews;
+  delete [] nontriv_grandX;
+  delete [] p_parents;
+  delete [] p_loc_pairs;
+
+  return star;
+}
+
+
+Vector<EdgeExt> * hooking(int64_t A_npairs, Pair<EdgeExt> * A_loc_pairs, Vector<int> * p, Vector<bool> * star) {
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid(); // TODO: pass by reference
+
+  auto r = new Vector<EdgeExt>(p->len, p->is_sparse, *(p->wrld), MIN_EDGE);
+
+  Pair<int> * src_loc_pairs = new Pair<int>[A_npairs];
+  for (int64_t i = 0; i < A_npairs; ++i) {
+    src_loc_pairs[i].k = A_loc_pairs[i].d.src;
+  }
+  p->read(A_npairs, src_loc_pairs);
+
+  /*
+  Pair<int> * src_parents = new Pair<int>[A_npairs];
+  for (int64_t i = 0; i < A_npairs; ++i) {
+    src_parents[i].k = src_loc_pairs[i].d;
+  } 
+  p->read(A_npairs, src_parents);
+  */
+
+  Pair<int> * dest_loc_pairs = new Pair<int>[A_npairs];
+  for (int64_t i = 0; i < A_npairs; ++i) {
+    dest_loc_pairs[i].k = A_loc_pairs[i].d.dest;
+  }
+  p->read(A_npairs, dest_loc_pairs);
+
+  Pair<bool> * star_loc_pairs = new Pair<bool>[A_npairs];
+  for (int64_t i = 0; i < A_npairs; ++i) {
+    star_loc_pairs[i].k = src_loc_pairs[i].k;
+  }
+  star->read(A_npairs, star_loc_pairs);
+
+  //Pair<int> * updated_p_pairs = new Pair<int>[A_npairs];
+  Pair<EdgeExt> * updated_r_pairs = new Pair<EdgeExt>[A_npairs];
+  int64_t updated_npairs = 0;
+  for (int64_t i = 0; i < A_npairs; ++i) {
+    if (star_loc_pairs[i].d && src_loc_pairs[i].d != dest_loc_pairs[i].d) {
+      updated_r_pairs[updated_npairs].k = src_loc_pairs[i].d;
+      updated_r_pairs[updated_npairs].d = A_loc_pairs[i].d;
+      updated_r_pairs[updated_npairs].d.parent = dest_loc_pairs[i].d;
+
+      ++updated_npairs; 
+    }
+  }
+  r->write(updated_npairs, updated_r_pairs); // accumulates over MINWEIGHT
+
+  delete [] src_loc_pairs;
+  //delete [] src_parents;
+  delete [] dest_loc_pairs;
+  delete [] star_loc_pairs;
+  //delete [] updated_p_pairs;
+  delete [] updated_r_pairs;
+  delete star;
+
+  return r;
+}
+
+// Awerbuch and Shiloach with modified tie breaking scheme
 Vector<EdgeExt> * as(Matrix<EdgeExt> * A, World * world) {
   int n = A->nrow;
 
@@ -73,43 +188,45 @@ Vector<EdgeExt> * as(Matrix<EdgeExt> * A, World * world) {
   auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
 
   auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
-        
+
+  int64_t A_npairs;
+  Pair<EdgeExt> * A_loc_pairs;
+  A->get_local_pairs(&A_npairs, &A_loc_pairs, true);
+
   while(are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
-    int64_t A_n;
-    Pair<EdgeExt> * A_loc_pairs;
-    A.get_local_pairs(&A_n, &A_loc_pairs);
-
     // unconditional star hooking
-    int64_t edges_n;
-    Pair<EdgeExt> * edges_loc_pairs;
+    Vector<bool> * star = star_check(p);
 
-    int64_t j = 0;
-    for (int64_t i = 0; i < A_n; ++i) {
-      int64_t src = A_loc_pairs.d.src;
-      int64_t dest = A_loc_pairs.d.dest;
-      if (p(p(src)) == p(src) && p(src) == p(dest)) {
-        p(p(i)) = p(dest);
+    Vector<EdgeExt> * r = hooking(A_npairs, A_loc_pairs, p, star);
 
-        edges[j] = edges_loc_pairs[i];
-        ++j;
-      }
-      mst->write(edges_n, edges_loc_pairs); // accumulate over MINWEIGHT
-    }
-  
     // tie breaking
-    for (int64_t i = 0; i < A_n; ++i) {
-      if (i < p(i) && i = p(p(i))) {
-        p(i) = i;
-      }
-    }
+    // hook only onto larger stars and update p
+    (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
+
+    // hook only onto larger stars and update mst
+    (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
+
+    delete r;
 
     // shortcutting
-    shortcut(*p, *p, *p, NULL, false);
+    int sc2 = 1000;
+    Vector<int> * pi = new Vector<int>(*p);
+    shortcut2(*p, *p, *p, sc2, world, NULL, false);
+    while (are_vectors_different(*pi, *p)){
+      delete pi;
+      pi = new Vector<int>(*p);
+      shortcut2(*p, *p, *p, sc2, world, NULL, false);
+    }
+    delete pi;
   }
+  delete [] A_loc_pairs;
+  delete p_prev;
+  delete p;
+
+  return mst;
 }
-*/
 
 // requires edge weights to be distinct
 // can also store mst in hashset
@@ -166,7 +283,7 @@ int64_t compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) {
 //  2
 void test_trivial(World * w) {
   if (w->rank == 0) {
-    printf("test_simple\n");
+    printf("test_trivial\n");
   }
 
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
@@ -203,6 +320,12 @@ void test_trivial(World * w) {
     printf("hook_matrix mst\n");
   }
   hm->print();
+
+  auto as_mst = as(A, w);
+  if (w->rank == 0) {
+    printf("as mst\n");
+  }
+  as_mst->print();
 
   auto res = compare_mst(kr, hm);
   if (w->rank == 0) {
@@ -270,6 +393,13 @@ void test_simple(World * w) {
   }
   hm->print();
 
+  auto as_mst = as(A, w);
+  if (w->rank == 0) {
+    printf("as mst\n");
+  }
+  as_mst->print();
+
+  /*
   auto res = compare_mst(kr, hm);
   if (w->rank == 0) {
     if (res) {
@@ -279,7 +409,9 @@ void test_simple(World * w) {
       printf("result weight of mst vectors are same: PASS\n");
     }
   }
+  */
 
+  delete as_mst;
   delete kr;
   delete hm;
 
@@ -302,19 +434,40 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
     printf("hook_matrix() mst:\n");
   }
   hm->print();
+  printf("\n");
   thm.end();
 
+  stime = MPI_Wtime();
+  auto as_mst = as(A, w);
+  etime = MPI_Wtime();
+  if (w->rank == 0) {
+    printf("Time for as(): %1.2lf\n", (etime - stime));
+    printf("as() mst:\n");
+  }
+  as_mst->print();
+  printf("\n");
+
+  auto res = compare_mst(as_mst, hm);
+  if (w->rank == 0) {
+    if (res) {
+      printf("hook_matrix and Awerbuch/Shiloach mst vectors are different by %f: FAIL\n", res);
+    }
+    else {
+      printf("hook_matrix and Awerbuch/Shiloach mst vectors are same: PASS\n");
+    }
+  }
+
   if (run_serial) {
-    auto serial= serial_mst(A, w);
+    auto serial = serial_mst(A, w);
     if(w->rank == 0) printf("serial\n");
     serial->print();
     auto res = compare_mst(serial, hm);
     if (w->rank == 0) {
       if (res) {
-        printf("result mst vectors are different by %f: FAIL\n", res);
+        printf("hook_matrix and serial mst vectors are different by %f: FAIL\n", res);
       }
       else {
-        printf("result mst vectors are same: PASS\n");
+        printf("hook_matrix and serial mst vectors are same: PASS\n");
       }
     }
   }
@@ -427,7 +580,8 @@ int main(int argc, char** argv)
       if (w->rank == 0) {
         printf("Running mst on simple 7x7 graph\n");
       }
-      test_simple(w);
+      //test_simple(w);
+      test_trivial(w);
     }
   }
   MPI_Finalize();

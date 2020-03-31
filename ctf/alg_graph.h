@@ -48,6 +48,11 @@ namespace CTF {
   inline void Set<EdgeExt>::print(char const * a, FILE * fp) const {
     fprintf(fp, "(%" PRId64 " %f " " % " PRId64 " % " PRId64 ")", ((EdgeExt*)a)[0].src, ((EdgeExt*)a)[0].weight, ((EdgeExt*)a)[0].dest, ((EdgeExt*)a)[0].parent);
   }
+
+  template <>
+  inline void Set<bool>::print(char const * a, FILE * fp) const {
+    fprintf(fp, "%d", ((bool*)a)[0]);
+  }
 }
 
 void mat_set(Matrix<int>* matrix, Int64Pair index, int value = 1);
