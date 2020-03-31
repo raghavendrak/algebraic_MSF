@@ -34,9 +34,8 @@ Monoid<EdgeExt> get_minedge_monoid(){
 
 // r[p[j]] = q[j] over MINWEIGHT
 void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
-{
-  //Timer t_project("CONNECTIVITY_Project");
-  //t_project.start();
+{ Timer t_project("CONNECTIVITY_Project");
+  t_project.start();
   
   int64_t q_npairs;
   Pair<EdgeExt> * q_loc_pairs;
@@ -49,27 +48,11 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
   }
 
   Pair<int> * p_read_pairs = new Pair<int>[q_npairs];
-  int64_t p_npairs = 0;
   for(int64_t i = 0; i < q_npairs; ++i) {
-    p_read_pairs[i].k = q_loc_pairs[i].d.src;
+    p_read_pairs[i].k = q_loc_pairs[i].k;
   }
-  p.read(q_npairs, p_read_pairs);
-  /* // TODO: alternative to q->sparsify() in hook, unclear why this does not work
-  int64_t p_npairs = 0;
-  for(int64_t i = 0; i < q_npairs; ++i) {
-    EdgeExt e = q_loc_pairs[i].d;
-    if (q_loc_pairs[i].d.src != -1) {
-      printf("(%" PRId64 " %f " " % " PRId64 " % " PRId64 ")", e.src, e.weight, e.dest, e.parent);
-      p_read_pairs[p_npairs].k = q_loc_pairs[p_npairs].d.src;
-      ++p_npairs;
-    }
-  }
-  printf("before\n");
-  printf("%" PRId64, p_npairs);
-  if (p_npairs != 0) {
-    p.read(q_npairs, p_read_pairs);
-  }
-  */
+  p.read_local(&q_npairs, &p_read_pairs);
+  //p.read(q_npairs, p_read_pairs); // if q->sparsify() enabled
 
   Pair<EdgeExt> * r_loc_pairs = new Pair<EdgeExt>[q_npairs];
   for (int64_t i = 0; i < q_npairs; ++i){
@@ -81,11 +64,11 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
   delete [] r_loc_pairs;
   delete [] q_loc_pairs;
   delete [] p_read_pairs;
-  //t_project.stop();
+  t_project.stop();
 }
 
 Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
-  int n = A->nrow;
+  int64_t n = A->nrow;
 
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
 
@@ -95,6 +78,8 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
 
   auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
+
+  int np = p->wrld->np;
 
   Timer_epoch cQ("Compute q");
   Timer_epoch proj("Project");
@@ -112,7 +97,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     });
     fmv.intersect_only = true;
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
-    q->sparsify(); // when a node does any edges that lead to a new component, p[e.src=-1] will mess up project
+    //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
     cQ.end();
 
     // r[p[j]] = q[j] over MINWEIGHT
@@ -145,12 +130,12 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     }
     delete pi;
 
+    //A = PTAP<EdgeExt>(A, p); // optimal optimization
+
     // update edges parent in A[ij]
     uA.begin();
     Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
     uA.end();
-
-    //A = PTAP<EdgeExt>(A, p); // optional possible optimization (NOT WORKING)
   }
 
   delete p;
