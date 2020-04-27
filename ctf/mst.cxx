@@ -34,7 +34,8 @@ Monoid<EdgeExt> get_minedge_monoid(){
 
 // r[p[j]] = q[j] over MINWEIGHT
 void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
-{ Timer t_project("CONNECTIVITY_Project");
+{ 
+  Timer t_project("CONNECTIVITY_Project");
   t_project.start();
   
   int64_t q_npairs;
@@ -97,6 +98,90 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     });
     fmv.intersect_only = true;
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
+    cQ.end();
+
+    // r[p[j]] = q[j] over MINWEIGHT
+    proj.begin();
+    auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
+    project(*r, *p, *q);
+    proj.end();
+
+    // hook only onto larger stars and update p
+    uP.begin();
+    (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
+    uP.end();
+
+    // hook only onto larger stars and update mst
+    uMST.begin();
+    (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
+    uMST.end();
+
+    delete r;
+    delete q;
+
+    // aggressive shortcutting
+    int sc2 = 1000;
+    Vector<int> * pi = new Vector<int>(*p);
+    shortcut2(*p, *p, *p, sc2, world, NULL, false);
+    while (are_vectors_different(*pi, *p)){
+      delete pi;
+      pi = new Vector<int>(*p);
+      shortcut2(*p, *p, *p, sc2, world, NULL, false);
+    }
+    delete pi;
+
+    //A = PTAP<EdgeExt>(A, p); // optimal optimization
+
+    // update edges parent in A[ij]
+    uA.begin();
+    Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
+    uA.end();
+  }
+
+  delete p;
+  delete p_prev;
+
+  return mst;
+}
+
+Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
+  int64_t n = A->nrow;
+
+  auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
+  init_pvector(p);
+
+  auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
+
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
+  auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
+
+  // TODO: temporary fix
+  auto B = new Matrix<int>(n, n, SP, *world);
+  (*B)["ij"] = Function<EdgeExt, int>([](EdgeExt e){ return (int) e.weight; })((*A)["ij"]);
+
+  std::function<EdgeExt(int, int, int)> f = [](int x, int a, int y){
+    if (x != y) {
+      return EdgeExt(-1, a, -1, x);
+    } else {
+      return EdgeExt();
+    }
+  };
+
+  Timer_epoch cQ("Compute q");
+  Timer_epoch proj("Project");
+  Timer_epoch uP("Update p");
+  Timer_epoch uMST("Update mst");
+  Timer_epoch uA("Update A");
+  while (are_vectors_different(*p, *p_prev)) {
+    (*p_prev)["i"] = (*p)["i"];
+
+    // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
+    cQ.begin();
+    auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
+    Tensor<int> * vec_list[2] = {p, p};
+    //min_outgoing_edge<int>(B, vec_list, q);
+    Multilinear1<int, EdgeExt>(B, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
     cQ.end();
 

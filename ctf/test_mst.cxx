@@ -231,7 +231,10 @@ Vector<EdgeExt> * as(Matrix<EdgeExt> * A, World * world) {
 // requires edge weights to be distinct
 // can also store mst in hashset
 double compare_mst(Vector<EdgeExt> * a, Vector<EdgeExt> * b) {
-  Function<EdgeExt,double> sum_weights([](EdgeExt a){ return a.src != -1 ? a.weight : 0; });
+  //Function<EdgeExt,double> sum_weights([](EdgeExt a){ return a.src != -1 ? a.weight : 0; });
+  a->sparsify(); // TODO: workaround
+  b->sparsify(); // TODO: workaround
+  Function<EdgeExt,double> sum_weights([](EdgeExt a){ return a.weight; });
 
   Scalar<double> s_a;
   s_a[""] = sum_weights((*a)["i"]);
@@ -399,6 +402,12 @@ void test_simple(World * w) {
   }
   as_mst->print();
 
+  auto mult_mst = multilinear_hook(A, w);
+  if (w->rank == 0) {
+    printf("multilinear mst\n");
+  }
+  mult_mst->print();
+
   /*
   auto res = compare_mst(kr, hm);
   if (w->rank == 0) {
@@ -447,6 +456,12 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
   as_mst->print();
   printf("\n");
 
+  auto mult_mst = multilinear_hook(A, w);
+  if (w->rank == 0) {
+    printf("multilinear mst\n");
+  }
+  mult_mst->print();
+
   auto res = compare_mst(as_mst, hm);
   if (w->rank == 0) {
     if (res) {
@@ -454,6 +469,16 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
     }
     else {
       printf("hook_matrix and Awerbuch/Shiloach mst vectors are same: PASS\n");
+    }
+  }
+
+  auto res1 = compare_mst(as_mst, mult_mst);
+  if (w->rank == 0) {
+    if (res1) {
+      printf("multilinear and Awerbuch/Shiloach mst vectors are different by %f: FAIL\n", res1);
+    }
+    else {
+      printf("multilinear and Awerbuch/Shiloach mst vectors are same: PASS\n");
     }
   }
 
@@ -580,8 +605,8 @@ int main(int argc, char** argv)
       if (w->rank == 0) {
         printf("Running mst on simple 7x7 graph\n");
       }
-      //test_simple(w);
-      test_trivial(w);
+      test_simple(w);
+      //test_trivial(w);
     }
   }
   MPI_Finalize();
