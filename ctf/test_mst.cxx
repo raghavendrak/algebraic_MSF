@@ -428,11 +428,24 @@ void test_simple(World * w) {
   delete A;
 }
 
-void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial)
+void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial, int run_multilinear)
 {
-  matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   double stime;
   double etime;
+  matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
+  if (run_multilinear) {
+    Timer_epoch tmh("multilinear_hook");
+    tmh.begin();
+    stime = MPI_Wtime();
+    auto mult_mst = multilinear_hook(A, w);
+    etime = MPI_Wtime();
+    tmh.end();
+    if (w->rank == 0) {
+      printf("multilinear mst done in %1.2lf\n" (etime - stime));
+    }
+    // mult_mst->print();
+    return;
+  }
   Timer_epoch thm("hook_matrix");
   thm.begin();
   stime = MPI_Wtime();
@@ -456,11 +469,6 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
   as_mst->print();
   printf("\n");
 
-  auto mult_mst = multilinear_hook(A, w);
-  if (w->rank == 0) {
-    printf("multilinear mst\n");
-  }
-  mult_mst->print();
 
   auto res = compare_mst(as_mst, hm);
   if (w->rank == 0) {
@@ -599,7 +607,7 @@ int main(int argc, char** argv)
         printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
       Matrix<EdgeExt> A = gen_rmat_matrix<EdgeExt>(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, w, batch, sc2, run_serial);
+      run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
     }
     else {
       if (w->rank == 0) {

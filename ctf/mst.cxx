@@ -181,7 +181,9 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
     //min_outgoing_edge<int>(B, vec_list, q);
+    uA.begin();
     Multilinear1<int, EdgeExt>(B, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
+    uA.end();
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
     cQ.end();
 
@@ -218,9 +220,6 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
     //A = PTAP<EdgeExt>(A, p); // optimal optimization
 
     // update edges parent in A[ij]
-    uA.begin();
-    Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
-    uA.end();
   }
 
   delete p;
