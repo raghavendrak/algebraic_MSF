@@ -433,15 +433,16 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
   double stime;
   double etime;
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
+  Vector<EdgeExt>* mult_mst;
   if (run_multilinear) {
     Timer_epoch tmh("multilinear_hook");
     tmh.begin();
     stime = MPI_Wtime();
-    auto mult_mst = multilinear_hook(A, w);
+    mult_mst = multilinear_hook(A, w);
     etime = MPI_Wtime();
     tmh.end();
     if (w->rank == 0) {
-      printf("multilinear mst done in %1.2lf\n" (etime - stime));
+      printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
     // mult_mst->print();
     return;
