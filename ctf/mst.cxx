@@ -168,22 +168,22 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
     }
   };
 
-  Timer_epoch cQ("Compute q");
   Timer_epoch proj("Project");
   Timer_epoch uP("Update p");
   Timer_epoch uMST("Update mst");
   Timer_epoch uA("Update A");
+  Timer_epoch aggrShortcut("aggressive shortcut");
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
-    cQ.begin();
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
     //min_outgoing_edge<int>(B, vec_list, q);
+    uA.begin();
     Multilinear1<int, EdgeExt>(B, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
+    uA.end();
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
-    cQ.end();
 
     // r[p[j]] = q[j] over MINWEIGHT
     proj.begin();
@@ -206,6 +206,7 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
 
     // aggressive shortcutting
     int sc2 = 1000;
+    aggrShortcut.begin();
     Vector<int> * pi = new Vector<int>(*p);
     shortcut2(*p, *p, *p, sc2, world, NULL, false);
     while (are_vectors_different(*pi, *p)){
@@ -214,13 +215,11 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
     }
     delete pi;
+    aggrShortcut.end();
 
     //A = PTAP<EdgeExt>(A, p); // optimal optimization
 
     // update edges parent in A[ij]
-    uA.begin();
-    Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
-    uA.end();
   }
 
   delete p;

@@ -123,7 +123,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, W
   }
 
   Timer t_shortcut2("CONNECTIVITY2_Shortcut");
-  //t_shortcut2.start();
+  t_shortcut2.start();
   
   int64_t rec_p_npairs;
   Pair<int> * rec_p_loc_pairs;

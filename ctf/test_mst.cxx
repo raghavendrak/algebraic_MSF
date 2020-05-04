@@ -465,13 +465,27 @@ void test_simple(World * w) {
   delete A;
 }
 
-void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial) // TODO: need to free memory?
+void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial, int run_multilinear)
 {
-  matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   double stime;
   double etime;
-  //Timer_epoch thm("hook_matrix");
-  //thm.begin();
+  matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
+  Vector<EdgeExt>* mult_mst;
+  if (run_multilinear) {
+    Timer_epoch tmh("multilinear_hook");
+    tmh.begin();
+    stime = MPI_Wtime();
+    mult_mst = multilinear_hook(A, w);
+    etime = MPI_Wtime();
+    tmh.end();
+    if (w->rank == 0) {
+      printf("multilinear mst done in %1.2lf\n", (etime - stime));
+    }
+    // mult_mst->print();
+    return;
+  }
+  Timer_epoch thm("hook_matrix");
+  thm.begin();
   stime = MPI_Wtime();
   auto hm = hook_matrix(A, w);
   etime = MPI_Wtime();
@@ -482,15 +496,6 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
   hm->print();
   printf("\n");
   //thm.end();
-
-  stime = MPI_Wtime();
-  auto mult_mst = multilinear_hook(A, w);
-  etime = MPI_Wtime();
-  if (w->rank == 0) {
-    printf("Time for multilinear mst: %1.2lf\n", (etime - stime));
-    printf("multilinear mst:\n");
-  }
-  mult_mst->print();
 
   auto res = compare_mst(hm, mult_mst);
   if (w->rank == 0) {
@@ -602,7 +607,7 @@ int main(int argc, char** argv)
       Matrix<wht> A_pre = read_matrix(*w, n, gfile, prep, &n_nnz);
       Matrix<EdgeExt> A = to_EdgeExt_mat(&A_pre);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, w, batch, sc2, run_serial);
+      run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
     }
     else if (k != -1) {
       //int64_t matSize = pow(3, k);
@@ -623,7 +628,7 @@ int main(int argc, char** argv)
       Matrix<wht> A_pre = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
       Matrix<EdgeExt> A = to_EdgeExt_mat(&A_pre);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, w, batch, sc2, run_serial);
+      run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
     }
     else {
       if (w->rank == 0) {
