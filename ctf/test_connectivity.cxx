@@ -66,7 +66,7 @@ void test_shortcut2(World *w) {
 
   if (w->rank == 0)
     printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
-  Matrix<wht> A = gen_rmat_matrix<wht>(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+  Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
   int64_t matSize = A.nrow;
   if (w->rank == 0)
     printf("matSize = %ld\n",matSize);
@@ -337,7 +337,7 @@ int main(int argc, char** argv)
     int n_nnz = 0;
     if (w->rank == 0)
       printf("Reading real graph n = %lld\n", n);
-    Matrix<wht> A = read_matrix<wht>(*w, n, gfile, prep, &n_nnz);
+    Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
     // A.print_matrix();
     run_connectivity(&A, n, w, batch, sc2, run_serial);
   }
@@ -356,7 +356,7 @@ int main(int argc, char** argv)
     myseed = SEED;
     if (w->rank == 0)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
-    Matrix<wht> A = gen_rmat_matrix<wht>(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+    Matrix<wht> A = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
     int64_t matSize = A.nrow; 
     run_connectivity(&A, matSize, w, batch, sc2, run_serial);
   }

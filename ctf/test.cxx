@@ -1,80 +1,29 @@
 #include "test.h"
 
-bool is_sparse(int a) { return a > 0; }
-
-bool is_sparse(EdgeExt a) { return a.weight > 0; }
-
-template<typename T>
-Scalar<T> init_addid(World &  dw);
-
-template<>
-Scalar<int> init_addid(World & dw) {
-  return 0; 
-}
-
-template<>
-Scalar<EdgeExt> init_addid(World & dw) {
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
-  Scalar<EdgeExt> s(EdgeExt(), dw, MIN_EDGE);
-
-  return s;
-}
-
-template<typename T>
-Matrix<T> * init_A(int n, World * dw, char const * name);
-
-template<>
-Matrix<int> * init_A(int n, World * dw, char const * name) {
-  Matrix<int> * A_pre = new Matrix<int>(n, n, SP, *dw, MAX_TIMES_SR, name);
-
-  return A_pre;
-}
-
-template<>
-Matrix<EdgeExt> * init_A(int n, World * dw, char const * name) {
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
-  Matrix<EdgeExt> * A_pre = new Matrix<EdgeExt>(n, n, SP, *dw, MIN_EDGE, name);
-
-  return A_pre;
-}
-
-template<typename T>
-Matrix <T> preprocess_graph(int           n,
+Matrix <wht> preprocess_graph(int           n,
                               World &       dw,
-                              Matrix<T> & A_pre,
+                              Matrix<wht> & A_pre,
                               bool          remove_singlets,
                               int *         n_nnz,
                               int64_t       max_ewht){
-  Scalar<T> addid = init_addid<T>(dw);
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
 
-  //printf("before zero on diagonal\n");
-  //A_pre.print();
-  //A_pre["ii"] = addid[""];
-  /* workaround for above line.*/
-  int64_t A_n;
-  Pair<T> * A_loc_pairs;
-  A_pre.get_local_pairs(&A_n, &A_loc_pairs);
-  for (int64_t i = 0; i < n; ++i) {
-    if (A_loc_pairs[i].k % A_pre.nrow == A_loc_pairs[i].k / A_pre.nrow) {
-      A_loc_pairs[i].d = T();
-    }
-  }
-  A_pre = *init_A<T>(n, &dw, "A_rmat");
-  A_pre.write(A_n, A_loc_pairs);
-  /* workaround end. */
-  //printf("after zero on diagonal\n");
-  //A_pre.print();
+  A_pre["ii"] = 0;
 
-  A_pre.sparsify([](T a){ return is_sparse(a); });
+  A_pre.sparsify([](int a){ return a>0; });
 
   if (dw.rank == 0)
     printf("A contains %ld nonzeros\n", A_pre.nnz_tot);
 
   if (remove_singlets){
     Vector<int> rc(n, dw);
-    rc["i"] += ((Function<T, int>)([](T a){ return (int)(is_sparse(a)); }))(A_pre["ij"]);
-    rc["i"] += ((Function<T, int>)([](T a){ return (int)(is_sparse(a)); }))(A_pre["ji"]);
-    int * all_rc;
+    rc["i"] += ((Function<wht>)([](wht a){ return (int)(a>0); }))(A_pre["ij"]);
+    rc["i"] += ((Function<wht>)([](wht a){ return (int)(a>0); }))(A_pre["ji"]);
+    int * all_rc; // = (int*)malloc(sizeof(int)*n);
     int64_t nval;
     rc.read_all(&nval, &all_rc);
     int n_nnz_rc = 0;
@@ -89,87 +38,27 @@ Matrix <T> preprocess_graph(int           n,
       }
     }
     if (dw.rank == 0) printf("n_nnz_rc = %d of %d vertices kept, %d are 0-degree, %d are 1-degree\n", n_nnz_rc, n,(n-n_nnz_rc),n_single);
-    Matrix<T> A = *init_A<T>(n_nnz_rc, &dw, "A");
+    Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, MAX_TIMES_SR, "A");
     int * pntrs[] = {all_rc, all_rc};
 
-    A.permute(T(), A_pre, pntrs, T()); // TODO: fix beta and alpha?
+    A.permute(0, A_pre, pntrs, 1);
     free(all_rc);
     if (dw.rank == 0) printf("preprocessed matrix has %ld edges\n", A.nnz_tot);
 
-    //A["ii"] = addid[""];
-    /* workaround for above line.*/
-    int64_t A_n;
-    Pair<T> * A_loc_pairs;
-    A_pre.get_local_pairs(&A_n, &A_loc_pairs);
-    for (int64_t i = 0; i < n; ++i) {
-      if (A_loc_pairs[i].k % A_pre.nrow == A_loc_pairs[i].k / A_pre.nrow) {
-        A_loc_pairs[i].d = T();
-      }
-    }
-    A_pre = *init_A<T>(n, &dw, "A_rmat");
-    A_pre.write(A_n, A_loc_pairs);
-    /* workaround end. */
+    A["ii"] = 0;
     *n_nnz = n_nnz_rc;
     return A;
   } else {
     *n_nnz= n;
-    //A_pre["ii"] = addid[""];
-    /* workaround for above line.*/
-    int64_t A_n;
-    Pair<T> * A_loc_pairs;
-    A_pre.get_local_pairs(&A_n, &A_loc_pairs);
-    for (int64_t i = 0; i < n; ++i) {
-      if (A_loc_pairs[i].k % A_pre.nrow == A_loc_pairs[i].k / A_pre.nrow) {
-        A_loc_pairs[i].d = T();
-      }
-    }
-    A_pre = *init_A<T>(n, &dw, "A_rmat");
-    A_pre.write(A_n, A_loc_pairs);
-    /* workaround end. */
-    A_pre.print();
+    A_pre["ii"] = 0;
+    //A_pre.print();
     return A_pre;
   }
-}
-template Matrix <wht> preprocess_graph(int           n,
-                              World &       dw,
-                              Matrix<wht> & A_pre,
-                              bool          remove_singlets,
-                              int *         n_nnz,
-                              int64_t       max_ewht);
-template Matrix <EdgeExt> preprocess_graph(int           n,
-                              World &       dw,
-                              Matrix<EdgeExt> & A_pre,
-                              bool          remove_singlets,
-                              int *         n_nnz,
-                              int64_t       max_ewht);
+//  return n_nnz_rc;
 
-void setup_A(Matrix<int> & A, uint64_t * edge, uint64_t nedges, int64_t * inds, int * vals, int64_t max_ewht) {
-  int n = A.nrow;
-  for (int64_t i=0; i<nedges; i++){
-    inds[i] = (edge[2*i]+(edge[2*i+1])*n);
-    vals[i] = 1;
-  }
-  A.write(nedges,inds,vals);
-  A["ij"] += A["ji"];
 }
 
-void setup_A(Matrix<EdgeExt> & A, uint64_t * edge, uint64_t nedges, int64_t * inds, EdgeExt * vals, int64_t max_ewht) {
-  int n = A.nrow;
-  for (int64_t i=0; i<nedges; i++){
-    inds[i] = (edge[2*i]+(edge[2*i+1])*n);
-    //vals[i] = EdgeExt(inds[i] / n, (rand()%max_ewht) + 1, inds[i] % n, inds[i] / n);
-    vals[i] = EdgeExt(inds[i] % n, (rand()%100000) + 1, inds[i] / n, inds[i] % n);
-
-    // produce antisymmetry (i, weight, j, parent) = (j, weight, i, parent)
-    inds[i + nedges] = (inds[i] % n) * n + inds[i] / n;
-    vals[i + nedges] = EdgeExt(vals[i].dest, vals[i].weight, vals[i].src, vals[i].dest);
-  }
-
-  A.write(2 * nedges,inds,vals);
-}
-
-template<typename T>
-Matrix <T> read_matrix(World  &     dw,
+Matrix <wht> read_matrix(World  &     dw,
                          int          n,
                          const char * fpath,
                          bool         remove_singlets,
@@ -177,10 +66,13 @@ Matrix <T> read_matrix(World  &     dw,
                          int64_t      max_ewht){
   uint64_t *my_edges = NULL;
   uint64_t my_nedges = 0;
-
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
   //random adjacency matrix
-  Matrix<T> A_pre = *init_A<T>(n, &dw, "A_rmat");
- 
+  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
 #ifdef MPIIO
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
   char **leno;
@@ -194,32 +86,32 @@ Matrix <T> read_matrix(World  &     dw,
 #endif
   if (dw.rank == 0) printf("finished reading (%ld edges).\n", my_nedges);
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
-  T * vals = (T*)malloc(sizeof(T)*2*my_nedges);
+  wht * vals = (wht*)malloc(sizeof(wht)*my_nedges);
 
   srand(dw.rank+1);
-  setup_A(A_pre, my_edges, my_nedges, inds, vals, max_ewht);
+  for (int64_t i=0; i<my_nedges; i++){
+    inds[i] = my_edges[2*i]+my_edges[2*i+1]*n;
+    //vals[i] = (rand()%max_ewht) + 1;
+    //vals[i] = 1;
+    vals[i] = (rand()%10000) + 1;
+  }
   if (dw.rank == 0) printf("filling CTF graph\n");
+  A_pre.write(my_nedges,inds,vals);
+  A_pre["ij"] += A_pre["ji"];
   free(inds);
   free(vals);
 
-  return preprocess_graph<T>(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
+  Matrix<wht> newA =  preprocess_graph(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
+  //int64_t nprs;
+  //newA.read_local_nnz(&nprs,&inds,&vals);
+
+  //for (int64_t i=0; i<nprs; i++){
+  //  printf("%d %d\n",inds[i]/newA.nrow,inds[i]%newA.nrow);
+  //}
+  return newA;
 }
-template Matrix <wht> read_matrix(World  &     dw,
-                         int          n,
-                         const char * fpath,
-                         bool         remove_singlets,
-                         int *        n_nnz,
-                         int64_t      max_ewht);
-template Matrix <EdgeExt> read_matrix(World  &     dw,
-                         int          n,
-                         const char * fpath,
-                         bool         remove_singlets,
-                         int *        n_nnz,
-                         int64_t      max_ewht);
 
-
-template<typename T>
-Matrix<T> gen_rmat_matrix(World  & dw,
+Matrix <wht> gen_rmat_matrix(World  & dw,
                              int      scale,
                              int      ef,
                              uint64_t gseed,
@@ -228,39 +120,36 @@ Matrix<T> gen_rmat_matrix(World  & dw,
                              int64_t  max_ewht){
   uint64_t *edge=NULL;
   uint64_t nedges = 0;
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
   //random adjacency matrix
   int n = pow(2,scale);
-  Matrix<T> A_pre = *init_A<T>(n, &dw, "A_rmat");
+  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
   if (dw.rank == 0) printf("Running graph generator n = %d... ",n);
   nedges = gen_graph(scale, ef, gseed, &edge);
   if (dw.rank == 0) printf("done.\n");
-  int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*2*nedges);
-  T * vals = (T*)malloc(sizeof(T)*2*nedges);
+  int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*nedges);
+  wht * vals = (wht*)malloc(sizeof(wht)*nedges);
 
   srand(dw.rank+1);
-  setup_A(A_pre, edge, nedges, inds, vals, max_ewht);
+  for (int64_t i=0; i<nedges; i++){
+    inds[i] = (edge[2*i]+(edge[2*i+1])*n);
+    //vals[i] = (rand()%max_ewht) + 1;
+    //vals[i] = 1;
+    vals[i] = (rand()%10000) + 1;
+  }
   if (dw.rank == 0) printf("filling CTF graph\n");
+  A_pre.write(nedges,inds,vals);
+  //A_pre["ij"] += A_pre["ji"]; // TODO: fix
   free(inds);
   free(vals);
 
-  //return preprocess_graph<T>(n,dw,A_pre,remove_singlets,n_nnz,max_ewht); // TODO: not working
-  return A_pre;
-}
-template Matrix<wht> gen_rmat_matrix(World  & dw,
-                             int      scale,
-                             int      ef,
-                             uint64_t gseed,
-                             bool     remove_singlets,
-                             int *    n_nnz,
-                             int64_t  max_ewht);
-template Matrix<EdgeExt> gen_rmat_matrix(World  & dw,
-                             int      scale,
-                             int      ef,
-                             uint64_t gseed,
-                             bool     remove_singlets,
-                             int *    n_nnz,
-                             int64_t  max_ewht);
+  return preprocess_graph(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
 
+}
 Matrix <wht> gen_uniform_matrix(World & dw,
                                 int64_t n,
                                 double  sp,

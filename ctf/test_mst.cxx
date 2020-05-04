@@ -1,6 +1,43 @@
 #include "test.h"
 #include "mst.h"
 #include <ctime>
+
+Matrix<EdgeExt> to_EdgeExt_mat(Matrix<wht> * A_pre) {
+  //(*A_pre)["ii"] = INT_MAX;
+  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
+  // START FIXME
+  Matrix<EdgeExt> A(A_pre->nrow, A_pre->nrow, A_pre->is_sparse, *(A_pre->wrld), MIN_EDGE, A_pre->name); // hook_matrix() fails
+  //Matrix<EdgeExt> A(A_pre->nrow, A_pre->nrow, 0, *(A_pre->wrld), MIN_EDGE, A_pre->name); // multilinear_hook() fails
+  // END FIXME
+  int64_t npairs;
+  Pair<wht> * pre_loc_pairs;
+  A_pre->get_local_pairs(&npairs, &pre_loc_pairs, A_pre->is_sparse);
+  /*
+  Pair<EdgeExt> * write_pairs = new Pair<EdgeExt>[npairs];
+  for (int64_t i = 0; i < npairs; ++i) {
+    int64_t row = pre_loc_pairs[i].k / A_pre->nrow;
+    int64_t col = pre_loc_pairs[i].k % A_pre->nrow;
+    write_pairs[i].k = row + col * A_pre->nrow;
+    write_pairs[i].d = EdgeExt(row, pre_loc_pairs[i].d, col, row); 
+  }
+  A.write(npairs, write_pairs);
+  */
+  Pair<EdgeExt> * write_pairs = new Pair<EdgeExt>[2 * npairs];
+  for (int64_t i = 0; i < npairs; ++i) {
+    int64_t row = pre_loc_pairs[i].k / A_pre->nrow;
+    int64_t col = pre_loc_pairs[i].k % A_pre->nrow;
+    write_pairs[i].k = row + col * A_pre->nrow;
+    write_pairs[i].d = EdgeExt(row, pre_loc_pairs[i].d, col, row); 
+
+    // produce symmetry
+    write_pairs[i + npairs].k = col + row * A_pre->nrow;
+    write_pairs[i + npairs].d = EdgeExt(col, pre_loc_pairs[i].d, row, col); 
+  }
+  A.write(2 * npairs, write_pairs);
+
+  return A;
+}
+
 // does not use path compression
 int64_t find(int64_t p[], int64_t i) {
   while (p[i] != i) {
@@ -428,13 +465,13 @@ void test_simple(World * w) {
   delete A;
 }
 
-void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial)
+void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial) // TODO: need to free memory?
 {
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   double stime;
   double etime;
-  Timer_epoch thm("hook_matrix");
-  thm.begin();
+  //Timer_epoch thm("hook_matrix");
+  //thm.begin();
   stime = MPI_Wtime();
   auto hm = hook_matrix(A, w);
   etime = MPI_Wtime();
@@ -444,41 +481,24 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
   }
   hm->print();
   printf("\n");
-  thm.end();
+  //thm.end();
 
   stime = MPI_Wtime();
-  auto as_mst = as(A, w);
+  auto mult_mst = multilinear_hook(A, w);
   etime = MPI_Wtime();
   if (w->rank == 0) {
-    printf("Time for as(): %1.2lf\n", (etime - stime));
-    printf("as() mst:\n");
-  }
-  as_mst->print();
-  printf("\n");
-
-  auto mult_mst = multilinear_hook(A, w);
-  if (w->rank == 0) {
-    printf("multilinear mst\n");
+    printf("Time for multilinear mst: %1.2lf\n", (etime - stime));
+    printf("multilinear mst:\n");
   }
   mult_mst->print();
 
-  auto res = compare_mst(as_mst, hm);
+  auto res = compare_mst(hm, mult_mst);
   if (w->rank == 0) {
     if (res) {
-      printf("hook_matrix and Awerbuch/Shiloach mst vectors are different by %f: FAIL\n", res);
+      printf("multilinear and hook mst vectors are different by %f: FAIL\n", res);
     }
     else {
-      printf("hook_matrix and Awerbuch/Shiloach mst vectors are same: PASS\n");
-    }
-  }
-
-  auto res1 = compare_mst(as_mst, mult_mst);
-  if (w->rank == 0) {
-    if (res1) {
-      printf("multilinear and Awerbuch/Shiloach mst vectors are different by %f: FAIL\n", res1);
-    }
-    else {
-      printf("multilinear and Awerbuch/Shiloach mst vectors are same: PASS\n");
+      printf("multilinear and hook mst vectors are same: PASS\n");
     }
   }
 
@@ -486,13 +506,13 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
     auto serial = serial_mst(A, w);
     if(w->rank == 0) printf("serial\n");
     serial->print();
-    auto res = compare_mst(serial, hm);
+    auto serial_res = compare_mst(serial, mult_mst);
     if (w->rank == 0) {
-      if (res) {
-        printf("hook_matrix and serial mst vectors are different by %f: FAIL\n", res);
+      if (serial_res) {
+        printf("multilinear and serial mst vectors are different by %f: FAIL\n", serial_res);
       }
       else {
-        printf("hook_matrix and serial mst vectors are same: PASS\n");
+        printf("multilinear and serial mst vectors are same: PASS\n");
       }
     }
   }
@@ -576,11 +596,13 @@ int main(int argc, char** argv)
     } else run_serial = 0;
 
     if (gfile != NULL){
-      //int n_nnz = 0;
-      //if (w->rank == 0)
-      //printf("Reading real graph n = %lld\n", n);
-      //Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
-      //run_connectivity(&A, n, w, batch, sc2, run_serial);
+      int n_nnz = 0;
+      if (w->rank == 0)
+      printf("Reading real graph n = %lld\n", n);
+      Matrix<wht> A_pre = read_matrix(*w, n, gfile, prep, &n_nnz);
+      Matrix<EdgeExt> A = to_EdgeExt_mat(&A_pre);
+      int64_t matSize = A.nrow; 
+      run_mst(&A, matSize, w, batch, sc2, run_serial);
     }
     else if (k != -1) {
       //int64_t matSize = pow(3, k);
@@ -589,7 +611,8 @@ int main(int argc, char** argv)
       //if (w->rank == 0) {
       //printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
       //}
-      //run_connectivity(B, matSize, w, batch, sc2, run_serial);
+      //Matrix<EdgeExt> A = to_EdgeExt_mat(&B);
+      //run_mst(&A, matSize, w, batch, sc2, run_serial);
       //delete B;
     }
     else if (scale > 0 && ef > 0){
@@ -597,7 +620,8 @@ int main(int argc, char** argv)
       myseed = SEED;
       if (w->rank == 0)
         printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
-      Matrix<EdgeExt> A = gen_rmat_matrix<EdgeExt>(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+      Matrix<wht> A_pre = gen_rmat_matrix(*w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+      Matrix<EdgeExt> A = to_EdgeExt_mat(&A_pre);
       int64_t matSize = A.nrow; 
       run_mst(&A, matSize, w, batch, sc2, run_serial);
     }
