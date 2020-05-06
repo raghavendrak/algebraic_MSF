@@ -71,8 +71,17 @@ total_weight(const Graph& g, WeightMap weight_map,
   return total_weight;
 }
 
-void 
-//test_distributed_dense_boruvka(uint64_t * edges, uint64_t ned, wht * weights, uint64_t n)
+char* getCmdOption(char ** begin,
+                   char ** end,
+                   const   std::string & option) {
+  char ** itr = std::find(begin, end, option);
+  if (itr != end && ++itr != end){
+    return *itr;
+  }
+  return 0;
+}
+
+int
 test_distributed_dense_boruvka(const char* filename)
 {
   // Open the METIS input file
@@ -82,86 +91,46 @@ test_distributed_dense_boruvka(const char* filename)
   // Load the graph using the default distribution
   Graph g(reader.begin(), reader.end(), reader.weight_begin(),
           reader.num_vertices());
-  
-  //E * edge_array;
-  //for (uint64_t i = 0; i < ned; i+=2) { // TODO: parallelize loop
-  //  edge_array[i / 2] = E(edges[i], edges[i + 1]);
-  //}
 
-  //Graph g(edge_array, edge_array + ned / 2, weights, n);
+  if (process_id(g.process_group()) == 0)
+    std::cerr << "--BOOST--\n";
+  typedef property_map<Graph, edge_weight_t>::type WeightMap;
+  WeightMap weight_map = get(edge_weight, g);
 
-  {
-    if (process_id(g.process_group()) == 0)
-      std::cerr << "--Dense Boruvka--\n";
-    typedef property_map<Graph, edge_weight_t>::type WeightMap;
-    WeightMap weight_map = get(edge_weight, g);
-    
-    std::vector<edge_descriptor> mst_edges;
-    dense_boruvka_minimum_spanning_tree(make_vertex_list_adaptor(g), 
-                                        weight_map, 
-                                        std::back_inserter(mst_edges));
-    int w = total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
-    BOOST_CHECK(w == 4);
-    BOOST_CHECK(mst_edges.size() == 4);
+  std::vector<edge_descriptor> mst_edges;
+  switch (2) {
+    case 0  : dense_boruvka_minimum_spanning_tree(make_vertex_list_adaptor(g), 
+                                                  weight_map, 
+                                                  std::back_inserter(mst_edges)); break;
+    case 1  : merge_local_minimum_spanning_trees(make_vertex_list_adaptor(g), 
+                                                 weight_map, 
+                                                 std::back_inserter(mst_edges)); break;
+    case 2  : boruvka_then_merge(make_vertex_list_adaptor(g), 
+                                 weight_map, 
+                                 std::back_inserter(mst_edges)); break;
+    default : boruvka_mixed_merge(make_vertex_list_adaptor(g), 
+                                  weight_map, 
+                                  std::back_inserter(mst_edges)); break;
   }
 
-  {
-    if (process_id(g.process_group()) == 0)
-      std::cerr << "--Merge local MSTs--\n";
-    typedef property_map<Graph, edge_weight_t>::type WeightMap;
-    WeightMap weight_map = get(edge_weight, g);
-    
-    std::vector<edge_descriptor> mst_edges;
-    merge_local_minimum_spanning_trees(make_vertex_list_adaptor(g), weight_map,
-                                       std::back_inserter(mst_edges));
-    if (process_id(g.process_group()) == 0) {
-      int w = total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
-      BOOST_CHECK(w == 4);
-      BOOST_CHECK(mst_edges.size() == 4);
-    }
-  }
-
-  {
-    if (process_id(g.process_group()) == 0)
-      std::cerr << "--Boruvka then Merge--\n";
-    typedef property_map<Graph, edge_weight_t>::type WeightMap;
-    WeightMap weight_map = get(edge_weight, g);
-    
-    std::vector<edge_descriptor> mst_edges;
-    boruvka_then_merge(make_vertex_list_adaptor(g), weight_map,
-                        std::back_inserter(mst_edges));
-    if (process_id(g.process_group()) == 0) {
-      int w = total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
-      BOOST_CHECK(w == 4);
-      BOOST_CHECK(mst_edges.size() == 4);
-    }
-  }
-
-  {
-    if (process_id(g.process_group()) == 0)
-      std::cerr << "--Boruvka mixed Merge--\n";
-    typedef property_map<Graph, edge_weight_t>::type WeightMap;
-    WeightMap weight_map = get(edge_weight, g);
-    
-    std::vector<edge_descriptor> mst_edges;
-    boruvka_mixed_merge(make_vertex_list_adaptor(g), weight_map,
-                        std::back_inserter(mst_edges));
-    if (process_id(g.process_group()) == 0) {
-      int w = total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
-      BOOST_CHECK(w == 4);
-      BOOST_CHECK(mst_edges.size() == 4);
-    }
-  }
+  return total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
 }
 
 int test_main(int argc, char** argv)
 {
   boost::mpi::environment env(argc, argv);
+  boost::mpi::communicator world;
 
-  // Parse command-line options
-  const char* filename = "weighted_graph.gr";
-  if (argc > 1) filename = argv[1];
-  test_distributed_dense_boruvka(filename);
+  int const in_num = argc;
+  char** input_str = argv;
+  char *gfile = NULL;
+
+  if (getCmdOption(input_str, input_str+in_num, "-f")){
+    gfile = getCmdOption(input_str, input_str+in_num, "-f");
+  } else gfile = NULL;
+  int mst_weight = test_distributed_dense_boruvka(gfile);
+  if (world.rank() == 0)
+    printf("boost mst weight: %d", mst_weight);
 
   return 0;
 }

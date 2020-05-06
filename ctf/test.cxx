@@ -77,7 +77,8 @@ Matrix <wht> read_matrix(World  &     dw,
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
   char **leno;
   my_nedges = read_graph_mpiio(dw.rank, dw.np, fpath, &my_edges, &leno);
-  processedges(leno, my_nedges, dw.rank, &my_edges);
+  read_metis(dw.rank, dw.np, fpath, &my_edges, &leno);
+  processedges(leno, my_nedges, dw.rank, dw.np, &my_edges);
   free(leno[0]);
   free(leno);
 #else

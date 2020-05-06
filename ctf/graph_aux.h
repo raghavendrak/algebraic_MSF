@@ -9,6 +9,7 @@
 uint64_t norm_graph(uint64_t *ed, uint64_t ned);
 uint64_t read_graph(int myid, int ntask, const char *fpath, uint64_t **edge);
 uint64_t read_graph_mpiio(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led);
-void processedges(char **led, uint64_t ned, int myid, uint64_t **edge);
+void processedges(char **led, uint64_t ned, int myid, int ntasks, uint64_t **edge);
+uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led);
 #endif
 

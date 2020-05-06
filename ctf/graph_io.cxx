@@ -46,19 +46,36 @@ static uint64_t getFsize(FILE *fp) {
 	return size;
 }
 
-void processedges(char **led, uint64_t ned, int myid, uint64_t **edges) {
-	int64_t i = 0;
+void processedges(char **led, uint64_t ned, int myid, int ntasks, uint64_t **edges) {
 	uint64_t *ed=(uint64_t *)malloc(ned*sizeof(uint64_t)*2);
-	for (i=0; i<ned; i++) {
+  /*
+	for (int64_t i=0; i<ned; i++) {
 		uint64_t a, b;
 		sscanf(led[i],"%lu %lu", &a, &b);
 		ed[i*2]  = a;
 		ed[i*2+1]= b;
 	}
+  */
+  for (int64_t i=0; i<ned; ++i) {
+    int offset = 0;
+    while (true) { // FIXME: bad
+      int n;
+      uint64_t a;
+      int cnt = sscanf(led[i]+offset, "%lu %n", &a, &n);
+      offset += n;
+      if (cnt != 1) break;
+      ed[i*2]   = i * ntasks + (i % ntasks);
+      ed[i*2+1] = a;
+      printf("edge: src: %lu, dest: %lu\n", ed[i*2], ed[i*2+1]);
+    }
+  }
+
 	*edges = ed;
 }
 
-uint64_t read_graph_mpiio(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led){
+// FIXME: how to track file numbers? a line may be parititioned to multiple processes
+// if can track file numbers, do prefix sum to find start on this process
+uint64_t read_graph_mpiio(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led){ 
 	MPI_File fh;
 	MPI_Offset filesize;
 	MPI_Offset localsize;
@@ -200,6 +217,43 @@ uint64_t read_graph(int myid, int ntask, const char *fpath, uint64_t **edge) {
 #undef ALLOC_BLOCK
 }
 
+uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led) {
+#define ALLOC_BLOCK     (2*1024)
+	FILE          *fp;
+  char * line = NULL;
+  size_t len  = 0;
+  int64_t num = 0;
+  int64_t ned = 0;
+  char * data[ALLOC_BLOCK]; // FIXME: fix?
 
+	fp = Fopen(fpath, "r");
+  while(getline(&line, &len, fp) != -1 && line[0] == '%') {
+    continue;
+  }
+  getline(&line, &len, fp); // fmt is first non-% line
+  char * fmt = line;
 
+  do {
+    if (line[0] == '%') continue; // % comments in file
+    if (num % ntask == myid) {
+      data[ned] = line;
+      ++ned;
+      line = NULL;
+      len  = 0;
+    }
+    ++num;
+  } while(getline(&line, &len, fp) != -1);
+  if (line)
+    free(line);
+
+	(*led) = (char **)malloc(ned*sizeof(char *));
+
+	for (int64_t i=0; i < ned; ++i) {
+		(*led)[i] = data[i];
+  }
+
+	fclose(fp);
+
+  return ned;
+}
 

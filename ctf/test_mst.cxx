@@ -12,16 +12,6 @@ Matrix<EdgeExt> to_EdgeExt_mat(Matrix<wht> * A_pre) {
   int64_t npairs;
   Pair<wht> * pre_loc_pairs;
   A_pre->get_local_pairs(&npairs, &pre_loc_pairs, A_pre->is_sparse);
-  /*
-  Pair<EdgeExt> * write_pairs = new Pair<EdgeExt>[npairs];
-  for (int64_t i = 0; i < npairs; ++i) {
-    int64_t row = pre_loc_pairs[i].k / A_pre->nrow;
-    int64_t col = pre_loc_pairs[i].k % A_pre->nrow;
-    write_pairs[i].k = row + col * A_pre->nrow;
-    write_pairs[i].d = EdgeExt(row, pre_loc_pairs[i].d, col, row); 
-  }
-  A.write(npairs, write_pairs);
-  */
   Pair<EdgeExt> * write_pairs = new Pair<EdgeExt>[2 * npairs];
   for (int64_t i = 0; i < npairs; ++i) {
     int64_t row = pre_loc_pairs[i].k / A_pre->nrow;
@@ -481,32 +471,36 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
-    // mult_mst->print();
+    mult_mst->print();
     return;
   }
-  Timer_epoch thm("hook_matrix");
-  thm.begin();
-  stime = MPI_Wtime();
-  auto hm = hook_matrix(A, w);
-  etime = MPI_Wtime();
-  if (w->rank == 0) {
-    printf("Time for hook_matrix(): %1.2lf\n", (etime - stime));
-    printf("hook_matrix() mst:\n");
-  }
-  hm->print();
-  printf("\n");
-  //thm.end();
-
-  auto res = compare_mst(hm, mult_mst);
-  if (w->rank == 0) {
-    if (res) {
-      printf("multilinear and hook mst vectors are different by %f: FAIL\n", res);
+  Vector<EdgeExt> * hm;
+  int run_hook = 0;
+  if (run_hook) {
+    Timer_epoch thm("hook_matrix");
+    thm.begin();
+    stime = MPI_Wtime();
+    hm = hook_matrix(A, w);
+    etime = MPI_Wtime();
+    if (w->rank == 0) {
+      printf("Time for hook_matrix(): %1.2lf\n", (etime - stime));
+      printf("hook_matrix() mst:\n");
     }
-    else {
-      printf("multilinear and hook mst vectors are same: PASS\n");
+    hm->print();
+    printf("\n");
+    //thm.end();
+  }
+  if (run_multilinear && run_hook) {
+    auto res = compare_mst(hm, mult_mst);
+    if (w->rank == 0) {
+      if (res) {
+        printf("multilinear and hook mst vectors are different by %f: FAIL\n", res);
+      }
+      else {
+        printf("multilinear and hook mst vectors are same: PASS\n");
+      }
     }
   }
-
   if (run_serial) {
     auto serial = serial_mst(A, w);
     if(w->rank == 0) printf("serial\n");
