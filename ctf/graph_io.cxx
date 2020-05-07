@@ -46,7 +46,7 @@ static uint64_t getFsize(FILE *fp) {
 	return size;
 }
 
-void processedges(char **led, uint64_t ned, int myid, int ntasks, uint64_t **edges) {
+void processedges(char **led, uint64_t ned, int myid, int ntasks, uint64_t **edges, uint64_t start, bool eweights, wht ** vals) {
 	uint64_t *ed=(uint64_t *)malloc(ned*sizeof(uint64_t)*2);
   /*
 	for (int64_t i=0; i<ned; i++) {
@@ -58,15 +58,27 @@ void processedges(char **led, uint64_t ned, int myid, int ntasks, uint64_t **edg
   */
   for (int64_t i=0; i<ned; ++i) {
     int offset = 0;
+    int itr = 0;
     while (true) { // FIXME: bad
       int n;
       uint64_t a;
       int cnt = sscanf(led[i]+offset, "%lu %n", &a, &n);
       offset += n;
       if (cnt != 1) break;
-      ed[i*2]   = i * ntasks + (i % ntasks);
+      ++itr;
+      if (itr < start + 1) // skip lines until start
+        continue;
+      ed[i*2]   = i * ntasks + (i % ntasks) + 1; // vertices indexed at 1
       ed[i*2+1] = a;
       printf("edge: src: %lu, dest: %lu\n", ed[i*2], ed[i*2+1]);
+      if (eweights) {
+        cnt = sscanf(led[i]+offset, "%lu %n", &a, &n); // FIXME: update weights
+        offset += n;
+        if (cnt != 1) break;
+        (*vals)[i] = a;
+        printf("weight: %lu\n", (*vals)[i]);
+        printf("\n");
+      }
     }
   }
 
@@ -217,7 +229,7 @@ uint64_t read_graph(int myid, int ntask, const char *fpath, uint64_t **edge) {
 #undef ALLOC_BLOCK
 }
 
-uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led) {
+uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led, int * n, uint64_t * start, bool * eweights) {
 #define ALLOC_BLOCK     (2*1024)
 	FILE          *fp;
   char * line = NULL;
@@ -230,10 +242,51 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
   while(getline(&line, &len, fp) != -1 && line[0] == '%') {
     continue;
   }
-  getline(&line, &len, fp); // fmt is first non-% line
-  char * fmt = line;
+  char * header = line;
+  uint64_t parms[4]; // header may contain at most 4 parameters
+  int parm_num = 0;
+  int offset = 0;
+  for (; parm_num < 4; ++parm_num) {
+    int len;
+    uint64_t a;
+    int cnt = sscanf(header+offset, "%lu %n", &a, &len);
+    offset += len;
+    if (cnt != 1) break;
+    parms[parm_num] = a;
+  }
+  assert(parm_num >= 4);
+  *n = parms[0];
+  uint64_t m = parms[1]; 
+  uint64_t fmt = 0;
+  uint64_t ncon = 0;
+  uint64_t vweights = 0;
+  uint64_t vsizes = 0;
+  if (parm_num >= 3) {
+    fmt = parms[2];
+    if (fmt >= 100) {
+      *eweights = fmt % 10;
+      vweights = (fmt / 10) % 10;
+      vsizes = (fmt / 100) % 10;
+    } else if (fmt >= 10) {
+      *eweights = fmt % 10;
+      vweights = (fmt / 10) % 10;
+    } else {
+      *eweights = fmt % 10;  
+    }
+  }
 
-  do {
+  if (parm_num >= 4)
+    ncon = parms[3];
+
+  *start = 0;
+  if (vsizes)
+    *start += 1; // skip first number
+  if (ncon)
+    *start += ncon; // skip next ncon numbers
+  //if (vweights)
+    // unclear what vweights mean
+
+  while(getline(&line, &len, fp) != -1) {
     if (line[0] == '%') continue; // % comments in file
     if (num % ntask == myid) {
       data[ned] = line;
@@ -242,7 +295,7 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
       len  = 0;
     }
     ++num;
-  } while(getline(&line, &len, fp) != -1);
+  }
   if (line)
     free(line);
 

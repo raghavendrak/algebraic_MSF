@@ -72,31 +72,37 @@ Matrix <wht> read_matrix(World  &     dw,
                   0,
                   [](wht a, wht b){ return a+b; });
   //random adjacency matrix
-  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
-#ifdef MPIIO
+  //Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
+//#ifdef MPIIO
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
   char **leno;
-  my_nedges = read_graph_mpiio(dw.rank, dw.np, fpath, &my_edges, &leno);
-  read_metis(dw.rank, dw.np, fpath, &my_edges, &leno);
-  processedges(leno, my_nedges, dw.rank, dw.np, &my_edges);
+  uint64_t start;
+  bool eweights;
+  my_nedges = read_metis(dw.rank, dw.np, fpath, &my_edges, &leno, &n, &start, &eweights);
+  wht * vals = (wht*)malloc(sizeof(wht)*my_nedges);
+  processedges(leno, my_nedges, dw.rank, dw.np, &my_edges, start, eweights, &vals);
   free(leno[0]);
   free(leno);
+/*
 #else
   if (dw.rank == 0) printf("Running graph reader n = %d... ",n);
     my_nedges = read_graph(dw.rank, dw.np, fpath, &my_edges);
 #endif
+*/
   if (dw.rank == 0) printf("finished reading (%ld edges).\n", my_nedges);
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
-  wht * vals = (wht*)malloc(sizeof(wht)*my_nedges);
 
   srand(dw.rank+1);
-  for (int64_t i=0; i<my_nedges; i++){
+  for (int64_t i=0; i<my_nedges; ++i){
     inds[i] = my_edges[2*i]+my_edges[2*i+1]*n;
-    //vals[i] = (rand()%max_ewht) + 1;
-    //vals[i] = 1;
-    vals[i] = (rand()%10000) + 1;
+    if (!eweights) {
+      vals[i] = 1;
+      //vals[i] = (rand()%max_ewht) + 1;
+      //vals[i] = (rand()%10000) + 1;
+    }
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
+  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
   A_pre.write(my_nedges,inds,vals);
   A_pre["ij"] += A_pre["ji"];
   free(inds);

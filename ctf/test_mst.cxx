@@ -472,7 +472,13 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
     mult_mst->print();
-    return;
+    //mult_mst->sparsify(); // TODO: workaround
+    Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight; });
+
+    Scalar<wht> s;
+    s[""] = sum_weights((*mult_mst)["i"]);
+
+    printf("weight of mst: %d\n", s.get_val());
   }
   Vector<EdgeExt> * hm;
   int run_hook = 0;
