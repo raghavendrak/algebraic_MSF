@@ -229,16 +229,8 @@ uint64_t read_graph(int myid, int ntask, const char *fpath, uint64_t **edge) {
 #undef ALLOC_BLOCK
 }
 
-uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, char ***led, int * n, uint64_t * start, bool * eweights) {
-#define ALLOC_BLOCK     (2*1024)
-	FILE          *fp;
-  char * line = NULL;
-  size_t len  = 0;
-  int64_t num = 0;
-  int64_t ned = 0;
-  char * data[ALLOC_BLOCK]; // FIXME: fix?
-
-	// fp = Fopen(fpath, "r");
+uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pair<uint64_t, uint64_t> > &edges, int * n, bool * e_weights, std::vector<wht> &eweights) {
+  
   std::string fpaths = std::string(fpath);
   std::ifstream gfile(fpaths);
   if (!gfile.is_open()) {
@@ -249,8 +241,7 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
     if (line_s[0] != '%') break;
   }
   
-  // TODO: process line_s which contains n, m
-  
+  // process line_s which contains n, m
   char * header = &line_s[0];
   uint64_t parms[4]; // header may contain at most 4 parameters
   int parm_num = 0;
@@ -273,66 +264,48 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
   if (parm_num >= 3) {
     fmt = parms[2];
     if (fmt >= 100) {
-      *eweights = fmt % 10;
+      *e_weights = fmt % 10;
       vweights = (fmt / 10) % 10;
       vsizes = (fmt / 100) % 10;
     } else if (fmt >= 10) {
-      *eweights = fmt % 10;
+      *e_weights = fmt % 10;
       vweights = (fmt / 10) % 10;
     } else {
-      *eweights = fmt % 10;  
+      *e_weights = fmt % 10;  
     }
   }
-  
-  // TODO: ncon?
+
   if (parm_num >= 4)
     ncon = parms[3];
+  if (myid == 0) printf("header: vertices = %ld edges = %ld fmt = %ld ncon = %ld\n", *n, m, fmt, ncon);  
   
-  int64_t lineNo = 0;
+  uint64_t lineNo = 1;
+  uint64_t t_num;
+  int64_t t_num_count;
+  int64_t skip_num = 0;
+  int64_t n_edges = 0;
+  if (vsizes) skip_num += 1;
+  if (ncon) skip_num += ncon;
   while (std::getline(gfile, line_s)) {
     if (line_s[0] == '%') continue;
     if (lineNo % ntask == myid) {
-      printf("I am rank: %d, I read line : %s\n", myid, line_s.c_str());
+      // printf("I am rank: %d, I read line : %s\n", myid, line_s.c_str());
+      std::stringstream line_ss(line_s);
+      t_num_count = 0;
+      while (line_ss >> t_num) {
+        t_num_count++;
+        if (t_num_count <= skip_num) continue;
+        // std::cout << t_num << std::endl;
+        edges.push_back(std::make_pair(lineNo, t_num)); 
+        // get the weight
+        line_ss >> t_num;
+        t_num_count++;
+        eweights.push_back(t_num);
+        n_edges++;
+      }
+      assert(t_num_count > skip_num);
     }
     lineNo++;
   }
-  
-  return 0;
-
-  while(getline(&line, &len, fp) != -1 && line[0] == '%') {
-    continue;
-  }
-
-
-  *start = 0;
-  if (vsizes)
-    *start += 1; // skip first number
-  if (ncon)
-    *start += ncon; // skip next ncon numbers
-  //if (vweights)
-    // unclear what vweights mean
-
-  while(getline(&line, &len, fp) != -1) {
-    if (line[0] == '%') continue; // % comments in file
-    if (num % ntask == myid) {
-      data[ned] = line;
-      ++ned;
-      line = NULL;
-      len  = 0;
-    }
-    ++num;
-  }
-  if (line)
-    free(line);
-
-	(*led) = (char **)malloc(ned*sizeof(char *));
-
-	for (int64_t i=0; i < ned; ++i) {
-		(*led)[i] = data[i];
-  }
-
-	// fclose(fp);
-
-  return ned;
+  return n_edges;
 }
-

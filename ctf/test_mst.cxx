@@ -606,8 +606,10 @@ int main(int argc, char** argv)
       printf("Reading real graph n = %lld\n", n);
       Matrix<wht> A_pre = read_matrix(*w, n, gfile, prep, &n_nnz);
       Matrix<EdgeExt> A = to_EdgeExt_mat(&A_pre);
-      int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
+      // FIXME: bug is in the above function
+      A.print_matrix();
+      //int64_t matSize = A.nrow; 
+      //run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
     }
     else if (k != -1) {
       //int64_t matSize = pow(3, k);
