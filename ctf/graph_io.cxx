@@ -254,7 +254,7 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pai
     if (cnt != 1) break;
     parms[parm_num] = a;
   }
-  assert(parm_num >= 4);
+  assert(parm_num >= 2);
   *n = parms[0];
   uint64_t m = parms[1]; 
   uint64_t fmt = 0;

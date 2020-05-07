@@ -2,6 +2,7 @@
 #include "mst.h"
 #include <ctime>
 
+/*
 Matrix<EdgeExt> to_EdgeExt_mat(Matrix<wht> * A_pre) {
   //(*A_pre)["ii"] = INT_MAX;
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
@@ -27,6 +28,7 @@ Matrix<EdgeExt> to_EdgeExt_mat(Matrix<wht> * A_pre) {
 
   return A;
 }
+*/
 
 // does not use path compression
 int64_t find(int64_t p[], int64_t i) {
@@ -376,6 +378,7 @@ void test_trivial(World * w) {
 
 // graph pictured here: https://i0.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-1.png?zoom=2.625&resize=368%2C236&ssl=1
 // mst pictured here: https://i1.wp.com/www.techiedelight.com/wp-content/uploads/2016/11/Kruskal-12.png?zoom=2&resize=382%2C237&ssl=1
+/*
 void test_simple(World * w) {
   if (w->rank == 0) {
     printf("test_simple\n");
@@ -435,7 +438,6 @@ void test_simple(World * w) {
   }
   mult_mst->print();
 
-  /*
   auto res = compare_mst(kr, hm);
   if (w->rank == 0) {
     if (res) {
@@ -445,7 +447,6 @@ void test_simple(World * w) {
       printf("result weight of mst vectors are same: PASS\n");
     }
   }
-  */
 
   delete as_mst;
   delete kr;
@@ -454,8 +455,9 @@ void test_simple(World * w) {
   delete [] pairs;
   delete A;
 }
+*/
 
-void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial, int run_multilinear)
+void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial, int run_multilinear)
 {
   double stime;
   double etime;
@@ -472,14 +474,14 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
     mult_mst->print();
-    //mult_mst->sparsify(); // TODO: workaround
-    Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight; });
+    Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight != INT_MAX ? a.weight : 0; }); // TODO: workaround, sometimes it returns wrong result without checking if != INT_MAX
 
     Scalar<wht> s;
     s[""] = sum_weights((*mult_mst)["i"]);
-
-    printf("weight of mst: %d\n", s.get_val());
+    if (w->rank == 0)
+    	printf("weight of mst: %d\n", s.get_val());
   }
+  /*
   Vector<EdgeExt> * hm;
   int run_hook = 0;
   if (run_hook) {
@@ -521,6 +523,7 @@ void run_mst(Matrix<EdgeExt>* A, int64_t matSize, World *w, int batch, int short
       }
     }
   }
+  */
 }
 
 char* getCmdOption(char ** begin,
@@ -604,12 +607,9 @@ int main(int argc, char** argv)
       int n_nnz = 0;
       if (w->rank == 0)
       printf("Reading real graph n = %lld\n", n);
-      Matrix<wht> A_pre = read_matrix(*w, n, gfile, prep, &n_nnz);
-      Matrix<EdgeExt> A = to_EdgeExt_mat(&A_pre);
-      // FIXME: bug is in the above function
-      A.print_matrix();
-      //int64_t matSize = A.nrow; 
-      //run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
+      Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
+      int64_t matSize = A.nrow; 
+      run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
     }
     else if (k != -1) {
       //int64_t matSize = pow(3, k);
@@ -623,6 +623,7 @@ int main(int argc, char** argv)
       //delete B;
     }
     else if (scale > 0 && ef > 0){
+      /*
       int n_nnz = 0;
       myseed = SEED;
       if (w->rank == 0)
@@ -631,12 +632,13 @@ int main(int argc, char** argv)
       Matrix<EdgeExt> A = to_EdgeExt_mat(&A_pre);
       int64_t matSize = A.nrow; 
       run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
+      */
     }
     else {
       if (w->rank == 0) {
         printf("Running mst on simple 7x7 graph\n");
       }
-      test_simple(w);
+      //test_simple(w);
       //test_trivial(w);
     }
   }

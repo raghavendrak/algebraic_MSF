@@ -25,7 +25,7 @@ Monoid<EdgeExt> get_minedge_monoid(){
     &omee);
 
     Monoid<EdgeExt> MIN_EDGE(
-      EdgeExt(-1, DBL_MAX, -1, -1), 
+      EdgeExt(-1, INT_MAX, -1, -1), 
       [](EdgeExt a, EdgeExt b){ return EdgeExtMin(a, b); }, 
       omee);
 
@@ -145,7 +145,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   return mst;
 }
 
-Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
+Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world) {
   int64_t n = A->nrow;
 
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -156,11 +156,7 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
   auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
 
-  // TODO: temporary fix
-  auto B = new Matrix<int>(n, n, SP, *world);
-  (*B)["ij"] = Function<EdgeExt, int>([](EdgeExt e){ return (int) e.weight; })((*A)["ij"]);
-
-  std::function<EdgeExt(int, int, int)> f = [](int x, int a, int y){
+  std::function<EdgeExt(int, int, int)> f = [](int x, int a, int y){ // TODO: fix templating for wht
     if (x != y) {
       return EdgeExt(-1, a, -1, x);
     } else {
@@ -179,9 +175,8 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
-    //min_outgoing_edge<int>(B, vec_list, q);
     uA.begin();
-    Multilinear1<int, EdgeExt>(B, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
+    Multilinear1<int, EdgeExt>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
     uA.end();
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
 
@@ -217,9 +212,7 @@ Vector<EdgeExt>* multilinear_hook(Matrix<EdgeExt> * A, World* world) {
     delete pi;
     aggrShortcut.end();
 
-    //A = PTAP<EdgeExt>(A, p); // optimal optimization
-
-    // update edges parent in A[ij]
+    //A = PTAP<wht>(A, p); // optimal optimization
   }
 
   delete p;
