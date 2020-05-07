@@ -238,12 +238,21 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
   int64_t ned = 0;
   char * data[ALLOC_BLOCK]; // FIXME: fix?
 
-	fp = Fopen(fpath, "r");
-  // FIXME: line is not allocated memory, and len is 0 
-  while(getline(&line, &len, fp) != -1 && line[0] == '%') {
-    continue;
+	// fp = Fopen(fpath, "r");
+  // FIXME: line is not allocated memory, and len is 0
+  std::string fpaths = std::string(fpath);
+  std::ifstream gfile(fpaths);
+  if (!gfile.is_open()) {
+    printf("I am rank: %d, I was unable to open file: %s\n", myid, fpaths.c_str());
   }
-  char * header = line;
+  std::string line_s;
+  while (std::getline(gfile, line_s)) {
+    if (line_s[0] != '%') break;
+  }
+  
+  // TODO: process line_s which contains n, m
+  
+  char * header = &line_s[0];
   uint64_t parms[4]; // header may contain at most 4 parameters
   int parm_num = 0;
   int offset = 0;
@@ -275,9 +284,26 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
       *eweights = fmt % 10;  
     }
   }
-
+  
+  // TODO: ncon?
   if (parm_num >= 4)
     ncon = parms[3];
+  
+  int64_t lineNo = 0;
+  while (std::getline(gfile, line_s)) {
+    if (line_s[0] == '%') continue;
+    if (lineNo % ntask == myid) {
+      printf("I am rank: %d, I read line : %s\n", myid, line_s.c_str());
+    }
+    lineNo++;
+  }
+  
+  return 0;
+
+  while(getline(&line, &len, fp) != -1 && line[0] == '%') {
+    continue;
+  }
+
 
   *start = 0;
   if (vsizes)
@@ -306,7 +332,7 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
 		(*led)[i] = data[i];
   }
 
-	fclose(fp);
+	// fclose(fp);
 
   return ned;
 }
