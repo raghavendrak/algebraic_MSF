@@ -239,6 +239,7 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, uint64_t **edge, cha
   char * data[ALLOC_BLOCK]; // FIXME: fix?
 
 	fp = Fopen(fpath, "r");
+  // FIXME: line is not allocated memory, and len is 0 
   while(getline(&line, &len, fp) != -1 && line[0] == '%') {
     continue;
   }
