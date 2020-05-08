@@ -473,7 +473,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int shortcut,
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
-    mult_mst->print();
+    // mult_mst->print();
     Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight != INT_MAX ? a.weight : 0; }); // TODO: workaround, sometimes it returns wrong result without checking if != INT_MAX
 
     Scalar<wht> s;
