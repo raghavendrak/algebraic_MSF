@@ -82,7 +82,7 @@ char* getCmdOption(char ** begin,
 }
 
 int
-test_distributed_dense_boruvka(const char* filename)
+test_distributed_dense_boruvka(const char* filename, boost:mpi::communicator &world)
 {
   // Open the METIS input file
   std::ifstream in(filename);
@@ -98,6 +98,8 @@ test_distributed_dense_boruvka(const char* filename)
   WeightMap weight_map = get(edge_weight, g);
 
   std::vector<edge_descriptor> mst_edges;
+  MPI_Barrier(world);
+  auto start = std::chrono::high_resolution_clock::now();
   switch (2) {
     case 0  : dense_boruvka_minimum_spanning_tree(make_vertex_list_adaptor(g), 
                                                   weight_map, 
@@ -113,6 +115,9 @@ test_distributed_dense_boruvka(const char* filename)
                                   std::back_inserter(mst_edges)); break;
   }
 
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto duration = duration_cast<microseconds>(stop - start);
+  if (world.rank() == 0) std::cout << "Time taken to run MST: " << duration.count << std::endl;
   return total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
 }
 
@@ -128,7 +133,7 @@ int test_main(int argc, char** argv)
   if (getCmdOption(input_str, input_str+in_num, "-f")){
     gfile = getCmdOption(input_str, input_str+in_num, "-f");
   } else gfile = NULL;
-  int mst_weight = test_distributed_dense_boruvka(gfile);
+  int mst_weight = test_distributed_dense_boruvka(gfile, world);
   if (world.rank() == 0)
     printf("boost mst weight: %d", mst_weight);
 
