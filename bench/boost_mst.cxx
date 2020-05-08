@@ -117,7 +117,7 @@ test_distributed_dense_boruvka(const char* filename, boost::mpi::communicator &w
                                   weight_map, 
                                   std::back_inserter(mst_edges)); break;
   }
-
+  MPI_Barrier(world);
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
   if (world.rank() == 0) std::cout << "Time taken to run MST: " << duration.count() << std::endl;
