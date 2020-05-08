@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <boost/graph/metis.hpp>
 #include <boost/graph/distributed/graphviz.hpp>
+#include <chrono>
 
 #ifdef BOOST_NO_EXCEPTIONS
 void
@@ -82,7 +83,7 @@ char* getCmdOption(char ** begin,
 }
 
 int
-test_distributed_dense_boruvka(const char* filename, boost:mpi::communicator &world)
+test_distributed_dense_boruvka(const char* filename, boost::mpi::communicator &world)
 {
   // Open the METIS input file
   std::ifstream in(filename);
@@ -116,8 +117,8 @@ test_distributed_dense_boruvka(const char* filename, boost:mpi::communicator &wo
   }
 
   auto stop = std::chrono::high_resolution_clock::now();
-  auto duration = duration_cast<microseconds>(stop - start);
-  if (world.rank() == 0) std::cout << "Time taken to run MST: " << duration.count << std::endl;
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  if (world.rank() == 0) std::cout << "Time taken to run MST: " << duration.count() << std::endl;
   return total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
 }
 
