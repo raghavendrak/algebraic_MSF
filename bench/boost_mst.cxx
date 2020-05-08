@@ -62,9 +62,11 @@ total_weight(const Graph& g, WeightMap weight_map,
     if (process_id(g.process_group()) == 0) {
       vertex_descriptor u = source(*first, g);
       vertex_descriptor v = target(*first, g);
+      /*
       std::cout << "(" << g.distribution().global(owner(u), local(u))
                 << ", " << g.distribution().global(owner(v), local(v))
                 << ")\n";
+      */
     }
     ++first;
   }
@@ -117,7 +119,7 @@ test_distributed_dense_boruvka(const char* filename, boost::mpi::communicator &w
   }
 
   auto stop = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
   if (world.rank() == 0) std::cout << "Time taken to run MST: " << duration.count() << std::endl;
   return total_weight(g, weight_map, mst_edges.begin(), mst_edges.end());
 }
