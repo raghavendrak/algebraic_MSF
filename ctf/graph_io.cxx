@@ -255,12 +255,13 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pai
     parms[parm_num] = a;
   }
   assert(parm_num >= 2);
-  *n = parms[0];
+  *n = parms[0] + 1; // indexing from 1
   uint64_t m = parms[1]; 
   uint64_t fmt = 0;
   uint64_t ncon = 0;
   uint64_t vweights = 0;
   uint64_t vsizes = 0;
+  *e_weights = false;
   if (parm_num >= 3) {
     fmt = parms[2];
     if (fmt >= 100) {
@@ -294,16 +295,16 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pai
       t_num_count = 0;
       while (line_ss >> t_num) {
         t_num_count++;
-        if (t_num_count <= skip_num) continue;
-        // std::cout << t_num << std::endl;
-        edges.push_back(std::make_pair(lineNo, t_num)); 
+        if (skip_num && t_num_count <= skip_num) continue;
+        edges.push_back(std::make_pair(lineNo, t_num));
+        n_edges++;
+        if (!(*e_weights)) continue;
         // get the weight
         line_ss >> t_num;
         t_num_count++;
         eweights.push_back(t_num);
-        n_edges++;
       }
-      assert(t_num_count > skip_num);
+      assert(t_num_count >= skip_num);
     }
     lineNo++;
   }

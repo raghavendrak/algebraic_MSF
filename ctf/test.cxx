@@ -73,7 +73,7 @@ Matrix <wht> read_matrix(World  &     dw,
                   [](wht a, wht b){ return a+b; });
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
   bool e_weights;
-  wht *vals;
+  // wht *vals;
   std::vector<std::pair<uint64_t, uint64_t> > edges;
   std::vector<wht> eweights;
   my_nedges = read_metis(dw.rank, dw.np, fpath, edges, &n, &e_weights, eweights);
@@ -96,6 +96,7 @@ Matrix <wht> read_matrix(World  &     dw,
   A_pre.write(my_nedges, inds, eweights.data());
   A_pre["ij"] += A_pre["ji"];
   free(inds);
+  // A_pre.print_matrix();
   // free(vals);
 
   Matrix<wht> newA =  preprocess_graph(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
