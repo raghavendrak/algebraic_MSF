@@ -457,7 +457,7 @@ void test_simple(World * w) {
 }
 */
 
-void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int shortcut, int run_serial, int run_multilinear)
+void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int run_serial, int run_multilinear)
 {
   double stime;
   double etime;
@@ -467,7 +467,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int shortcut,
     Timer_epoch tmh("multilinear_hook");
     tmh.begin();
     stime = MPI_Wtime();
-    mult_mst = multilinear_hook(A, w);
+    mult_mst = multilinear_hook(A, w, sc2);
     etime = MPI_Wtime();
     tmh.end();
     if (w->rank == 0) {

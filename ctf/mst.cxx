@@ -145,7 +145,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   return mst;
 }
 
-Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world) {
+Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
   int64_t n = A->nrow;
 
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -200,7 +200,7 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world) {
     delete q;
 
     // aggressive shortcutting
-    int sc2 = 1000;
+    //int sc2 = 1000;
     aggrShortcut.begin();
     Vector<int> * pi = new Vector<int>(*p);
     shortcut2(*p, *p, *p, sc2, world, NULL, false);

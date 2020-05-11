@@ -11,6 +11,6 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q);
 
 Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world);
 
-Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world);
+Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2);
 
 #endif
