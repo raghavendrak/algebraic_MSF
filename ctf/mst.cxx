@@ -145,7 +145,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   return mst;
 }
 
-Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
+Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2, MPI_Datatype & mpi_pkv) {
   int64_t n = A->nrow;
 
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -199,9 +199,16 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
     delete r;
     delete q;
 
+    // 256kB: 32768
+    aggrShortcut.begin();
+    int64_t diff = are_vectors_different(*p, *p_prev);
+    if (diff < 32768) {
+    // if (diff < -1) {
+      shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+      continue;
+    }
     // aggressive shortcutting
     //int sc2 = 1000;
-    aggrShortcut.begin();
     Vector<int> * pi = new Vector<int>(*p);
     shortcut2(*p, *p, *p, sc2, world, NULL, false);
     while (are_vectors_different(*pi, *p)){
@@ -217,6 +224,6 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
 
   delete p;
   delete p_prev;
-
+  // mst->print();
   return mst;
 }

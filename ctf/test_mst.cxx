@@ -459,6 +459,16 @@ void test_simple(World * w) {
 
 void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int run_serial, int run_multilinear)
 {
+  MPI_Datatype mpi_pkv;
+  struct parentkv pkv;
+  MPI_Datatype type[2] = {MPI_LONG_LONG, MPI_LONG_LONG};
+  MPI_Aint disp[2];
+  int blocklen[2] = {1, 1};
+  disp[0] = (size_t)&(pkv.key) - (size_t)&pkv;
+  disp[1] = (size_t)&(pkv.value) - (size_t)&pkv;
+  MPI_Type_create_struct(2, blocklen, disp, type, &mpi_pkv);
+  MPI_Type_commit(&mpi_pkv);
+
   double stime;
   double etime;
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
@@ -467,13 +477,13 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
     Timer_epoch tmh("multilinear_hook");
     tmh.begin();
     stime = MPI_Wtime();
-    mult_mst = multilinear_hook(A, w, sc2);
+    mult_mst = multilinear_hook(A, w, sc2, mpi_pkv);
     etime = MPI_Wtime();
     tmh.end();
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
-    // mult_mst->print();
+    mult_mst->print();
     Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight != INT_MAX ? a.weight : 0; }); // TODO: workaround, sometimes it returns wrong result without checking if != INT_MAX
 
     Scalar<wht> s;
