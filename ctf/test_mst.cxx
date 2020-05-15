@@ -486,7 +486,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
     mult_mst->print();
     Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight != INT_MAX ? a.weight : 0; }); // TODO: workaround, sometimes it returns wrong result without checking if != INT_MAX
 
-    Scalar<wht> s;
+    Scalar<wht> s(*w);
     s[""] = sum_weights((*mult_mst)["i"]);
     if (w->rank == 0)
     	printf("weight of mst: %d\n", s.get_val());
