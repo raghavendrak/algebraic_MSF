@@ -464,12 +464,11 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   Vector<EdgeExt>* mult_mst;
   if (run_multilinear) {
-    Timer_epoch tmh("multilinear_hook");
-    tmh.begin();
+    TAU_START(multilinear_hook);
     stime = MPI_Wtime();
     mult_mst = multilinear_hook(A, w, sc2);
     etime = MPI_Wtime();
-    tmh.end();
+    TAU_STOP(multilinear_hook);
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
@@ -480,13 +479,13 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
     s[""] = sum_weights((*mult_mst)["i"]);
     if (w->rank == 0)
     	printf("weight of mst: %d\n", s.get_val());
+    std::cout << "there\n";
   }
   /*
   Vector<EdgeExt> * hm;
   int run_hook = 0;
   if (run_hook) {
-    Timer_epoch thm("hook_matrix");
-    thm.begin();
+    TAU_START(hook_matrix);
     stime = MPI_Wtime();
     hm = hook_matrix(A, w);
     etime = MPI_Wtime();
@@ -496,7 +495,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
     }
     hm->print();
     printf("\n");
-    //thm.end();
+    TAU_STOP(hook_matrix);
   }
   if (run_multilinear && run_hook) {
     auto res = compare_mst(hm, mult_mst);
