@@ -71,7 +71,7 @@ Vector<EdgeExt> * serial_mst(Matrix<EdgeExt> * A, World * world) {
   Pair<EdgeExt> * mst_pairs = new Pair<EdgeExt>[mst_npair];
   int64_t j = 0;
   for (int64_t i = 0; i < npair; ++i) {
-  find(p, edges[i].src) != find(p, edges[i].dest);
+    // find(p, edges[i].src) != find(p, edges[i].dest);
     if (find(p, edges[i].src) != find(p, edges[i].dest)) {
       mst_pairs[j].k = j;
       mst_pairs[j].d = edges[i];
@@ -457,7 +457,7 @@ void test_simple(World * w) {
 }
 */
 
-void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int run_serial, int run_multilinear)
+void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, int run_serial, int run_multilinear, int64_t sc3)
 {
   MPI_Datatype mpi_pkv;
   struct parentkv pkv;
@@ -477,19 +477,20 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
     Timer_epoch tmh("multilinear_hook");
     tmh.begin();
     stime = MPI_Wtime();
-    mult_mst = multilinear_hook(A, w, sc2, mpi_pkv);
+    mult_mst = multilinear_hook(A, w, sc2, mpi_pkv, sc3);
     etime = MPI_Wtime();
     tmh.end();
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
-    mult_mst->print();
+    // mult_mst->print();
     Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight != INT_MAX ? a.weight : 0; }); // TODO: workaround, sometimes it returns wrong result without checking if != INT_MAX
 
     Scalar<wht> s(*w);
     s[""] = sum_weights((*mult_mst)["i"]);
+    int64_t sweight = s.get_val();
     if (w->rank == 0)
-    	printf("weight of mst: %d\n", s.get_val());
+    	printf("weight of mst: %ld\n", sweight);
   }
   /*
   Vector<EdgeExt> * hm;
@@ -552,17 +553,15 @@ int main(int argc, char** argv)
   int np;
   int const in_num = argc;
   char** input_str = argv;
-  uint64_t myseed;
 
-  int64_t max_ewht;
-  uint64_t edges;
   char *gfile = NULL;
   int64_t n;
   int scale;
   int ef;
   int prep;
   int batch;
-  int sc2;
+  int64_t sc2;
+  int64_t sc3;
   int run_serial;
 
   int k;
@@ -605,13 +604,17 @@ int main(int argc, char** argv)
       if (batch <= 0) batch = 1;
     } else batch = 1;
     if (getCmdOption(input_str, input_str+in_num, "-shortcut")){
-      sc2 = atoi(getCmdOption(input_str, input_str+in_num, "-shortcut"));
+      sc2 = atoll(getCmdOption(input_str, input_str+in_num, "-shortcut"));
       if (sc2 < 0) sc2 = 0;
     } else sc2 = 0;
     if (getCmdOption(input_str, input_str+in_num, "-serial")){
       run_serial = atoi(getCmdOption(input_str, input_str+in_num, "-serial"));
       if (run_serial < 0) run_serial = 0;
     } else run_serial = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-shortcut3")){
+      sc3 = atoll(getCmdOption(input_str, input_str+in_num, "-shortcut3"));
+      if (sc3 < 0) sc3 = 0;
+    } else sc3 = 0;
 
     if (gfile != NULL){
       int n_nnz = 0;
@@ -619,7 +622,7 @@ int main(int argc, char** argv)
       printf("Reading real graph n = %lld\n", n);
       Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
+      run_mst(&A, matSize, w, batch, sc2, run_serial, 1, sc3);
     }
     else if (k != -1) {
       //int64_t matSize = pow(3, k);

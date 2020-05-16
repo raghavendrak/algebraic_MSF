@@ -81,7 +81,7 @@ int64_t are_vectors_different(CTF::Vector<dtype> & A, CTF::Vector<dtype> & B);
 void init_pvector(Vector<int>* p);
 void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 
-void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, World * world, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
+void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc2, World * world, Vector<int> ** nonleaves=NULL, bool create_nonleaves=false);
 void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> & p_prev, MPI_Datatype & mpi_pkv, World * world);
 void roots_num(int64_t npairs, Pair<int> * loc_pairs, int64_t * loc_roots_num, int64_t * global_roots_num,  World * world);
 void roots(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int64_t * global_roots_num, int * global_roots,  World * world);

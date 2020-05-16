@@ -121,7 +121,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
 
 // p[i] = rec_p[q[i]]
 // if create_nonleaves=true, computing non-leaf vertices in parent forest
-void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
+void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc2, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
 {
   if (sc2 <= 0) { // run unoptimized shortcut
     shortcut(p, q, rec_p, nonleaves, create_nonleaves);
