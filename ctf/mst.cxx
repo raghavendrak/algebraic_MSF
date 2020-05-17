@@ -69,17 +69,11 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
 
 Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   int64_t n = A->nrow;
-
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
-
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
   init_pvector(p);
-
   auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
-
   auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
-
-  int np = p->wrld->np;
 
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
@@ -115,7 +109,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     delete q;
 
     // aggressive shortcutting
-    int sc2 = 1000;
+    int64_t sc2 = 1000;
     Vector<int> * pi = new Vector<int>(*p);
     shortcut2(*p, *p, *p, sc2, world, NULL, false);
     while (are_vectors_different(*pi, *p)){
@@ -139,7 +133,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   return mst;
 }
 
-Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
+Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int64_t sc2, MPI_Datatype & mpi_pkv, int64_t sc3) {
   int64_t n = A->nrow;
 
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -188,9 +182,16 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
     delete r;
     delete q;
 
-    // aggressive shortcutting
-    //int sc2 = 1000;
     TAU_FSTART(aggressive shortcut);
+    // 256kB: 32768
+    if (sc3 != 0) {
+      int64_t diff = are_vectors_different(*p, *p_prev);
+      if (diff < sc3) {
+        shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+        continue;
+      }
+    }
+    // aggressive shortcutting
     Vector<int> * pi = new Vector<int>(*p);
     shortcut2(*p, *p, *p, sc2, world, NULL, false);
     while (are_vectors_different(*pi, *p)){
@@ -206,6 +207,6 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
 
   delete p;
   delete p_prev;
-
+  // mst->print();
   return mst;
 }

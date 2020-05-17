@@ -60,9 +60,9 @@ void test_shortcut2(World *w) {
   int prep = 0;
   int n_nnz = 0;
   myseed = SEED;
-  int max_ewht;
   //int batch = 0;
-  int sc2 = 0;
+  int64_t sc2 = 0;
+  int64_t max_ewht;
 
   if (w->rank == 0)
     printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
@@ -278,7 +278,6 @@ int main(int argc, char** argv)
   uint64_t myseed;
 
   int64_t max_ewht;
-  uint64_t edges;
   char *gfile = NULL;
   int64_t n;
   int scale;

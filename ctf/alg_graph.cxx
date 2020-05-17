@@ -117,7 +117,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
 
 // p[i] = rec_p[q[i]]
 // if create_nonleaves=true, computing non-leaf vertices in parent forest
-void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int sc2, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
+void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc2, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
 {
   if (sc2 <= 0) { // run unoptimized shortcut
     shortcut(p, q, rec_p, nonleaves, create_nonleaves);
@@ -305,6 +305,76 @@ void create_nontriv_loc_indices(int64_t *& nontriv_loc_indices, int64_t * loc_no
   }
 
   *loc_nontriv_num = nontriv_index;
+}
+
+// p[i] = rec_p[q[i]]
+// read_local()
+void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> & p_prev, MPI_Datatype &mpi_pkv, World * world)
+{
+  Timer t_shortcut("Local_shortcut3");
+  t_shortcut.start();
+  std::vector<struct parentkv> loc_cparents;
+  // Find out the changed parents (locally)
+  Pair<int> * pprs;
+  Pair<int> * prev_pprs;
+  int64_t npprs, prev_npprs;
+  p.get_local_pairs(&npprs, &pprs);
+  p_prev.get_local_pairs(&prev_npprs, &prev_pprs);
+  assert(npprs == prev_npprs);
+  for (int64_t i = 0; i < npprs; i++) {
+    assert(pprs[i].k == prev_pprs[i].k);
+    if (pprs[i].d != prev_pprs[i].d) {
+      struct parentkv pkv;
+      pkv.key = pprs[i].k;
+      pkv.value = pprs[i].d;
+      loc_cparents.push_back(pkv);
+    }
+  }
+  int np = world->np;
+  int *counts = new int[np];
+  int nelements = (int)loc_cparents.size();
+  MPI_Allgather(&nelements, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
+  int *disps = new int[np];
+  for (int i = 0; i < np; i++)
+    disps[i] = (i > 0) ? (disps[i-1] + counts[i-1]) : 0;
+
+  struct parentkv *alldata;
+  alldata = new struct parentkv[disps[np-1] + counts[np-1]];
+  MPI_Allgatherv(loc_cparents.data(), nelements, mpi_pkv,
+                  alldata, counts, disps, mpi_pkv, MPI_COMM_WORLD);
+  
+  // Build a map of the key value pair
+  std::map<int64_t, int64_t> m_alldata;
+  for(int i = 0; i < (disps[np-1] + counts[np-1]); i++) {
+    m_alldata.insert({alldata[i].key, alldata[i].value});
+  }
+  delete [] counts;
+  delete [] disps;
+  delete [] alldata;
+ 
+  // TODO: Make the shortcut3 function generic
+  // recursive shortcut until the local parent vector is no longer updated
+  while (1) {
+    int64_t nf = 0;
+    for (int64_t i = 0; i < npprs; i++) {
+      std::map<int64_t, int64_t>::iterator it;
+      it = m_alldata.find(pprs[i].d);
+      if (it != m_alldata.end()) {
+        // change the parent (shortcut)
+        pprs[i].d = it->second;
+      }
+      else {
+        nf++;
+      }
+    }
+   if (nf == npprs) break; 
+  }
+  Timer t_shortcut_write("Local_shortcut3_write");
+  // TODO: can optimize here
+  t_shortcut_write.start();
+  p.write(npprs, pprs);
+  t_shortcut_write.stop();
+  t_shortcut.stop();
 }
 
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
