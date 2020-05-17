@@ -1,6 +1,6 @@
 AR = ar
 RANLIB = ranlib
-CC = cc
+CC = mpicxx -cxx=g++
 CFLAGS = -g -Wall -Drestrict=__restrict__ -O3 -DNDEBUG -ffast-math -DGRAPH_GENERATOR_SEQ # -g -pg
 # CFLAGS = -g -Wall -Drestrict=__restrict__
 LDFLAGS = -g # -g -pg

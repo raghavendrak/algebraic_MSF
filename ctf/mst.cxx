@@ -35,7 +35,7 @@ Monoid<EdgeExt> get_minedge_monoid(){
 // r[p[j]] = q[j] over MINWEIGHT
 void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
 { 
-  TAU_START(CONNECTIVITY_Project);
+  TAU_FSTART(CONNECTIVITY_Project);
   
   int64_t q_npairs;
   Pair<EdgeExt> * q_loc_pairs;
@@ -64,7 +64,7 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
   delete [] r_loc_pairs;
   delete [] q_loc_pairs;
   delete [] p_read_pairs;
-  TAU_STOP(CONNECTIVITY_Project);
+  TAU_FSTOP(CONNECTIVITY_Project);
 }
 
 Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
@@ -85,7 +85,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     (*p_prev)["i"] = (*p)["i"];
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
-    TAU_START(Compute q);
+    TAU_FSTART(Compute q);
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Bivar_Function<EdgeExt, int, EdgeExt> fmv([](EdgeExt e, int p) {
       return e.parent != p ? EdgeExt(e.src, e.weight, e.dest, p) : EdgeExt();
@@ -93,23 +93,23 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     fmv.intersect_only = true;
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
-    TAU_STOP(Compute q);
+    TAU_FSTOP(Compute q);
 
     // r[p[j]] = q[j] over MINWEIGHT
-    TAU_START(Project);
+    TAU_FSTART(Project);
     auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
-    TAU_STOP(Project);
+    TAU_FSTOP(Project);
 
     // hook only onto larger stars and update p
-    TAU_START(Update p);
+    TAU_FSTART(Update p);
     (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
-    TAU_STOP(Update p);
+    TAU_FSTOP(Update p);
 
     // hook only onto larger stars and update mst
-    TAU_START(Update mst);
+    TAU_FSTART(Update mst);
     (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
-    TAU_STOP(Update mst);
+    TAU_FSTOP(Update mst);
 
     delete r;
     delete q;
@@ -128,9 +128,9 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     //A = PTAP<EdgeExt>(A, p); // optimal optimization
 
     // update edges parent in A[ij]
-    TAU_START(Update A);
+    TAU_FSTART(Update A);
     Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
-    TAU_STOP(Update A);
+    TAU_FSTOP(Update A);
   }
 
   delete p;
@@ -164,33 +164,33 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
-    TAU_START(Update A);
+    TAU_FSTART(Update A);
     Multilinear1<int, EdgeExt>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
-    TAU_STOP(Update A);
+    TAU_FSTOP(Update A);
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
 
     // r[p[j]] = q[j] over MINWEIGHT
-    TAU_START(Project);
+    TAU_FSTART(Project);
     auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
-    TAU_STOP(Project);
+    TAU_FSTOP(Project);
 
     // hook only onto larger stars and update p
-    TAU_START(Update p);
+    TAU_FSTART(Update p);
     (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
-    TAU_STOP(Update p);
+    TAU_FSTOP(Update p);
 
     // hook only onto larger stars and update mst
-    TAU_START(Update mst);
+    TAU_FSTART(Update mst);
     (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
-    TAU_STOP(Update mst);
+    TAU_FSTOP(Update mst);
 
     delete r;
     delete q;
 
     // aggressive shortcutting
     //int sc2 = 1000;
-    TAU_START(aggressive shortcut);
+    TAU_FSTART(aggressive shortcut);
     Vector<int> * pi = new Vector<int>(*p);
     shortcut2(*p, *p, *p, sc2, world, NULL, false);
     while (are_vectors_different(*pi, *p)){
@@ -199,7 +199,7 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2) {
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
     }
     delete pi;
-    TAU_STOP(aggressive shortcut);
+    TAU_FSTOP(aggressive shortcut);
 
     //A = PTAP<wht>(A, p); // optimal optimization
   }

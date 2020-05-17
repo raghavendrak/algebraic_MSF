@@ -36,7 +36,7 @@ Matrix<int>* pMatrix(Vector<int>* p, World* world)
 
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
 Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
-  TAU_START(CONNECTIVITY_PTAP);
+  TAU_FSTART(CONNECTIVITY_PTAP);
   int np = p->wrld->np;
   int64_t n = p->len;
   Pair<int> * pprs;
@@ -73,7 +73,7 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
   Matrix<int> * PTAP = new Matrix<int>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
   PTAP->write(nprs, A_prs);
   delete [] A_prs;
-  TAU_STOP(CONNECTIVITY_PTAP);
+  TAU_FSTOP(CONNECTIVITY_PTAP);
   return PTAP;
 }
 
@@ -81,12 +81,12 @@ Matrix<int>* PTAP(Matrix<int>* A, Vector<int>* p){
 //recursive projection based algorithm
 Vector<int>* supervertex_matrix(int n, Matrix<int>* A, Vector<int>* p, World* world, int sc2)
 {
-  TAU_START(CONNECTIVITY_Relaxation);
+  TAU_FSTART(CONNECTIVITY_Relaxation);
   //relax all edges
   auto q = new Vector<int>(n, SP*p->is_sparse, *world, MAX_TIMES_SR);
   (*q)["i"] = (*p)["i"];
   (*q)["i"] += (*A)["ij"] * (*p)["j"];
-  TAU_STOP(CONNECTIVITY_Relaxation);
+  TAU_FSTOP(CONNECTIVITY_Relaxation);
   Vector<int> * nonleaves;
   //check for convergence
   int64_t diff = are_vectors_different(*q, *p);
@@ -123,9 +123,9 @@ Vector<int>* hook_matrix(int n, Matrix<int> * A, World* world)
   while (are_vectors_different(*p, *prev)) {
     (*prev)["i"] = (*p)["i"];
     auto q = new Vector<int>(n, *world, MAX_TIMES_SR);
-    TAU_START(CONNECTIVITY_Relaxation);
+    TAU_FSTART(CONNECTIVITY_Relaxation);
     (*q)["i"] = (*A)["ij"] * (*p)["j"];
-    TAU_STOP(CONNECTIVITY_Relaxation);
+    TAU_FSTOP(CONNECTIVITY_Relaxation);
     auto r = new Vector<int>(n, *world, MAX_TIMES_SR);
     max_vector(*r, *p, *q);
     //auto P = pMatrix(p, world);

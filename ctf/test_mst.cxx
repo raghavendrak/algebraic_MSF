@@ -464,11 +464,11 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   Vector<EdgeExt>* mult_mst;
   if (run_multilinear) {
-    TAU_START(multilinear_hook);
+    TAU_FSTART(multilinear_hook);
     stime = MPI_Wtime();
     mult_mst = multilinear_hook(A, w, sc2);
     etime = MPI_Wtime();
-    TAU_STOP(multilinear_hook);
+    TAU_FSTOP(multilinear_hook);
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
@@ -485,7 +485,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
   Vector<EdgeExt> * hm;
   int run_hook = 0;
   if (run_hook) {
-    TAU_START(hook_matrix);
+    TAU_FSTART(hook_matrix);
     stime = MPI_Wtime();
     hm = hook_matrix(A, w);
     etime = MPI_Wtime();
@@ -495,7 +495,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
     }
     hm->print();
     printf("\n");
-    TAU_STOP(hook_matrix);
+    TAU_FSTOP(hook_matrix);
   }
   if (run_multilinear && run_hook) {
     auto res = compare_mst(hm, mult_mst);
@@ -553,6 +553,7 @@ int main(int argc, char** argv)
   int batch;
   int sc2;
   int run_serial;
+  int critter_mode=0;
 
   int k;
   MPI_Init(&argc, &argv);
@@ -560,6 +561,7 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &np);
   {
+    World w(argc, argv);
     if (getCmdOption(input_str, input_str+in_num, "-k")) {
       k = atoi(getCmdOption(input_str, input_str+in_num, "-k"));
       if (k < 0) k = 5;
@@ -601,14 +603,24 @@ int main(int argc, char** argv)
       run_serial = atoi(getCmdOption(input_str, input_str+in_num, "-serial"));
       if (run_serial < 0) run_serial = 0;
     } else run_serial = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-critter_mode")){
+      critter_mode = atoi(getCmdOption(input_str, input_str+in_num, "-critter_mode"));
+      if (critter_mode < 0) critter_mode = 0;
+    } else critter_mode = 0;
 
     if (gfile != NULL){
       int n_nnz = 0;
-      if (w->rank == 0)
+      if (w.rank == 0)
       printf("Reading real graph n = %lld\n", n);
-      Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
+      Matrix<wht> A = read_matrix(w, n, gfile, prep, &n_nnz);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, w, batch, sc2, run_serial, 1);
+#ifdef CRITTER
+      critter::start(critter_mode);
+#endif
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1);
+#ifdef CRITTER
+      critter::stop(critter_mode);
+#endif
     }
     else if (k != -1) {
       //int64_t matSize = pow(3, k);
@@ -634,7 +646,7 @@ int main(int argc, char** argv)
       */
     }
     else {
-      if (w->rank == 0) {
+      if (w.rank == 0) {
         printf("Running mst on simple 7x7 graph\n");
       }
       //test_simple(w);
