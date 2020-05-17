@@ -5,10 +5,9 @@ uint64_t gen_graph(int scale, int edgef, uint64_t seed, uint64_t **edges) {
 
   uint64_t nedges;
   double   initiator[4] = {.57, .19, .19, .05};
-  CTF::Timer tmrg("gen_graph");
-  tmrg.start();
+  TAU_START(gen_graph);
   make_graph(scale, (((int64_t)1)<<scale)*edgef, seed, seed+1, initiator, (int64_t *)&nedges, (int64_t **)edges);
-  tmrg.stop();
+  TAU_STOP(gen_graph);
 
   return nedges;
 }
