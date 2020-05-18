@@ -35,8 +35,7 @@ Monoid<EdgeExt> get_minedge_monoid(){
 // r[p[j]] = q[j] over MINWEIGHT
 void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
 { 
-  Timer t_project("CONNECTIVITY_Project");
-  t_project.start();
+  TAU_FSTART(CONNECTIVITY_Project);
   
   int64_t q_npairs;
   Pair<EdgeExt> * q_loc_pairs;
@@ -65,7 +64,7 @@ void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q)
   delete [] r_loc_pairs;
   delete [] q_loc_pairs;
   delete [] p_read_pairs;
-  t_project.stop();
+  TAU_FSTOP(CONNECTIVITY_Project);
 }
 
 Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
@@ -76,16 +75,11 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
   auto mst = new Vector<EdgeExt>(n, *world, MIN_EDGE);
 
-  Timer_epoch cQ("Compute q");
-  Timer_epoch proj("Project");
-  Timer_epoch uP("Update p");
-  Timer_epoch uMST("Update mst");
-  Timer_epoch uA("Update A");
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
-    cQ.begin();
+    TAU_FSTART(Compute q);
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Bivar_Function<EdgeExt, int, EdgeExt> fmv([](EdgeExt e, int p) {
       return e.parent != p ? EdgeExt(e.src, e.weight, e.dest, p) : EdgeExt();
@@ -93,23 +87,23 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     fmv.intersect_only = true;
     (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
-    cQ.end();
+    TAU_FSTOP(Compute q);
 
     // r[p[j]] = q[j] over MINWEIGHT
-    proj.begin();
+    TAU_FSTART(Project);
     auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
-    proj.end();
+    TAU_FSTOP(Project);
 
     // hook only onto larger stars and update p
-    uP.begin();
+    TAU_FSTART(Update p);
     (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
-    uP.end();
+    TAU_FSTOP(Update p);
 
     // hook only onto larger stars and update mst
-    uMST.begin();
+    TAU_FSTART(Update mst);
     (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
-    uMST.end();
+    TAU_FSTOP(Update mst);
 
     delete r;
     delete q;
@@ -128,9 +122,9 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
     //A = PTAP<EdgeExt>(A, p); // optimal optimization
 
     // update edges parent in A[ij]
-    uA.begin();
+    TAU_FSTART(Update A);
     Transform<int, EdgeExt>([](int p, EdgeExt & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
-    uA.end();
+    TAU_FSTOP(Update A);
   }
 
   delete p;
@@ -158,43 +152,38 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int64_t sc2, MP
     }
   };
 
-  Timer_epoch proj("Project");
-  Timer_epoch uP("Update p");
-  Timer_epoch uMST("Update mst");
-  Timer_epoch uA("Update A");
-  Timer_epoch aggrShortcut("aggressive shortcut");
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
-    uA.begin();
+    TAU_FSTART(Update A);
     Multilinear1<int, EdgeExt>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
-    uA.end();
+    TAU_FSTOP(Update A);
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
 
     // r[p[j]] = q[j] over MINWEIGHT
-    proj.begin();
+    TAU_FSTART(Project);
     auto r = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
-    proj.end();
+    TAU_FSTOP(Project);
 
     // hook only onto larger stars and update p
-    uP.begin();
+    TAU_FSTART(Update p);
     (*p)["i"] += Function<EdgeExt, int>([](EdgeExt e){ return e.parent; })((*r)["i"]);
-    uP.end();
+    TAU_FSTOP(Update p);
 
     // hook only onto larger stars and update mst
-    uMST.begin();
+    TAU_FSTART(Update mst);
     (*mst)["i"] += Bivar_Function<EdgeExt, int, EdgeExt>([](EdgeExt e, int a){ return e.parent >= a ? e : EdgeExt(); })((*r)["i"], (*p)["i"]);
-    uMST.end();
+    TAU_FSTOP(Update mst);
 
     delete r;
     delete q;
 
+    TAU_FSTART(aggressive shortcut);
     // 256kB: 32768
-    aggrShortcut.begin();
     if (sc3 != 0) {
       int64_t diff = are_vectors_different(*p, *p_prev);
       if (diff < sc3) {
@@ -211,7 +200,7 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int64_t sc2, MP
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
     }
     delete pi;
-    aggrShortcut.end();
+    TAU_FSTOP(aggressive shortcut);
 
     //A = PTAP<wht>(A, p); // optimal optimization
   }

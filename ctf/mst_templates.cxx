@@ -82,8 +82,7 @@ inline CTF::Vector<int> * get_nonleaves<int>(CTF::Vector<int> & p, int64_t npair
 template <typename T, typename S>
 void shortcut(CTF::Vector<T> & p, CTF::Vector<S> & q, CTF::Vector<T> & rec_p, CTF::Vector<int> ** nonleaves, bool create_nonleaves)
 {
-  CTF::Timer t_shortcut("CONNECTIVITY_Shortcut");
-  t_shortcut.start();
+  TAU_FSTART(CONNECTIVITY_Shortcut);
   int64_t npairs;
   CTF::Pair<S> * loc_pairs;
   if (q.is_sparse){
@@ -100,10 +99,9 @@ void shortcut(CTF::Vector<T> & p, CTF::Vector<S> & q, CTF::Vector<T> & rec_p, CT
   }*/
   remote_pairs_k(remote_pairs, loc_pairs, npairs); // remote_pairs[i].k = loc_pairs[i].d, overloaded for dtypes
   
-  CTF::Timer t_shortcut_read("CONNECTIVITY_Shortcut_read");
-  t_shortcut_read.start();
+  TAU_FSTART(CONNECTIVITY_Shortcut_read);
   rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
-  t_shortcut_read.stop();
+  TAU_FSTOP(CONNECTIVITY_Shortcut_read);
  
   rec_p.print(); 
   CTF::Pair<T> * updated_loc_pairs = new CTF::Pair<T>[npairs];
@@ -122,7 +120,7 @@ void shortcut(CTF::Vector<T> & p, CTF::Vector<S> & q, CTF::Vector<T> & rec_p, CT
   
   delete [] loc_pairs;
   delete [] updated_loc_pairs;
-  t_shortcut.stop();
+  TAU_FSTOP(CONNECTIVITY_Shortcut);
 }
 
 template <typename dtype>

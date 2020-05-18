@@ -1,6 +1,10 @@
 #ifndef __GRAPH_AUX_H__
 #define __GRAPH_AUX_H__
 
+#ifdef CRITTER
+#include "critter.h"
+#endif
+
 #include <ctf.hpp>
 #include <float.h>
 #define __STDC_FORMAT_MACROS 1
