@@ -146,6 +146,7 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
 }
 
 Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2, MPI_Datatype & mpi_pkv) {
+  A->sr = &MIN_TIMES_SR; // TODO: refactor p to use MIN_TIMES_SR for simplicity
   int64_t n = A->nrow;
 
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -171,6 +172,14 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2, MPI_Da
   Timer_epoch aggrShortcut("aggressive shortcut");
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
+
+    //printf("p\n");
+    //p->print();
+
+    //printf("star_check\n");
+    //auto temp = star_check(p);
+    //temp->print();
+    //delete temp;
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
     auto q = new Vector<EdgeExt>(n, p->is_sparse, *world, MIN_EDGE);
@@ -199,7 +208,8 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2, MPI_Da
     delete r;
     delete q;
 
-    // 256kB: 32768
+    /*
+    // 256kB: 32768 // TODO: add cl opt
     aggrShortcut.begin();
     int64_t diff = are_vectors_different(*p, *p_prev);
     if (diff < 32768) {
@@ -207,6 +217,7 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2, MPI_Da
       shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
       continue;
     }
+    */
     // aggressive shortcutting
     //int sc2 = 1000;
     Vector<int> * pi = new Vector<int>(*p);
@@ -219,11 +230,19 @@ Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int sc2, MPI_Da
     delete pi;
     aggrShortcut.end();
 
-    //A = PTAP<wht>(A, p); // optimal optimization
+    int ptap = 0; // TODO: add cl opt
+    int64_t npairs;
+    Pair<int> * loc_pairs;
+    p->get_local_pairs(&npairs, &loc_pairs);
+    int64_t nloc_roots, nglobal_roots;
+    roots_num(npairs, loc_pairs, &nloc_roots, &nglobal_roots, world);
+    if (ptap < nglobal_roots) {
+      A = PTAP<wht>(A, p);
+    }
   }
 
   delete p;
   delete p_prev;
-  // mst->print();
+  mst->print();
   return mst;
 }

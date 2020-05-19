@@ -433,3 +433,63 @@ Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p){
 }
 template Matrix<int>* PTAP<int>(Matrix<int>* A, Vector<int>* p);
 template Matrix<EdgeExt>* PTAP<EdgeExt>(Matrix<EdgeExt>* A, Vector<int>* p);
+
+// bool does not work for some reason
+static Monoid<int> OR_STAR(
+    1,
+    [](int a, int b) { return a | b; },
+    MPI_LOR);
+
+Vector<int> * star_check(Vector<int> * p) {
+  Vector<int> * star = new Vector<int>(p->len, *(p->wrld), OR_STAR);
+
+  int64_t p_npairs;
+  Pair<int> * p_loc_pairs;
+  p->get_local_pairs(&p_npairs, &p_loc_pairs);
+
+  // If F(i) =/= GF(i) then ST(i) <- FALSE and ST(GF(i)) <- FALSE
+  // excludes vertices that have nontrivial grandparent or grandchild
+  Pair<int> * p_parents = new Pair<int>[p_npairs];
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    p_parents[i].k = p_loc_pairs[i].d;
+  } 
+  p->read(p_npairs, p_parents);
+
+  Pair<int> * nontriv_grandX = new Pair<int>[2 * p_npairs];
+  int64_t grandX_npairs = 0;
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    if (p_loc_pairs[i].d != p_parents[i].d) {
+      nontriv_grandX[grandX_npairs].k = p_loc_pairs[i].k;
+      nontriv_grandX[grandX_npairs].d = 0;
+
+      nontriv_grandX[grandX_npairs + 1].k = p_parents[i].d;
+      nontriv_grandX[grandX_npairs + 1].d = 0;
+
+      grandX_npairs += 2;
+    }
+  }
+  star->write(grandX_npairs, nontriv_grandX);
+
+  // ST(i) <- ST(F(i))
+  // excludes vertices that have nontrivial nephews
+  Pair<int> * nontriv_nephews = new Pair<int>[p_npairs];
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    nontriv_nephews[i].k = p_loc_pairs[i].d;
+  }
+  star->read(p_npairs, nontriv_nephews);
+
+  Pair<int> * updated_nephews = new Pair<int>[p_npairs];
+  for (int64_t i = 0; i < p_npairs; ++i) {
+    updated_nephews[i].k = p_loc_pairs[i].k;
+    updated_nephews[i].d = nontriv_nephews[i].d;
+  }
+  star->write(p_npairs, updated_nephews);
+
+  delete [] updated_nephews;
+  delete [] nontriv_nephews;
+  delete [] nontriv_grandX;
+  delete [] p_parents;
+  delete [] p_loc_pairs;
+
+  return star;
+}

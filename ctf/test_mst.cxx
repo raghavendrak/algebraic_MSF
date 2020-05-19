@@ -89,6 +89,7 @@ Vector<EdgeExt> * serial_mst(Matrix<EdgeExt> * A, World * world) {
   return mst;
 }
 
+/*
 static Monoid<bool> OR_STAR(
     true,
     [](bool a, bool b) { return a || b; },
@@ -148,7 +149,6 @@ Vector<bool> * star_check(Vector<int> * p) {
   return star;
 }
 
-
 Vector<EdgeExt> * hooking(int64_t A_npairs, Pair<EdgeExt> * A_loc_pairs, Vector<int> * p, Vector<bool> * star) {
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid(); // TODO: pass by reference
 
@@ -160,13 +160,11 @@ Vector<EdgeExt> * hooking(int64_t A_npairs, Pair<EdgeExt> * A_loc_pairs, Vector<
   }
   p->read(A_npairs, src_loc_pairs);
 
-  /*
-  Pair<int> * src_parents = new Pair<int>[A_npairs];
-  for (int64_t i = 0; i < A_npairs; ++i) {
-    src_parents[i].k = src_loc_pairs[i].d;
-  } 
-  p->read(A_npairs, src_parents);
-  */
+  //Pair<int> * src_parents = new Pair<int>[A_npairs];
+  //for (int64_t i = 0; i < A_npairs; ++i) {
+  //  src_parents[i].k = src_loc_pairs[i].d;
+  //} 
+  //p->read(A_npairs, src_parents);
 
   Pair<int> * dest_loc_pairs = new Pair<int>[A_npairs];
   for (int64_t i = 0; i < A_npairs; ++i) {
@@ -256,6 +254,7 @@ Vector<EdgeExt> * as(Matrix<EdgeExt> * A, World * world) {
 
   return mst;
 }
+*/
 
 // requires edge weights to be distinct
 // can also store mst in hashset
@@ -353,11 +352,13 @@ void test_trivial(World * w) {
   }
   hm->print();
 
+  /*
   auto as_mst = as(A, w);
   if (w->rank == 0) {
     printf("as mst\n");
   }
   as_mst->print();
+  */
 
   auto res = compare_mst(kr, hm);
   if (w->rank == 0) {
@@ -483,7 +484,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int sc2, int 
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
-    mult_mst->print();
+    //mult_mst->print();
     Function<EdgeExt,wht> sum_weights([](EdgeExt a){ return a.weight != INT_MAX ? a.weight : 0; }); // TODO: workaround, sometimes it returns wrong result without checking if != INT_MAX
 
     Scalar<wht> s(*w);
