@@ -5,9 +5,9 @@ uint64_t gen_graph(int scale, int edgef, uint64_t seed, uint64_t **edges) {
 
   uint64_t nedges;
   double   initiator[4] = {.57, .19, .19, .05};
-  TAU_START(gen_graph);
+  TAU_FSTART(gen_graph);
   make_graph(scale, (((int64_t)1)<<scale)*edgef, seed, seed+1, initiator, (int64_t *)&nedges, (int64_t **)edges);
-  TAU_STOP(gen_graph);
+  TAU_FSTOP(gen_graph);
 
   return nedges;
 }

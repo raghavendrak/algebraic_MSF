@@ -165,14 +165,14 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int 
   auto pg = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(pg);
   Scalar<int64_t> count(*w);
-  TAU_START(hook_matrix);
+  TAU_FSTART(hook_matrix);
   stime = MPI_Wtime();
   auto hm = hook_matrix(matSize, A, w);
   etime = MPI_Wtime();
   if (w->rank == 0) {
     printf("Time for hook_matrix(): %1.2lf\n", (etime - stime));
   }
-  TAU_STOP(hook_matrix);
+  TAU_FSTOP(hook_matrix);
   count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], hm->operator[]("i"));
   int64_t cnt = count.get_val();
   if (w->rank == 0) {
@@ -181,7 +181,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int 
 
   auto p = new Vector<int>(matSize, *w, MAX_TIMES_SR);
   init_pvector(p);
-  TAU_START(super_vertex);
+  TAU_FSTART(super_vertex);
   Vector<int>* sv;
   stime = MPI_Wtime();
   if (batch == 1) {
@@ -207,7 +207,7 @@ void run_connectivity(Matrix<int>* A, int64_t matSize, World *w, int batch, int 
   if (w->rank == 0) {
     printf("Time for supervertex_matrix(): %1.2lf\n", (etime - stime));
   }
-  TAU_STOP(super_vertex);
+  TAU_FSTOP(super_vertex);
   count[""] = Function<int,int,int64_t>([](int a, int b){ return (int64_t)(a==b); })((*pg)["i"], sv->operator[]("i")); // TODO: returning incorrect result on multiple processes
   cnt = count.get_val();
 
