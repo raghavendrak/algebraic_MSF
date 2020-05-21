@@ -3,6 +3,9 @@
 
 #ifdef CRITTER
 #include "critter.h"
+#else
+#define TAU_FSTART(ARG)
+#define TAU_FSTOP(ARG)
 #endif
 
 #include <ctf.hpp>
@@ -10,9 +13,6 @@
 #define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>
 typedef int wht;
-
-#define TAU_FSTART(ARG)
-#define TAU_FSTOP(ARG)
 
 uint64_t norm_graph(uint64_t *ed, uint64_t ned);
 uint64_t read_graph(int myid, int ntask, const char *fpath, uint64_t **edge);
