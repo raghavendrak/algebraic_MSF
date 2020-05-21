@@ -2,34 +2,6 @@
 #include "mst.h"
 #include <ctime>
 
-/*
-Matrix<EdgeExt> to_EdgeExt_mat(Matrix<wht> * A_pre) {
-  //(*A_pre)["ii"] = INT_MAX;
-  const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid();
-  // START FIXME
-  Matrix<EdgeExt> A(A_pre->nrow, A_pre->nrow, A_pre->is_sparse, *(A_pre->wrld), MIN_EDGE, A_pre->name); // hook_matrix() fails
-  //Matrix<EdgeExt> A(A_pre->nrow, A_pre->nrow, 0, *(A_pre->wrld), MIN_EDGE, A_pre->name); // multilinear_hook() fails
-  // END FIXME
-  int64_t npairs;
-  Pair<wht> * pre_loc_pairs;
-  A_pre->get_local_pairs(&npairs, &pre_loc_pairs, A_pre->is_sparse);
-  Pair<EdgeExt> * write_pairs = new Pair<EdgeExt>[2 * npairs];
-  for (int64_t i = 0; i < npairs; ++i) {
-    int64_t row = pre_loc_pairs[i].k / A_pre->nrow;
-    int64_t col = pre_loc_pairs[i].k % A_pre->nrow;
-    write_pairs[i].k = row + col * A_pre->nrow;
-    write_pairs[i].d = EdgeExt(row, pre_loc_pairs[i].d, col, row); 
-
-    // produce symmetry
-    write_pairs[i + npairs].k = col + row * A_pre->nrow;
-    write_pairs[i + npairs].d = EdgeExt(col, pre_loc_pairs[i].d, row, col); 
-  }
-  A.write(2 * npairs, write_pairs);
-
-  return A;
-}
-*/
-
 // does not use path compression
 int64_t find(int64_t p[], int64_t i) {
   while (p[i] != i) {
@@ -89,6 +61,7 @@ Vector<EdgeExt> * serial_mst(Matrix<EdgeExt> * A, World * world) {
   return mst;
 }
 
+/*
 static Monoid<bool> OR_STAR(
     true,
     [](bool a, bool b) { return a || b; },
@@ -148,7 +121,6 @@ Vector<bool> * star_check(Vector<int> * p) {
   return star;
 }
 
-
 Vector<EdgeExt> * hooking(int64_t A_npairs, Pair<EdgeExt> * A_loc_pairs, Vector<int> * p, Vector<bool> * star) {
   const static Monoid<EdgeExt> MIN_EDGE = get_minedge_monoid(); // TODO: pass by reference
 
@@ -160,13 +132,11 @@ Vector<EdgeExt> * hooking(int64_t A_npairs, Pair<EdgeExt> * A_loc_pairs, Vector<
   }
   p->read(A_npairs, src_loc_pairs);
 
-  /*
-  Pair<int> * src_parents = new Pair<int>[A_npairs];
-  for (int64_t i = 0; i < A_npairs; ++i) {
-    src_parents[i].k = src_loc_pairs[i].d;
-  } 
-  p->read(A_npairs, src_parents);
-  */
+  //Pair<int> * src_parents = new Pair<int>[A_npairs];
+  //for (int64_t i = 0; i < A_npairs; ++i) {
+  //  src_parents[i].k = src_loc_pairs[i].d;
+  //} 
+  //p->read(A_npairs, src_parents);
 
   Pair<int> * dest_loc_pairs = new Pair<int>[A_npairs];
   for (int64_t i = 0; i < A_npairs; ++i) {
@@ -256,6 +226,7 @@ Vector<EdgeExt> * as(Matrix<EdgeExt> * A, World * world) {
 
   return mst;
 }
+*/
 
 // requires edge weights to be distinct
 // can also store mst in hashset
@@ -353,11 +324,13 @@ void test_trivial(World * w) {
   }
   hm->print();
 
+  /*
   auto as_mst = as(A, w);
   if (w->rank == 0) {
     printf("as mst\n");
   }
   as_mst->print();
+  */
 
   auto res = compare_mst(kr, hm);
   if (w->rank == 0) {

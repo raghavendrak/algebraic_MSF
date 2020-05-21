@@ -24,6 +24,17 @@ static Semiring<int> MAX_TIMES_SR(0,
     return a * b;
     });
 
+// MIN for PTAP
+static Semiring<int> MIN_TIMES_SR(INT_MAX,
+    [](int a, int b) {
+    return std::min(a, b);
+    },
+    MPI_MIN,
+    1,
+    [](int a, int b) {
+    return a * b;
+    });
+
 class Int64Pair {
   public:
     int64_t i1;
@@ -89,5 +100,7 @@ void create_nontriv_loc_indices(int64_t *& nontriv_loc_indices, int64_t * loc_no
 
 template<typename T>
 Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p);
+
+Vector<int> * star_check(Vector<int> * p);
 
 #endif
