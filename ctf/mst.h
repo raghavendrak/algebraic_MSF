@@ -3,14 +3,37 @@
 
 #include "alg_graph.h"
 
-EdgeExt EdgeExtMin(EdgeExt a, EdgeExt b);
-void EdgeExt_red(EdgeExt const * a, EdgeExt * b, int n);
-Monoid<EdgeExt> get_minedge_monoid();
+struct Edge {
+  wht weight;
+  int64_t parent; // stores intermediate data about which component an edge may hook onto
 
-void project(Vector<EdgeExt> & r, Vector<int> & p, Vector<EdgeExt> & q);
+  Edge() { weight = MAX_WHT; parent = -1; } // addid
+  Edge(wht weight_, int64_t parent_) { weight = weight_; parent = parent_; }
+  Edge(Edge const & other) { weight = other.weight; parent = other.parent; }
+};
 
-Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world);
+Edge EdgeMin(Edge a, Edge b);
+void Edge_red(Edge const * a, Edge * b, int n);
+Monoid<Edge> get_minedge_monoid();
 
-Vector<EdgeExt>* multilinear_hook(Matrix<wht> * A, World* world, int64_t sc2, MPI_Datatype & mpi_pkv, int64_t sc3);
+namespace CTF {
+  template <>
+  inline void Set<Edge>::print(char const * a, FILE * fp) const {
+    fprintf(fp, "(%d" " % " PRId64 ")", ((Edge*)a)[0].weight, ((Edge*)a)[0].parent);
+  }
+}
+
+Vector<Edge>* multilinear_hook(Matrix<wht> *      A, 
+                                  World*          world, 
+                                  int64_t         sc2, 
+                                  MPI_Datatype &  mpi_pkv, 
+                                  int64_t         sc3,
+                                  int64_t         ptap);
+
+
+// utility //
+// r[p[j]] = q[j] over MINWEIGHT
+template <typename T>
+void project(Vector<T> & r, Vector<int> & p, Vector<T> & q);
 
 #endif

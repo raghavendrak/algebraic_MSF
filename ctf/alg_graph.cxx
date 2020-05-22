@@ -421,7 +421,6 @@ Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p){
   return PTAP;
 }
 template Matrix<int>* PTAP<int>(Matrix<int>* A, Vector<int>* p);
-template Matrix<EdgeExt>* PTAP<EdgeExt>(Matrix<EdgeExt>* A, Vector<int>* p);
 
 // bool does not work for some reason
 static Monoid<int> OR_STAR(
@@ -482,3 +481,4 @@ Vector<int> * star_check(Vector<int> * p) {
 
   return star;
 }
+
