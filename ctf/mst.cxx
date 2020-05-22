@@ -98,13 +98,13 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
-    if (world->rank == 0) printf("p\n");
-    p->print();
+    //if (world->rank == 0) printf("p\n");
+    //p->print();
 
-    if (world->rank == 0) printf("star_check\n");
-    auto temp = star_check(p);
-    temp->print();
-    delete temp;
+    //if (world->rank == 0) printf("star_check\n");
+    //auto temp = star_check(p);
+    //temp->print();
+    //delete temp;
 
     // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
     auto q = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
@@ -144,7 +144,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     }
 
     // aggressive shortcutting
-    /*
     Vector<int> * pi = new Vector<int>(*p);
     shortcut2(*p, *p, *p, sc2, world, NULL, false);
     while (are_vectors_different(*pi, *p)){
@@ -153,7 +152,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
     }
     delete pi;
-    */
     TAU_FSTOP(aggressive shortcut);
 
     if (ptap > 0) {
@@ -170,7 +168,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
   delete p;
   delete p_prev;
-  mst->print();
   return mst;
 }
 
