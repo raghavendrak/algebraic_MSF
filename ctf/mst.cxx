@@ -76,7 +76,8 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
                                   int64_t         sc3,
                                   int64_t         ptap) {
   assert(!(sc2 > 0 && sc3 > 0)); // TODO: cannot run both shortcut2 and shortcut3
-  //A->sr = &MIN_TIMES_SR; // TODO: refactor p to use MIN_TIMES_SR for simplicity
+  if (ptap > 0) A->sr = &MIN_TIMES_SR; // TODO: refactor p to use MIN_TIMES_SR for simplicity
+
   int64_t n = A->nrow;
 
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);

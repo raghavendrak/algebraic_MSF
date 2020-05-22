@@ -123,8 +123,8 @@ int main(int argc, char** argv)
       batch = atoll(getCmdOption(input_str, input_str+in_num, "-batch"));
       if (batch <= 0) batch = 1;
     } else batch = 1;
-    if (getCmdOption(input_str, input_str+in_num, "-shortcut")){
-      sc2 = atoll(getCmdOption(input_str, input_str+in_num, "-shortcut"));
+    if (getCmdOption(input_str, input_str+in_num, "-shortcut2")){
+      sc2 = atoll(getCmdOption(input_str, input_str+in_num, "-shortcut2"));
       if (sc2 < 0) sc2 = 0;
     } else sc2 = 0;
     if (getCmdOption(input_str, input_str+in_num, "-serial")){
