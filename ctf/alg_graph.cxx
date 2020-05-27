@@ -423,10 +423,19 @@ Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p){
 template Matrix<int>* PTAP<int>(Matrix<int>* A, Vector<int>* p);
 
 // bool does not work for some reason
+/*
 static Monoid<int> OR_STAR(
     1,
-    [](int a, int b) { return a | b; },
-    MPI_LOR);
+    [](int a, int b) { return a & b; },
+    MPI_LAND);
+*/
+static Semiring<int> OR_STAR(
+    1,
+    [](int a, int b) { return a & b; },
+    MPI_LAND,
+    1,
+    [](int a, int b) { return a * b; } // TODO: mult provided for correct accumulation with write
+  );
 
 Vector<int> * star_check(Vector<int> * p) {
   Vector<int> * star = new Vector<int>(p->len, *(p->wrld), OR_STAR);
@@ -481,4 +490,3 @@ Vector<int> * star_check(Vector<int> * p) {
 
   return star;
 }
-

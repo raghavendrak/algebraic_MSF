@@ -3,7 +3,7 @@
 #include <ctime>
 
 
-void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, int run_serial, int run_multilinear, int64_t sc3, int64_t ptap)
+void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, int run_serial, int run_multilinear, int64_t sc3, int64_t ptap, int64_t star)
 {
   TAU_FSTART(run_mst);
   MPI_Datatype mpi_pkv;
@@ -24,7 +24,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
   if (run_multilinear) {
     TAU_FSTART(multilinear_hook);
     stime = MPI_Wtime();
-    Vector<Edge> * mult_mst = multilinear_hook(A, w, sc2, mpi_pkv, sc3, ptap);
+    Vector<Edge> * mult_mst = multilinear_hook(A, w, sc2, mpi_pkv, sc3, ptap, star);
     etime = MPI_Wtime();
     TAU_FSTOP(multilinear_hook);
     if (w->rank == 0) {
@@ -83,6 +83,7 @@ int main(int argc, char** argv)
   int run_serial;
   int critter_mode=0;
   int ptap;
+  int star;
 
   int k;
   MPI_Init(&argc, &argv);
@@ -143,6 +144,10 @@ int main(int argc, char** argv)
       ptap = atoll(getCmdOption(input_str, input_str+in_num, "-ptap"));
       if (ptap < 0) ptap = 0;
     } else ptap = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-star")){
+      star = atoll(getCmdOption(input_str, input_str+in_num, "-star"));
+      if (star < 0) star = 0;
+    } else star = 0;
 
     if (gfile != NULL){
       int n_nnz = 0;
@@ -153,7 +158,7 @@ int main(int argc, char** argv)
 #ifdef CRITTER
       critter::start(critter_mode);
 #endif
-      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap);
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star);
 #ifdef CRITTER
       critter::stop(critter_mode);
 #endif
@@ -165,7 +170,7 @@ int main(int argc, char** argv)
       if (w.rank == 0) {
         printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
       }
-      run_mst(B, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap);
+      run_mst(B, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star);
       delete B;
     }
     else if (scale > 0 && ef > 0){
@@ -175,11 +180,11 @@ int main(int argc, char** argv)
         printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
       Matrix<wht> A = gen_rmat_matrix(w, scale, ef, myseed, prep, &n_nnz, max_ewht);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap);
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star);
     }
     else {
       if (w.rank == 0) {
-        printf("Running mst on simple 7x7 graph\n");
+        printf("No graph specified\n");
       }
     }
   }

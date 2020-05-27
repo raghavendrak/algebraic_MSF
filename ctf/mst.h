@@ -28,7 +28,8 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
                                   int64_t         sc2, 
                                   MPI_Datatype &  mpi_pkv, 
                                   int64_t         sc3,
-                                  int64_t         ptap);
+                                  int64_t         ptap,
+                                  int64_t         star);
 
 
 // utility //

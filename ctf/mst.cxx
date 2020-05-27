@@ -74,9 +74,10 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
                                   int64_t         sc2, 
                                   MPI_Datatype &  mpi_pkv, 
                                   int64_t         sc3,
-                                  int64_t         ptap) {
+                                  int64_t         ptap,
+                                  int64_t         star) {
   assert(!(sc2 > 0 && sc3 > 0)); // TODO: cannot run both shortcut2 and shortcut3
-  if (ptap > 0) A->sr = &MIN_TIMES_SR; // TODO: refactor p to use MIN_TIMES_SR for simplicity
+  //if (ptap > 0) A->sr = &MIN_TIMES_SR; // TODO: refactor p to use MIN_TIMES_SR for simplicity
 
   int64_t n = A->nrow;
 
@@ -88,7 +89,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
   const static Monoid<Edge> MIN_EDGE = get_minedge_monoid();
   auto mst = new Vector<Edge>(n, *world, MIN_EDGE);
 
-  std::function<Edge(int, int, int)> f = [](int x, int a, int y){ // TODO: fix templating for wht
+  std::function<Edge(int, wht, int)> f = [](int x, wht a, int y){
     if (x != y) {
       return Edge(a, x);
     } else {
@@ -99,19 +100,21 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
 
-    //if (world->rank == 0) printf("p\n");
-    //p->print();
-
-    //if (world->rank == 0) printf("star_check\n");
-    //auto temp = star_check(p);
-    //temp->print();
-    //delete temp;
-
-    // q_i = MINWEIGHT {fmv(a_{ij},p_j) : j in [n]}
+    // q_i = MINWEIGHT {f(p_i,a_{ij},p_j) : j in [n]}
     auto q = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
+    Vector<int> * p_star;
+    if (star) { // optional optimization: relaxes star requirement, allows stars to hook onto trees
+      Vector<int> * star_mask = star_check(p);
+      p_star = new Vector<int>(n, p->is_sparse, *world); 
+      (*p_star)["i"] = Function<int, int, int>([](int parent, int s){ return s ? parent : 0; })((*p)["i"], (*star_mask)["i"]); // 0 is addid for p 
+      vec_list[0] = p_star;
+      vec_list[1] = p_star;
+      delete star_mask;
+    }
     TAU_FSTART(Update A);
     Multilinear1<int, Edge>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
+    if (star) delete p_star;
     TAU_FSTOP(Update A);
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
 
@@ -134,26 +137,32 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     delete r;
     delete q;
 
-    TAU_FSTART(aggressive shortcut);
-    // 256kB: 32768
-    if (sc3 > 0) {
-      int64_t diff = are_vectors_different(*p, *p_prev);
-      if (diff < sc3) {
-        shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
-        continue;
-      }
-    }
-
-    // aggressive shortcutting
-    Vector<int> * pi = new Vector<int>(*p);
-    shortcut2(*p, *p, *p, sc2, world, NULL, false);
-    while (are_vectors_different(*pi, *p)){
-      delete pi;
-      pi = new Vector<int>(*p);
+    if (star) {
+      TAU_FSTART(single shortcut);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      TAU_FSTART(single shortcut);
+    } else {
+      TAU_FSTART(aggressive shortcut);
+      // 256kB: 32768
+      if (sc3 > 0) {
+        int64_t diff = are_vectors_different(*p, *p_prev);
+        if (diff < sc3) {
+          shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+          continue;
+        }
+      }
+
+      // aggressive shortcutting
+      Vector<int> * pi = new Vector<int>(*p);
+      shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      while (are_vectors_different(*pi, *p)){
+        delete pi;
+        pi = new Vector<int>(*p);
+        shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      }
+      delete pi;
+      TAU_FSTOP(aggressive shortcut);
     }
-    delete pi;
-    TAU_FSTOP(aggressive shortcut);
 
     if (ptap > 0) {
       int64_t npairs;
