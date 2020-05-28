@@ -139,7 +139,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
   bool delete_p = true;
   if (&q == &rec_p) {
     q_npairs = rec_p_npairs;
-    q_loc_pairs = rec_p_loc_pairs; // TODO: optimize with reference?
+    q_loc_pairs = rec_p_loc_pairs;
     delete_p = false;
   } else {
     p["i"] += q["i"];
@@ -152,47 +152,45 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     }
   }
   
-  int64_t * global_roots_num = new int64_t;
-  int64_t * loc_roots_num = new int64_t;
-  roots_num(rec_p_npairs, rec_p_loc_pairs, loc_roots_num, global_roots_num, world);
+  int64_t global_roots_num;
+  int64_t loc_roots_num;
+  roots_num(rec_p_npairs, rec_p_loc_pairs, &loc_roots_num, &global_roots_num, world);
   
-  if (*global_roots_num < sc2) {
-    int * global_roots = new int[*global_roots_num];
-    roots(rec_p_npairs, *loc_roots_num, rec_p_loc_pairs, global_roots_num, global_roots, world);
+  if (global_roots_num < sc2) {
+    int global_roots[global_roots_num];
+    roots(rec_p_npairs, loc_roots_num, rec_p_loc_pairs, global_roots, world);
     
     int64_t * nontriv_loc_indices;
-    int64_t * loc_nontriv_num = new int64_t;
-    create_nontriv_loc_indices(nontriv_loc_indices, loc_nontriv_num, global_roots_num, global_roots, q_npairs, q_loc_pairs, world);
+    int64_t loc_nontriv_num;
+    create_nontriv_loc_indices(nontriv_loc_indices, &loc_nontriv_num, global_roots_num, global_roots, q_npairs, q_loc_pairs, world);
 
-    Pair<int> * nontriv_loc_pairs = new Pair<int>[*loc_nontriv_num];
-    Pair<int> * remote_pairs = new Pair<int>[*loc_nontriv_num];
-    for (int64_t i = 0; i < *loc_nontriv_num; i++) {
+    Pair<int> * nontriv_loc_pairs = new Pair<int>[loc_nontriv_num];
+    Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
+    for (int64_t i = 0; i < loc_nontriv_num; i++) {
       int64_t nontriv_index = nontriv_loc_indices[i];
       nontriv_loc_pairs[i] = q_loc_pairs[nontriv_index];
       remote_pairs[i].k = q_loc_pairs[nontriv_index].d;
     }
   
     TAU_FSTART(Optimized_shortcut_read);
-    rec_p.read(*loc_nontriv_num, remote_pairs); //obtains rec_p[q[i]]
+    rec_p.read(loc_nontriv_num, remote_pairs); //obtains rec_p[q[i]]
     TAU_FSTOP(Optimized_shortcut_read);
-    for(int64_t i = 0; i < *loc_nontriv_num; i++) {
+    for(int64_t i = 0; i < loc_nontriv_num; i++) {
       nontriv_loc_pairs[i].d = remote_pairs[i].d;
     }
     
-    for (int64_t i = 0; i < *loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
+    for (int64_t i = 0; i < loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
       int64_t nontriv_index = nontriv_loc_indices[i];
       q_loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
     }
  
     TAU_FSTART(Optimized_shortcut_write); 
-    p.write(*loc_nontriv_num, nontriv_loc_pairs); //enter data into p[i]
+    p.write(loc_nontriv_num, nontriv_loc_pairs); //enter data into p[i]
     TAU_FSTOP(Optimized_shortcut_write); 
     
     delete [] remote_pairs;
-    delete [] global_roots;
     delete [] nontriv_loc_pairs;
     delete [] nontriv_loc_indices;
-    delete loc_nontriv_num;
   } else { // original shortcut
     Pair<int> * remote_pairs = new Pair<int>[q_npairs];
     for (int64_t i=0; i<q_npairs; i++) {
@@ -227,14 +225,11 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
   }
   TAU_FSTOP(Optimized_shortcut);
 
-  if (delete_p)
-    delete [] q_loc_pairs;
+  if (delete_p) delete [] q_loc_pairs;
   delete [] rec_p_loc_pairs;
-  delete global_roots_num;
-  delete loc_roots_num;
 }
 
-void roots_num(int64_t npairs, Pair<int> * loc_pairs, int64_t * loc_roots_num, int64_t * global_roots_num,  World * world) {
+void roots_num(int64_t npairs, Pair<int> * loc_pairs, int64_t * loc_roots_num, int64_t * global_roots_num, World * world) {
   *loc_roots_num = 0;
   for (int64_t i = 0; i < npairs; i++) {
     Pair<int> loc_pair = loc_pairs[i];
@@ -246,7 +241,7 @@ void roots_num(int64_t npairs, Pair<int> * loc_pairs, int64_t * loc_roots_num, i
   MPI_Allreduce(loc_roots_num, global_roots_num, 1, MPI_LONG_LONG, MPI_SUM, world->comm);
 }
 
-void roots(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int64_t * global_roots_num, int * global_roots,  World * world) {
+void roots(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int * global_roots,  World * world) {
   int world_size;
   MPI_Comm_size(world->comm, &world_size);
  
@@ -275,21 +270,21 @@ void roots(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int64_t
   MPI_Allgatherv(loc_roots, loc_roots_num, MPI_INT, global_roots, global_roots_nums, displs_roots, MPI_INT, world->comm); // [., ., ., ., ., ., ., ., ., ., .]?
 }
 
-void create_nontriv_loc_indices(int64_t *& nontriv_loc_indices, int64_t * loc_nontriv_num, int64_t * global_roots_num, int * global_roots, int64_t q_npairs, Pair<int> * q_loc_pairs, World * world) {
-  std::sort(global_roots, global_roots + *global_roots_num);
+void create_nontriv_loc_indices(int64_t *& nontriv_loc_indices, int64_t * loc_nontriv_num, int64_t global_roots_num, int * global_roots, int64_t q_npairs, Pair<int> * q_loc_pairs, World * world) {
+  std::sort(global_roots, global_roots + global_roots_num);
 
   nontriv_loc_indices = new int64_t[q_npairs]; // wastes a bit of memory
   int64_t nontriv_index = 0;
   int64_t q_index = 0;
   bool end_roots = false;
-  for (int64_t root_index = 0; root_index < *global_roots_num && q_index < q_npairs; q_index++) { // construct nontrivial local indices O((n+m)log(n+m))
+  for (int64_t root_index = 0; root_index < global_roots_num && q_index < q_npairs; q_index++) { // construct nontrivial local indices O((n+m)log(n+m))
     if (q_loc_pairs[q_index].d < global_roots[root_index]) { // if a node's parent is not a root
       nontriv_loc_indices[nontriv_index] = q_index;
       nontriv_index++;
     }
     while (q_loc_pairs[q_index].d > global_roots[root_index]) {
       root_index++;
-      if (root_index >= *global_roots_num) { end_roots = true; break; }
+      if (root_index >= global_roots_num) { end_roots = true; break; }
        
       if (q_loc_pairs[q_index].d < global_roots[root_index]) { // if this node's parent is greater than previous root but less than current root
         nontriv_loc_indices[nontriv_index] = q_index;
@@ -434,7 +429,7 @@ static Semiring<int> OR_STAR(
     [](int a, int b) { return a & b; },
     MPI_LAND,
     1,
-    [](int a, int b) { return a * b; } // TODO: mult provided for correct accumulation with write
+    [](int a, int b) { return a * b; } // mult provided for correct accumulation with write
   );
 
 Vector<int> * star_check(Vector<int> * p) {
