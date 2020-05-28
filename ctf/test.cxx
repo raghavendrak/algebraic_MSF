@@ -38,7 +38,7 @@ Matrix <wht> preprocess_graph(int           n,
       }
     }
     if (dw.rank == 0) printf("n_nnz_rc = %d of %d vertices kept, %d are 0-degree, %d are 1-degree\n", n_nnz_rc, n,(n-n_nnz_rc),n_single);
-    Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, MAX_TIMES_SR, "A");
+    Matrix<wht> A(n_nnz_rc, n_nnz_rc, SP, dw, MIN_TIMES_SR, "A");
     int * pntrs[] = {all_rc, all_rc};
 
     A.permute(0, A_pre, pntrs, 1);
@@ -92,7 +92,7 @@ Matrix <wht> read_matrix(World  &     dw,
     }
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
-  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
+  Matrix<wht> A_pre(n, n, SP, dw, MIN_TIMES_SR, "A_rmat");
   A_pre.write(my_nedges, inds, eweights.data());
   A_pre["ij"] += A_pre["ji"];
   free(inds);
@@ -125,7 +125,7 @@ Matrix <wht> gen_rmat_matrix(World  & dw,
                   [](wht a, wht b){ return a+b; });
   //random adjacency matrix
   int n = pow(2,scale);
-  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
+  Matrix<wht> A_pre(n, n, SP, dw, MIN_TIMES_SR, "A_rmat");
   if (dw.rank == 0) printf("Running graph generator n = %d... ",n);
   nedges = gen_graph(scale, ef, gseed, &edge);
   if (dw.rank == 0) printf("done.\n");
@@ -141,7 +141,7 @@ Matrix <wht> gen_rmat_matrix(World  & dw,
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
   A_pre.write(nedges,inds,vals);
-  //A_pre["ij"] += A_pre["ji"]; // TODO: fix
+  A_pre["ij"] += A_pre["ji"];
   free(inds);
   free(vals);
 

@@ -77,7 +77,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
                                   int64_t         ptap,
                                   int64_t         star) {
   assert(!(sc2 > 0 && sc3 > 0)); // TODO: cannot run both shortcut2 and shortcut3
-  //if (ptap > 0) A->sr = &MIN_TIMES_SR; // TODO: refactor p to use MIN_TIMES_SR for simplicity
 
   int64_t n = A->nrow;
 
@@ -96,6 +95,8 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       return Edge();
     }
   };
+
+  bool first_ptap = true; // only perform PTAP once
 
   while (are_vectors_different(*p, *p_prev)) {
     (*p_prev)["i"] = (*p)["i"];
@@ -137,7 +138,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     delete r;
     delete q;
 
-    if (star) {
+    if (star) { // shortcut once
       TAU_FSTART(single shortcut);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
       TAU_FSTART(single shortcut);
@@ -164,7 +165,9 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       TAU_FSTOP(aggressive shortcut);
     }
 
-    if (ptap > 0) {
+    if (ptap > 0 && first_ptap) {
+      printf("ptap\n");
+      first_ptap = false;
       int64_t npairs;
       Pair<int> * loc_pairs;
       p->get_local_pairs(&npairs, &loc_pairs);
