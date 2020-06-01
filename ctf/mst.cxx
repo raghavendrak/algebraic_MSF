@@ -149,6 +149,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
         int64_t diff = are_vectors_different(*p, *p_prev);
         if (diff < sc3) {
           shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+          TAU_FSTART(aggressive shortcut);
           continue;
         }
       }
