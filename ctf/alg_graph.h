@@ -60,7 +60,7 @@ struct parentkv
 template<typename T>
 Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p);
 
-Vector<int> * star_check(Vector<int> * p);
+Vector<int> * star_check(Vector<int> * p, Vector<int> * gf = NULL);
 
 // deprecated from connectivity //
 class Int64Pair {

@@ -3,7 +3,7 @@
 #include <ctime>
 
 
-void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, int run_serial, int run_multilinear, int64_t sc3, int64_t ptap, int64_t star)
+void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, int run_serial, int run_multilinear, int64_t sc3, int64_t ptap, int64_t star, int64_t convgf)
 {
   TAU_FSTART(run_mst);
   MPI_Datatype mpi_pkv;
@@ -16,7 +16,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
   MPI_Type_create_struct(2, blocklen, disp, type, &mpi_pkv);
   MPI_Type_commit(&mpi_pkv);
 
-  Function<Edge,wht> sum_weights([](Edge a){ return a.weight != MAX_WHT ? a.weight : 0; }); // TODO: workaround, sometimes it returns wrong result without checking if != INT_MAX
+  Function<Edge,wht> sum_weights([](Edge a){ return a.weight != MAX_WHT ? a.weight : 0; }); // workaround, sometimes it returns wrong result without checking if != INT_MAX
 
   double stime;
   double etime;
@@ -24,7 +24,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
   if (run_multilinear) {
     TAU_FSTART(multilinear_hook);
     stime = MPI_Wtime();
-    Vector<Edge> * mult_mst = multilinear_hook(A, w, sc2, mpi_pkv, sc3, ptap, star);
+    Vector<Edge> * mult_mst = multilinear_hook(A, w, sc2, mpi_pkv, sc3, ptap, star, convgf);
     etime = MPI_Wtime();
     TAU_FSTOP(multilinear_hook);
     if (w->rank == 0) {
@@ -84,6 +84,7 @@ int main(int argc, char** argv)
   int critter_mode=0;
   int ptap;
   int star;
+  int convgf;
 
   int k;
   MPI_Init(&argc, &argv);
@@ -148,6 +149,10 @@ int main(int argc, char** argv)
       star = atoll(getCmdOption(input_str, input_str+in_num, "-star"));
       if (star < 0) star = 0;
     } else star = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-convgf")){
+      convgf = atoll(getCmdOption(input_str, input_str+in_num, "-convgf"));
+      if (convgf < 0) convgf = 0;
+    } else convgf = 0;
 
     if (gfile != NULL){
       int n_nnz = 0;
@@ -158,7 +163,7 @@ int main(int argc, char** argv)
 #ifdef CRITTER
       critter::start(critter_mode);
 #endif
-      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star);
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
 #ifdef CRITTER
       critter::stop(critter_mode);
 #endif
@@ -170,7 +175,7 @@ int main(int argc, char** argv)
       if (w.rank == 0) {
         printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
       }
-      run_mst(B, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star);
+      run_mst(B, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
       delete B;
     }
     else if (scale > 0 && ef > 0){
@@ -180,7 +185,7 @@ int main(int argc, char** argv)
         printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
       Matrix<wht> A = gen_rmat_matrix(w, scale, ef, myseed, prep, &n_nnz, max_ewht);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star);
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
     }
     else {
       if (w.rank == 0) {
@@ -315,7 +320,7 @@ Vector<bool> * star_check(Vector<int> * p) {
 }
 
 Vector<Edge> * hooking(int64_t A_npairs, Pair<Edge> * A_loc_pairs, Vector<int> * p, Vector<bool> * star) {
-  const static Monoid<Edge> MIN_EDGE = get_minedge_monoid(); // TODO: pass by reference
+  const static Monoid<Edge> MIN_EDGE = get_minedge_monoid();
 
   auto r = new Vector<Edge>(p->len, p->is_sparse, *(p->wrld), MIN_EDGE);
 

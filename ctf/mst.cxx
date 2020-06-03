@@ -75,7 +75,8 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
                                   MPI_Datatype &  mpi_pkv, 
                                   int64_t         sc3,
                                   int64_t         ptap,
-                                  int64_t         star) {
+                                  int64_t         star,
+                                  int64_t         convgf) {
   assert(!(sc2 > 0 && sc3 > 0)); // TODO: cannot run both shortcut2 and shortcut3
 
   int64_t n = A->nrow;
@@ -98,18 +99,29 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
   bool first_ptap = true; // only perform PTAP once
 
-  while (are_vectors_different(*p, *p_prev)) {
-    (*p_prev)["i"] = (*p)["i"];
+  Vector<int> * gf;
+  Vector<int> * gf_prev;
+  if (convgf) {
+    gf = new Vector<int>(n, *world, MAX_TIMES_SR);
+    init_pvector(gf);
+    gf_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
+  }
+
+  int niter = 0;
+  while (convgf ? are_vectors_different(*gf, *gf_prev) : are_vectors_different(*p, *p_prev)) { // for most real world graphs, gf converges one iteration before p (see FastSV)
+    ++niter;
+    convgf ? (*gf_prev)["i"] = (*gf)["i"] : (*p_prev)["i"] = (*p)["i"];
 
     // q_i = MINWEIGHT {f(p_i,a_{ij},p_j) : j in [n]}
     auto q = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
     Vector<int> * p_star;
     if (star) { // optional optimization: relaxes star requirement, allows stars to hook onto trees
-      Vector<int> * star_mask = star_check(p);
+      Vector<int> * star_mask = convgf ? star_check(p, gf) : star_check(p);
       p_star = new Vector<int>(n, p->is_sparse, *world); 
       (*p_star)["i"] = Function<int, int, int>([](int parent, int s){ return s ? parent : 0; })((*p)["i"], (*star_mask)["i"]); // 0 is addid for p 
-      vec_list[0] = p_star;
+      //vec_list[0] = p_star; // TODO: I believe this is incorrect
+      vec_list[0] = p;
       vec_list[1] = p_star;
       delete star_mask;
     }
@@ -142,7 +154,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       TAU_FSTART(single shortcut);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
       TAU_FSTART(single shortcut);
-    } else {
+    } else { // aggressive shortcutting
       TAU_FSTART(aggressive shortcut);
       // 256kB: 32768
       if (sc3 > 0) {
@@ -153,7 +165,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
         }
       }
 
-      // aggressive shortcutting
       Vector<int> * pi = new Vector<int>(*p);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
       while (are_vectors_different(*pi, *p)){
@@ -166,7 +177,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     }
 
     if (ptap > 0 && first_ptap) {
-      printf("ptap\n");
       first_ptap = false;
       int64_t npairs;
       Pair<int> * loc_pairs;
@@ -177,6 +187,16 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
         A = PTAP<wht>(A, p);
       }
     }
+
+    if (convgf) {
+      shortcut2(*gf, *p, *p, sc2, world, NULL, false); // gf = p[p[i]]
+    }
+  }
+  if (world->rank == 0) printf("number of iterations: %d\n", niter);
+
+  if (convgf) {
+    delete gf;
+    delete gf_prev;
   }
 
   delete p;

@@ -126,19 +126,19 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
 
   TAU_FSTART(Optimized_shortcut);
   
-  int64_t rec_p_npairs;
+  int64_t rec_gf_npairs;
   Pair<int> * rec_p_loc_pairs;
   if (rec_p.is_sparse) {
-    rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs, true);
+    rec_p.get_local_pairs(&rec_gf_npairs, &rec_p_loc_pairs, true);
   } else {
-    rec_p.get_local_pairs(&rec_p_npairs, &rec_p_loc_pairs);
+    rec_p.get_local_pairs(&rec_gf_npairs, &rec_p_loc_pairs);
   }
   
   int64_t q_npairs;
   Pair<int> * q_loc_pairs;
   bool delete_p = true;
   if (&q == &rec_p) {
-    q_npairs = rec_p_npairs;
+    q_npairs = rec_gf_npairs;
     q_loc_pairs = rec_p_loc_pairs;
     delete_p = false;
   } else {
@@ -154,11 +154,11 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
   
   int64_t global_roots_num;
   int64_t loc_roots_num;
-  roots_num(rec_p_npairs, rec_p_loc_pairs, &loc_roots_num, &global_roots_num, world);
+  roots_num(rec_gf_npairs, rec_p_loc_pairs, &loc_roots_num, &global_roots_num, world);
   
   if (global_roots_num < sc2) {
     int global_roots[global_roots_num];
-    roots(rec_p_npairs, loc_roots_num, rec_p_loc_pairs, global_roots, world);
+    roots(rec_gf_npairs, loc_roots_num, rec_p_loc_pairs, global_roots, world);
     
     int64_t * nontriv_loc_indices;
     int64_t loc_nontriv_num;
@@ -432,29 +432,36 @@ static Semiring<int> OR_STAR(
     [](int a, int b) { return a * b; } // mult provided for correct accumulation with write
   );
 
-Vector<int> * star_check(Vector<int> * p) {
+Vector<int> * star_check(Vector<int> * p, Vector<int> * gf) {
   Vector<int> * star = new Vector<int>(p->len, *(p->wrld), OR_STAR);
 
   int64_t p_npairs;
   Pair<int> * p_loc_pairs;
   p->get_local_pairs(&p_npairs, &p_loc_pairs);
 
+  int64_t gf_npairs = p_npairs;
+  Pair<int> * gf_loc_pairs;
+  if (gf == NULL) {
+    gf_loc_pairs = new Pair<int>[gf_npairs];
+    for (int64_t i = 0; i < gf_npairs; ++i) {
+      gf_loc_pairs[i].k = p_loc_pairs[i].d;
+    } 
+    p->read(gf_npairs, gf_loc_pairs);
+  } else {
+    gf->get_local_pairs(&gf_npairs, &gf_loc_pairs);
+  }
+  assert(p_npairs == gf_npairs);
+
   // If F(i) =/= GF(i) then ST(i) <- FALSE and ST(GF(i)) <- FALSE
   // excludes vertices that have nontrivial grandparent or grandchild
-  Pair<int> * p_parents = new Pair<int>[p_npairs];
-  for (int64_t i = 0; i < p_npairs; ++i) {
-    p_parents[i].k = p_loc_pairs[i].d;
-  } 
-  p->read(p_npairs, p_parents);
-
-  Pair<int> * nontriv_grandX = new Pair<int>[2 * p_npairs];
+  Pair<int> * nontriv_grandX = new Pair<int>[2 * gf_npairs];
   int64_t grandX_npairs = 0;
-  for (int64_t i = 0; i < p_npairs; ++i) {
-    if (p_loc_pairs[i].d != p_parents[i].d) {
+  for (int64_t i = 0; i < gf_npairs; ++i) {
+    if (p_loc_pairs[i].d != gf_loc_pairs[i].d) {
       nontriv_grandX[grandX_npairs].k = p_loc_pairs[i].k;
       nontriv_grandX[grandX_npairs].d = 0;
 
-      nontriv_grandX[grandX_npairs + 1].k = p_parents[i].d;
+      nontriv_grandX[grandX_npairs + 1].k = gf_loc_pairs[i].d;
       nontriv_grandX[grandX_npairs + 1].d = 0;
 
       grandX_npairs += 2;
@@ -464,23 +471,23 @@ Vector<int> * star_check(Vector<int> * p) {
 
   // ST(i) <- ST(F(i))
   // excludes vertices that have nontrivial nephews
-  Pair<int> * nontriv_nephews = new Pair<int>[p_npairs];
-  for (int64_t i = 0; i < p_npairs; ++i) {
+  Pair<int> * nontriv_nephews = new Pair<int>[gf_npairs];
+  for (int64_t i = 0; i < gf_npairs; ++i) {
     nontriv_nephews[i].k = p_loc_pairs[i].d;
   }
-  star->read(p_npairs, nontriv_nephews);
+  star->read(gf_npairs, nontriv_nephews);
 
-  Pair<int> * updated_nephews = new Pair<int>[p_npairs];
-  for (int64_t i = 0; i < p_npairs; ++i) {
+  Pair<int> * updated_nephews = new Pair<int>[gf_npairs];
+  for (int64_t i = 0; i < gf_npairs; ++i) {
     updated_nephews[i].k = p_loc_pairs[i].k;
     updated_nephews[i].d = nontriv_nephews[i].d;
   }
-  star->write(p_npairs, updated_nephews);
+  star->write(gf_npairs, updated_nephews);
 
   delete [] updated_nephews;
   delete [] nontriv_nephews;
   delete [] nontriv_grandX;
-  delete [] p_parents;
+  delete [] gf_loc_pairs;
   delete [] p_loc_pairs;
 
   return star;
