@@ -110,7 +110,12 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
   int niter = 0;
   while (convgf ? are_vectors_different(*gf, *gf_prev) : are_vectors_different(*p, *p_prev)) { // for most real world graphs, gf converges one iteration before p (see FastSV)
     ++niter;
-    convgf ? (*gf_prev)["i"] = (*gf)["i"] : (*p_prev)["i"] = (*p)["i"];
+    if (convgf) {
+      (*gf_prev)["i"] = (*gf)["i"];
+    }
+    if (!convgf || sc3 > 0) {
+      (*p_prev)["i"] = (*p)["i"];
+    }
 
     // q_i = MINWEIGHT {f(p_i,a_{ij},p_j) : j in [n]}
     auto q = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
@@ -150,22 +155,25 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     delete r;
     delete q;
 
-    if (star) { // shortcut once
+    // 256kB: 32768
+    bool is_shortcutted = false;
+    if (sc3 > 0) {
+      TAU_FSTART(sc3 aggressive shortcut);
+      int64_t diff = are_vectors_different(*p, *p_prev);
+      if (diff < sc3) {
+        shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+        is_shortcutted = true;
+      }
+      TAU_FSTART(sc3 aggressive shortcut);
+    } 
+    if (star && !is_shortcutted) { // shortcut once
       TAU_FSTART(single shortcut);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      is_shortcutted = true;
       TAU_FSTART(single shortcut);
-    } else { // aggressive shortcutting
-      TAU_FSTART(aggressive shortcut);
-      // 256kB: 32768
-      if (sc3 > 0) {
-        int64_t diff = are_vectors_different(*p, *p_prev);
-        if (diff < sc3) {
-          shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
-          TAU_FSTART(aggressive shortcut);
-          continue;
-        }
-      }
-
+    }
+    if (!is_shortcutted) {
+      TAU_FSTART(sc2 aggressive shortcut);
       Vector<int> * pi = new Vector<int>(*p);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
       while (are_vectors_different(*pi, *p)){
@@ -174,8 +182,10 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
         shortcut2(*p, *p, *p, sc2, world, NULL, false);
       }
       delete pi;
-      TAU_FSTOP(aggressive shortcut);
+      is_shortcutted = true;
+      TAU_FSTOP(sc2 aggressive shortcut);
     }
+    assert(is_shortcutted);
 
     if (ptap > 0 && first_ptap) {
       first_ptap = false;
