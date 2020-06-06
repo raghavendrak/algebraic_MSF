@@ -164,7 +164,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
         shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
         is_shortcutted = true;
       }
-      TAU_FSTART(sc3 aggressive shortcut);
+      TAU_FSTOP(sc3 aggressive shortcut);
     } 
     if (star && !is_shortcutted) { // shortcut once
       TAU_FSTART(single shortcut);
