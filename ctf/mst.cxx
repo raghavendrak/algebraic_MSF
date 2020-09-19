@@ -55,12 +55,40 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
   p.read_local(&q_npairs, &p_read_pairs);
   //p.read(q_npairs, p_read_pairs); // if q->sparsify() enabled
 
+  // Build a map for p[j] to avoid duplicate updates to r[p[j]]
+  std::map<int, T> m_pq;
+  typename std::map<int, T>::iterator it;
+  for (int64_t i = 0; i < q_npairs; i++) {
+    it = m_pq.find(p_read_pairs[i].d);
+    if (it != m_pq.end()) {
+      // update with minimum weight
+      if (q_loc_pairs[i].d.weight < it->second.weight) {
+        it->second = q_loc_pairs[i].d;
+      }
+    }
+    else {
+      m_pq.insert({p_read_pairs[i].d, q_loc_pairs[i].d});
+    }
+  }
+
+
+  /*
   Pair<T> * r_loc_pairs = new Pair<T>[q_npairs];
   for (int64_t i = 0; i < q_npairs; ++i){
     r_loc_pairs[i].k = p_read_pairs[i].d;
     r_loc_pairs[i].d = q_loc_pairs[i].d;
   }
   r.write(q_npairs, r_loc_pairs); // enter data into r[i], accumulates over MINWEIGHT
+  */
+
+  Pair<T> * r_loc_pairs = new Pair<T>[m_pq.size()];
+  int64_t ir = 0;
+  for (const auto& pq : m_pq) {
+    r_loc_pairs[ir].k = pq.first;
+    r_loc_pairs[ir++].d = pq.second;
+  }
+  r.write(ir, r_loc_pairs);
+  
   
   delete [] r_loc_pairs;
   delete [] q_loc_pairs;
