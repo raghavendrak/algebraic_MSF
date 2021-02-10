@@ -36,7 +36,9 @@ Monoid<Edge> get_minedge_monoid(){
 template <typename T>
 void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
 { 
-  TAU_FSTART(CONNECTIVITY_Project);
+  //TAU_FSTART(CONNECTIVITY_Project);
+  Timer t_cp("Connectivity_Project");
+  t_cp.start();
   
   int64_t q_npairs;
   Pair<T> * q_loc_pairs;
@@ -57,8 +59,9 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
 
   // Build a map for p[j] to avoid duplicate updates to r[p[j]]
   std::map<int, T> m_pq;
-  typename std::map<int, T>::iterator it;
+//#pragma omp parallel for
   for (int64_t i = 0; i < q_npairs; i++) {
+    typename std::map<int, T>::iterator it;
     it = m_pq.find(p_read_pairs[i].d);
     if (it != m_pq.end()) {
       // update with minimum weight
@@ -67,6 +70,7 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
       }
     }
     else {
+//#pragma omp critical
       m_pq.insert({p_read_pairs[i].d, q_loc_pairs[i].d});
     }
   }
@@ -87,13 +91,16 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
     r_loc_pairs[ir].k = pq.first;
     r_loc_pairs[ir++].d = pq.second;
   }
+  Timer t_wr("Write_r_in_project");
+  t_wr.start();
   r.write(ir, r_loc_pairs);
-  
-  
+  t_wr.stop();
+ 
   delete [] r_loc_pairs;
   delete [] q_loc_pairs;
   delete [] p_read_pairs;
-  TAU_FSTOP(CONNECTIVITY_Project);
+  //TAU_FSTOP(CONNECTIVITY_Project);
+  t_cp.stop();
 }
 template void project<Edge>(Vector<Edge> & r, Vector<int> & p, Vector<Edge> & q);
 
@@ -158,27 +165,39 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       vec_list[1] = p_star;
       delete star_mask;
     }
-    TAU_FSTART(Update A);
+    //TAU_FSTART(Update A);
+    Timer t_ua("Update A");
+    t_ua.start();
     Multilinear1<int, Edge>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
     if (star) delete p_star;
-    TAU_FSTOP(Update A);
+    //TAU_FSTOP(Update A);
+    t_ua.stop();
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
 
     // r[p[j]] = q[j] over MINWEIGHT
-    TAU_FSTART(Project);
+    //TAU_FSTART(Project);
+    Timer t_p("Project");
+    t_p.start();
     auto r = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
-    TAU_FSTOP(Project);
+    //TAU_FSTOP(Project);
+    t_p.stop();
 
     // hook only onto larger stars and update p
-    TAU_FSTART(Update p);
+    //TAU_FSTART(Update p);
+    Timer t_up("Update p");
+    t_up.start();
     (*p)["i"] += Function<Edge, int>([](Edge e){ return e.parent; })((*r)["i"]);
-    TAU_FSTOP(Update p);
+    //TAU_FSTOP(Update p);
+    t_up.stop();
 
     // hook only onto larger stars and update mst
-    TAU_FSTART(Update mst);
+    //TAU_FSTART(Update mst);
+    Timer t_mst("Update mst");
+    t_mst.start();
     (*mst)["i"] += Bivar_Function<Edge, int, Edge>([](Edge e, int a){ return e.parent >= a ? e : Edge(); })((*r)["i"], (*p)["i"]);
-    TAU_FSTOP(Update mst);
+    //TAU_FSTOP(Update mst);
+    t_mst.stop();
 
     delete r;
     delete q;
@@ -186,22 +205,30 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     // 256kB: 32768
     bool is_shortcutted = false;
     if (sc3 > 0) {
-      TAU_FSTART(sc3 aggressive shortcut);
+      //TAU_FSTART(sc3 aggressive shortcut);
+      Timer t_sc3("sc3_aggressive_shortcut");
+      t_sc3.start();
       int64_t diff = are_vectors_different(*p, *p_prev);
       if (diff < sc3) {
         shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
         is_shortcutted = true;
       }
-      TAU_FSTOP(sc3 aggressive shortcut);
+      //TAU_FSTOP(sc3 aggressive shortcut);
+      t_sc3.stop();
     } 
     if (star && !is_shortcutted) { // shortcut once
-      TAU_FSTART(single shortcut);
+      //TAU_FSTART(single shortcut);
+      Timer t_ss("single shortcut2");
+      t_ss.start();
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
       is_shortcutted = true;
-      TAU_FSTART(single shortcut);
+      t_ss.stop();
+      //TAU_FSTART(single shortcut);
     }
     if (!is_shortcutted) {
-      TAU_FSTART(sc2 aggressive shortcut);
+      //TAU_FSTART(sc2 aggressive shortcut);
+      Timer t_sc2("sc2_aggressive_shortcut");
+      t_sc2.start();
       Vector<int> * pi = new Vector<int>(*p);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
       while (are_vectors_different(*pi, *p)){
@@ -211,7 +238,8 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       }
       delete pi;
       is_shortcutted = true;
-      TAU_FSTOP(sc2 aggressive shortcut);
+      t_sc2.stop();
+      //TAU_FSTOP(sc2 aggressive shortcut);
     }
     assert(is_shortcutted);
 
@@ -310,3 +338,4 @@ Vector<EdgeExt>* hook_matrix(Matrix<EdgeExt> * A, World* world) {
   return mst;
 }
 */
+

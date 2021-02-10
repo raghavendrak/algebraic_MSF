@@ -22,11 +22,14 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
   double etime;
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   if (run_multilinear) {
-    TAU_FSTART(multilinear_hook);
+    //TAU_FSTART(multilinear_hook);
+    Timer_epoch tmh("multilinear_hook");
+    tmh.begin();
     stime = MPI_Wtime();
     Vector<Edge> * mult_mst = multilinear_hook(A, w, sc2, mpi_pkv, sc3, ptap, star, convgf);
     etime = MPI_Wtime();
-    TAU_FSTOP(multilinear_hook);
+    //TAU_FSTOP(multilinear_hook);
+    tmh.end();
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
