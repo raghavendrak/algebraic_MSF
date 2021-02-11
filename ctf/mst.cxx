@@ -168,7 +168,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     //TAU_FSTART(Update A);
     Timer t_ua("Update A");
     t_ua.start();
-    Multilinear1<int, Edge>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
+    Multilinear<int, Edge>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
     if (star) delete p_star;
     //TAU_FSTOP(Update A);
     t_ua.stop();

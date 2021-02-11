@@ -229,7 +229,7 @@ uint64_t read_graph(int myid, int ntask, const char *fpath, uint64_t **edge) {
 #undef ALLOC_BLOCK
 }
 
-uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pair<uint64_t, uint64_t> > &edges, int * n, bool * e_weights, std::vector<wht> &eweights) {
+uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pair<uint64_t, uint64_t> > &edges, int64_t * n, bool * e_weights, std::vector<wht> &eweights) {
   
   std::string fpaths = std::string(fpath);
   std::ifstream gfile(fpaths);

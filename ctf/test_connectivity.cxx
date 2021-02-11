@@ -58,7 +58,7 @@ void test_shortcut2(World *w) {
   int ef = 8;
   uint64_t myseed;
   int prep = 0;
-  int n_nnz = 0;
+  int64_t n_nnz = 0;
   myseed = SEED;
   //int batch = 0;
   int64_t sc2 = 0;
@@ -331,7 +331,7 @@ int main(int argc, char** argv)
   } else run_serial = 0;
 
   if (gfile != NULL){
-    int n_nnz = 0;
+    int64_t n_nnz = 0;
     if (w->rank == 0)
       printf("Reading real graph n = %lld\n", n);
     Matrix<wht> A = read_matrix(*w, n, gfile, prep, &n_nnz);
@@ -349,7 +349,7 @@ int main(int argc, char** argv)
     delete B;
   }
   else if (scale > 0 && ef > 0){
-    int n_nnz = 0;
+    int64_t n_nnz = 0;
     myseed = SEED;
     if (w->rank == 0)
       printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);

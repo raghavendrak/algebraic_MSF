@@ -88,6 +88,7 @@ int main(int argc, char** argv)
   int ptap;
   int star;
   int convgf;
+  double sp;
 
   int k;
   MPI_Init(&argc, &argv);
@@ -112,6 +113,10 @@ int main(int argc, char** argv)
       n = atoll(getCmdOption(input_str, input_str+in_num, "-n"));
       if (n < 0) n = 27;
     } else n = 27;
+    if (getCmdOption(input_str, input_str+in_num, "-sp")){
+      sp = atof(getCmdOption(input_str, input_str+in_num, "-sp"));
+      if (sp < 0.) sp = 0.2;
+    } else sp = 0.;
     if (getCmdOption(input_str, input_str+in_num, "-S")){
       scale = atoi(getCmdOption(input_str, input_str+in_num, "-S"));
       if (scale < 0) scale=10;
@@ -158,7 +163,7 @@ int main(int argc, char** argv)
     } else convgf = 0;
 
     if (gfile != NULL){
-      int n_nnz = 0;
+      int64_t n_nnz = 0;
       if (w.rank == 0)
       printf("Reading real graph n = %lld\n", n);
       Matrix<wht> A = read_matrix(w, n, gfile, prep, &n_nnz);
@@ -182,11 +187,19 @@ int main(int argc, char** argv)
       delete B;
     }
     else if (scale > 0 && ef > 0){
-      int n_nnz = 0;
+      int64_t n_nnz = 0;
       myseed = SEED;
       if (w.rank == 0)
         printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
       Matrix<wht> A = gen_rmat_matrix(w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+      int64_t matSize = A.nrow; 
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
+    }
+    else if (sp != 0.) {
+      int64_t n_nnz = 0;
+      if (w.rank == 0)
+        printf("uniform matrix n: %lld sparsity: %lf\n", n, sp);
+      Matrix<wht> A = gen_uniform_matrix(w, n, prep, &n_nnz, sp, max_ewht);
       int64_t matSize = A.nrow; 
       run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
     }
