@@ -22,14 +22,14 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
   double etime;
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
   if (run_multilinear) {
-    //TAU_FSTART(multilinear_hook);
-    Timer_epoch tmh("multilinear_hook");
-    tmh.begin();
+    TAU_FSTART(multilinear_hook);
+    //Timer_epoch tmh("multilinear_hook");
+    //tmh.begin();
     stime = MPI_Wtime();
     Vector<Edge> * mult_mst = multilinear_hook(A, w, sc2, mpi_pkv, sc3, ptap, star, convgf);
     etime = MPI_Wtime();
-    //TAU_FSTOP(multilinear_hook);
-    tmh.end();
+    TAU_FSTOP(multilinear_hook);
+    //tmh.end();
     if (w->rank == 0) {
       printf("multilinear mst done in %1.2lf\n", (etime - stime));
     }
@@ -200,6 +200,7 @@ int main(int argc, char** argv)
       if (w.rank == 0)
         printf("uniform matrix n: %lld sparsity: %lf\n", n, sp);
       Matrix<wht> A = gen_uniform_matrix(w, n, prep, &n_nnz, sp, max_ewht);
+      A.print();
       int64_t matSize = A.nrow; 
       run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
     }
@@ -208,6 +209,34 @@ int main(int argc, char** argv)
         printf("No graph specified\n");
       }
     }
+#ifdef CRITTER
+    std::vector<std::string> symbols = {
+      "init_tensor","set_zero_tsr","slice","write_pairs","sparsify","sparsify_dense","read_local_pairs",
+      "read_all_pairs","redistribute_for_sum","map_tensor_pair","map_sum_indices","check_sum_mapping","sum_postprocessing","post_sum_func_barrier","sum_func","activate_topo",
+      "pre_sum_func_barrier","zero_sum_padding","map_fold","sum_tensors_map","sum_tensors","sum_preprocessing","redistribute_for_sum_home","spA_spB_seq_sum_pre","spA_spB_seq_sum",
+      "spA_dnB_seq_sum","sym_seq_sum_cust","sym_seq_sum_inr","sym_seq_sum_ref","compute_syoffs","sum_virt","spsum_pin","spsum_permute",
+      "Local_shortcut3","Local_shortcut3_write","tspsum_map","spsum_virt",
+      "is_last_col_zero","CTF","sp_scal_diag","scal_diag",
+      "zero_padding","zero_padding_nonsym","depad_tsr_move","depad_tsr_cnt","depad_tsr","pad_key","unpack_virt_buf","pack_virt_buf",
+      "calc_cnt_displs","cyclic_reshuffle","order_globally","cyclic_pup_move","cyclic_pup_bucket","barrier_after_dgtog_reshuffle","redist_debucket","redist_fence","COMM_RESHUFFLE",
+      "redist_bucket","dgtog_reshuffle","nosym_transpose_thr","nosym_transpose","check_key_ranges","wr_pairs_layout","readwrite","bucket_by_virt_sort","bucket_by_virt_move",
+      "bucket_by_virt_assemble_offsets","bucket_by_virt_omp_cnt","bucket_by_virt","bucket_by_pe_move","bucket_by_pe_count","spsfy_tsr","assign_keys",
+      "permute_keys","push_slice","precompute_offsets","calc_drv_displs","block_reshuffle","compute_bucket_offsets","padded_reshuffle","unpack_virt_buf",
+      "pack_virt_buf","calc_cnt_displs","cyclic_reshuffle","cyclic_pup_move","cyclic_pup_bucket","sp_scl","redistribute_for_scale_home","redistribute_for_scale","scaling",
+      "sym_seq_sum_cust","sym_seq_sum_ref","strp_tsr","scl_virt","symmetrize","desymmetrize","spctr_pin_keys","spctr_virt",
+      "spA_dnB_dnC_seq","spctr_2d_general","spctr_2d_general_barrier","redistribute_for_ctr_home","unfold_contraction_output",
+      "post_ctr_func_barrier","ctr_func","pre_ctr_func_barrier","map_fold","pre_fold_barrier","pre_map_barrier","prescale_operands","contract","construct_contraction",
+      "redistribute_for_contraction","ctr_sig_map_insert","get_best_exh_map","get_best_sel_map","ctr_sig_map_find","all_select_ctr_map","evaluate_mappings","detail_estimate_mem_and_time","get_num_map_vars",
+      "offload_axpy","spctr_offload","offload_scale","spctr_offload","offload_scale","ctr_offload","spctr_replicate","spA_dnB_dnC_seq_ctr","ctr_virt",
+      "gemm","sym_seq_ctr_inner","sym_seq_ctr_cust","sym_seq_ctr_ref","compute_syoffs","ctr_2d_general",
+      "sparse_transpose","zero_out_sparse_diagonal","scale_diagonals","zero_out_padding","gen_graph","CONNECTIVITY_PTAP","Unoptimized_shortcut_Opruneleaves","Unoptimized_shortcut_Owrite","Unoptimized_shortcut_Orread",
+      "Optimized_shortcut_write","Optimized_shortcut_read","Optimized_shortcut","Unoptimized_shortcut_pruneleaves","Unoptimized_shortcut_write","Unoptimized_shortcut_rread","Unoptimized_shortcut","CONNECTIVITY_Shortcut_read",
+      "CONNECTIVITY_Shortcut","aggressive shortcut","Update mst","Update p","Project","Update A","Update mst","Compute q","CONNECTIVITY_Project",
+      "hook_matrix","multilinear_hook","run_mst","super_vertex","hook_matrix","CONNECTIVITY_Relaxation","CONNECTIVITY_Relaxation"
+    };
+    critter::init(symbols);
+
+#endif 
   }
   MPI_Finalize();
   return 0;
@@ -441,3 +470,4 @@ Vector<Edge> * as(Matrix<Edge> * A, World * world) {
   return mst;
 }
 */
+

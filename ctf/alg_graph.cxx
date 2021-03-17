@@ -70,9 +70,9 @@ template int64_t are_vectors_different<int>(CTF::Vector<int> & A, CTF::Vector<in
 // if create_nonleaves=true, computing non-leaf vertices in parent forest
 void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> ** nonleaves, bool create_nonleaves)
 {
-  //TAU_FSTART(Unoptimized_shortcut);
-  Timer t_us("Unoptimized_shortcut");
-  t_us.start();
+  TAU_FSTART(Unoptimized_shortcut);
+  //Timer t_us("Unoptimized_shortcut");
+  //t_us.start();
   int64_t npairs;
   Pair<int> * loc_pairs;
   if (q.is_sparse){
@@ -86,28 +86,28 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   for (int64_t i=0; i<npairs; i++){
     remote_pairs[i].k = loc_pairs[i].d;
   }
-  //TAU_FSTART(Unoptimized_shortcut_rread);
-  Timer t_usr("Unoptimized_shortcut_rread");
-  t_usr.start();
+  TAU_FSTART(Unoptimized_shortcut_rread);
+  //Timer t_usr("Unoptimized_shortcut_rread");
+  //t_usr.start();
   rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
-  t_usr.stop();
-  //TAU_FSTOP(Unoptimized_shortcut_rread);
+  //t_usr.stop();
+  TAU_FSTOP(Unoptimized_shortcut_rread);
   for (int64_t i=0; i<npairs; i++){
     loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
   }
   delete [] remote_pairs;
-  //TAU_FSTART(Unoptimized_shortcut_write);
-  Timer t_usw("Unoptimized_shortcut_write");
-  t_usw.start();
+  TAU_FSTART(Unoptimized_shortcut_write);
+  //Timer t_usw("Unoptimized_shortcut_write");
+  //t_usw.start();
   p.write(npairs, loc_pairs); //enter data into p[i]
-  //TAU_FSTOP(Unoptimized_shortcut_write);
-  t_usw.stop();
+  TAU_FSTOP(Unoptimized_shortcut_write);
+  //t_usw.stop();
   
   //prune out leaves
   if (create_nonleaves){
-    //TAU_FSTART(Unoptimized_shortcut_pruneleaves);
-    Timer t_usp("Unoptimzed_shortcut_pruneleaves");
-    t_usp.start();
+    TAU_FSTART(Unoptimized_shortcut_pruneleaves);
+    //Timer t_usp("Unoptimzed_shortcut_pruneleaves");
+    //t_usp.start();
     *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr);
     //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
     for (int64_t i=0; i<npairs; i++){
@@ -118,13 +118,13 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
     (*nonleaves)->write(npairs, loc_pairs);
     (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
     (*nonleaves)->sparsify();
-    //TAU_FSTOP(Unoptimized_shortcut_pruneleaves);
-    t_usp.stop();
+    TAU_FSTOP(Unoptimized_shortcut_pruneleaves);
+    //t_usp.stop();
   }
    
   delete [] loc_pairs;
   TAU_FSTOP(Unoptimized_shortcut);
-  t_us.stop();
+  //t_us.stop();
 }
 
 // p[i] = rec_p[q[i]]
@@ -136,9 +136,9 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     return;
   }
 
-  //TAU_FSTART(Optimized_shortcut);
-  Timer t_os2("Optimized_shortcut2");
-  t_os2.start();
+  TAU_FSTART(Optimized_shortcut);
+  //Timer t_os2("Optimized_shortcut2");
+  //t_os2.start();
   
   int64_t rec_gf_npairs;
   Pair<int> * rec_p_loc_pairs;
@@ -186,12 +186,12 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
       remote_pairs[i].k = q_loc_pairs[nontriv_index].d;
     }
   
-    //TAU_FSTART(Optimized_shortcut_read);
-    Timer t_osr("Optimized_shortcut2_read");
-    t_osr.start();
+    TAU_FSTART(Optimized_shortcut_read);
+    //Timer t_osr("Optimized_shortcut2_read");
+    //t_osr.start();
     rec_p.read(loc_nontriv_num, remote_pairs); //obtains rec_p[q[i]]
-    t_osr.stop();
-    //TAU_FSTOP(Optimized_shortcut_read);
+    //t_osr.stop();
+    TAU_FSTOP(Optimized_shortcut_read);
     for(int64_t i = 0; i < loc_nontriv_num; i++) {
       nontriv_loc_pairs[i].d = remote_pairs[i].d;
     }
@@ -201,12 +201,12 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
       q_loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
     }
  
-    //TAU_FSTART(Optimized_shortcut_write); 
-    Timer t_osw("Optimized_shortcut2_write");
-    t_osw.start();
+    TAU_FSTART(Optimized_shortcut_write); 
+    //Timer t_osw("Optimized_shortcut2_write");
+    //t_osw.start();
     p.write(loc_nontriv_num, nontriv_loc_pairs); //enter data into p[i]
-    t_osw.stop();
-    //TAU_FSTOP(Optimized_shortcut_write); 
+    //t_osw.stop();
+    TAU_FSTOP(Optimized_shortcut_write); 
     
     delete [] remote_pairs;
     delete [] nontriv_loc_pairs;
@@ -216,30 +216,30 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     for (int64_t i=0; i<q_npairs; i++) {
       remote_pairs[i].k = q_loc_pairs[i].d;
     }
-    //TAU_FSTART(Unoptimized_shortcut_Orread);
-    Timer t_uso("Unoptimized_shortcut_Orread");
-    t_uso.start();
+    TAU_FSTART(Unoptimized_shortcut_Orread);
+    //Timer t_uso("Unoptimized_shortcut_Orread");
+    //t_uso.start();
     rec_p.read(q_npairs, remote_pairs); //obtains rec_p[q[i]]
-    t_uso.stop();
-    //TAU_FSTOP(Unoptimized_shortcut_Orread);
+    //t_uso.stop();
+    TAU_FSTOP(Unoptimized_shortcut_Orread);
     for (int64_t i=0; i<q_npairs; i++){
       q_loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
     }
-    //TAU_FSTART(Unoptimized_shortcut_Owrite);
-    Timer t_usw("Unoptimized_shortcut_Owrite");
-    t_usw.start();
+    TAU_FSTART(Unoptimized_shortcut_Owrite);
+    //Timer t_usw("Unoptimized_shortcut_Owrite");
+    //t_usw.start();
     p.write(q_npairs, q_loc_pairs); //enter data into p[i]
-    t_usw.stop();
-    //TAU_FSTOP(Unoptimized_shortcut_Owrite);
+    //t_usw.stop();
+    TAU_FSTOP(Unoptimized_shortcut_Owrite);
 
     delete [] remote_pairs;
   }
   
   //prune out leaves
   if (create_nonleaves) {
-    //TAU_FSTART(Unoptimized_shortcut_Opruneleaves);
-    Timer t_usoo("Unoptimized_shortcut_Opruneleaves");
-    t_usoo.start();
+    TAU_FSTART(Unoptimized_shortcut_Opruneleaves);
+    //Timer t_usoo("Unoptimized_shortcut_Opruneleaves");
+    //t_usoo.start();
     *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
     for (int64_t i=0; i<q_npairs; i++){
       q_loc_pairs[i].k = q_loc_pairs[i].d;
@@ -249,11 +249,11 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     (*nonleaves)->write(q_npairs, q_loc_pairs);
     (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
     (*nonleaves)->sparsify();
-    //TAU_FSTOP(Unoptimized_shortcut_Opruneleaves);
-    t_usoo.stop();
+    TAU_FSTOP(Unoptimized_shortcut_Opruneleaves);
+    //t_usoo.stop();
   }
-  //TAU_FSTOP(Optimized_shortcut);
-  t_os2.stop();
+  TAU_FSTOP(Optimized_shortcut);
+  //t_os2.stop();
 
   if (delete_p) delete [] q_loc_pairs;
   delete [] rec_p_loc_pairs;
@@ -336,8 +336,9 @@ void create_nontriv_loc_indices(int64_t *& nontriv_loc_indices, int64_t * loc_no
 // read_local()
 void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int> & p_prev, MPI_Datatype &mpi_pkv, World * world)
 {
-  Timer t_shortcut("Local_shortcut3");
-  t_shortcut.start();
+  TAU_FSTART(Local_shortcut3);
+  //Timer t_shortcut("Local_shortcut3");
+  //t_shortcut.start();
   std::vector<struct parentkv> loc_cparents;
   // Find out the changed parents (locally)
   Pair<int> * pprs;
@@ -394,20 +395,23 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
     }
    if (nf == npprs) break; 
   }
-  Timer t_shortcut_write("Local_shortcut3_write");
+  TAU_FSTART(Local_shortcut3_write);
+  //Timer t_shortcut_write("Local_shortcut3_write");
   // TODO: can optimize here
-  t_shortcut_write.start();
+  //t_shortcut_write.start();
   p.write(npprs, pprs);
-  t_shortcut_write.stop();
-  t_shortcut.stop();
+  //t_shortcut_write.stop();
+  TAU_FSTOP(Local_shortcut3_write);
+  //t_shortcut.stop();
+  TAU_FSTOP(Local_shortcut3);
 }
 
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
 template<typename T>
 Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p){
-  //TAU_FSTART(CONNECTIVITY_PTAP);
-  Timer t_cp("CONNECTIVITY_PTAP");
-  t_cp.start();
+  TAU_FSTART(CONNECTIVITY_PTAP);
+  //Timer t_cp("CONNECTIVITY_PTAP");
+  //t_cp.start();
   int np = p->wrld->np;
   int64_t n = p->len;
   Pair<int> * pprs;
@@ -444,8 +448,8 @@ Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p){
   Matrix<T> * PTAP = new Matrix<T>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
   PTAP->write(nprs, A_prs);
   delete [] A_prs;
-  //TAU_FSTOP(CONNECTIVITY_PTAP);
-  t_cp.stop();
+  TAU_FSTOP(CONNECTIVITY_PTAP);
+  //t_cp.stop();
   return PTAP;
 }
 template Matrix<int>* PTAP<int>(Matrix<int>* A, Vector<int>* p);
