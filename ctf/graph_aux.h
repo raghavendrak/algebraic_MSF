@@ -3,6 +3,8 @@
 
 #ifdef CRITTER
 #include "critter.h"
+#define TAU_FSTART(ARG) CRITTER_START(ARG)
+#define TAU_FSTOP(ARG) CRITTER_STOP(ARG)
 #else
 #define TAU_FSTART(ARG)
 #define TAU_FSTOP(ARG)
