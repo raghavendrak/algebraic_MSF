@@ -1,7 +1,7 @@
 #include "mst.h"
 
 Edge EdgeMin(Edge a, Edge b){
-  return a.weight < b.weight ? a : b;
+  return a.weight < b.weight || (a.weight == b.weight && a.parent > b.parent) ? a : b;
 }
 
 void Edge_red(Edge const * a,
@@ -65,7 +65,8 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
     it = m_pq.find(p_read_pairs[i].d);
     if (it != m_pq.end()) {
       // update with minimum weight
-      if (q_loc_pairs[i].d.weight < it->second.weight) {
+      if (q_loc_pairs[i].d.weight < it->second.weight
+          || (q_loc_pairs[i].d.weight == it->second.weight && q_loc_pairs[i].d.parent > it->second.parent)) {
         it->second = q_loc_pairs[i].d;
       }
     }
