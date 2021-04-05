@@ -45,34 +45,11 @@ typedef adjacency_list<listS,
                        // Edge properties
                        property<edge_weight_t, int> > Graph;
 
+typedef typename graph_traits<Graph>::vertex_descriptor vertex_descriptor;
 typedef graph_traits<Graph>::edge_descriptor edge_descriptor;
+typedef property_map<Graph, edge_weight_t>::type WeightMap;
 
 typedef std::pair<int, int> E;
-
-template<typename Graph, typename WeightMap, typename InputIterator>
-int
-total_weight(const Graph& g, WeightMap weight_map, 
-             InputIterator first, InputIterator last)
-{
-  typedef typename graph_traits<Graph>::vertex_descriptor vertex_descriptor;
-
-  int total_weight = 0;
-  while (first != last) {
-    total_weight += get(weight_map, *first);
-    if (process_id(g.process_group()) == 0) {
-      vertex_descriptor u = source(*first, g);
-      vertex_descriptor v = target(*first, g);
-      /*
-      std::cout << "(" << g.distribution().global(owner(u), local(u))
-                << ", " << g.distribution().global(owner(v), local(v))
-                << ")\n";
-      */
-    }
-    ++first;
-  }
-
-  return total_weight;
-}
 
 char* getCmdOption(char ** begin,
                    char ** end,
@@ -84,17 +61,58 @@ char* getCmdOption(char ** begin,
   return 0;
 }
 
+void get_graph(Graph & g, char * gfile, int n) { // TODO: not parallel, all processes write all edges
+  std::ifstream in(gfile);
+  std::string line;
+  while (std::getline(in, line)) {
+    std::istringstream iss(line);
+    int a, b, c;
+    if (!(iss >> a >> b >> c)) { break; } // error
+    boost::add_edge(boost::vertex(a, g), boost::vertex(b, g), { c }, g);
+  }
+
+  // // print graph
+  // WeightMap weight_map = get(edge_weight, g);
+  // typename graph_traits < Graph >::edge_iterator ei, ei_end;
+  // boost::tie(ei, ei_end) = edges(g);
+  // while (ei != ei_end) {
+  //   vertex_descriptor u = source(*ei, g);
+  //   vertex_descriptor v = target(*ei, g);
+  //   std::cout << "(" << g.distribution().global(owner(u), local(u))
+  //             << ", " << g.distribution().global(owner(v), local(v))
+  //             << ", " << get(weight_map, *ei)
+  //             << ")\n";
+  //   ++ei;
+  // }
+}
+
+template<typename Graph, typename WeightMap, typename InputIterator>
 int
-test_distributed_dense_boruvka(const char* filename, boost::mpi::communicator &world)
+total_weight(const Graph& g, WeightMap weight_map, 
+             InputIterator first, InputIterator last)
 {
-  // Open the METIS input file
-  std::ifstream in(filename);
-  graph::metis_reader reader(in);
+  typedef typename graph_traits<Graph>::vertex_descriptor vertex_descriptor;
 
-  // Load the graph using the default distribution
-  Graph g(reader.begin(), reader.end(), reader.weight_begin(),
-          reader.num_vertices());
+  int total_weight = 0;
+  while (first != last) {
+    total_weight += get(weight_map, *first);
+    // print mst
+    // if (process_id(g.process_group()) == 0) {
+    //   vertex_descriptor u = source(*first, g);
+    //   vertex_descriptor v = target(*first, g);
+    //   std::cout << "(" << g.distribution().global(owner(u), local(u))
+    //             << ", " << g.distribution().global(owner(v), local(v))
+    //             << ")\n";
+    // }
+    ++first;
+  }
 
+  return total_weight;
+}
+
+int
+test_distributed_dense_boruvka(Graph & g, boost::mpi::communicator &world)
+{
   if (process_id(g.process_group()) == 0)
     std::cerr << "--BOOST--\n";
   typedef property_map<Graph, edge_weight_t>::type WeightMap;
@@ -132,11 +150,19 @@ int test_main(int argc, char** argv)
   int const in_num = argc;
   char** input_str = argv;
   char *gfile = NULL;
+  int n = 0;
 
   if (getCmdOption(input_str, input_str+in_num, "-f")){
     gfile = getCmdOption(input_str, input_str+in_num, "-f");
   } else gfile = NULL;
-  int mst_weight = test_distributed_dense_boruvka(gfile, world);
+  if (getCmdOption(input_str, input_str+in_num, "-n")){
+    n = atoi(getCmdOption(input_str, input_str+in_num, "-n"));
+  } else n = 0;
+
+  Graph g(n);
+  get_graph(g, gfile, n);
+
+  int mst_weight = test_distributed_dense_boruvka(g, world);
   if (world.rank() == 0)
     printf("boost mst weight: %d", mst_weight);
 

@@ -89,6 +89,7 @@ int main(int argc, char** argv)
   int star;
   int convgf;
   double sp;
+  char *write = NULL;
 
   int k;
   MPI_Init(&argc, &argv);
@@ -161,12 +162,17 @@ int main(int argc, char** argv)
       convgf = atoll(getCmdOption(input_str, input_str+in_num, "-convgf"));
       if (convgf < 0) convgf = 0;
     } else convgf = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-wf")){
+      write = getCmdOption(input_str, input_str+in_num, "-wf");
+    } else write = NULL;
 
     if (gfile != NULL){
       int64_t n_nnz = 0;
       if (w.rank == 0)
       printf("Reading real graph n = %lld\n", n);
       Matrix<wht> A = read_matrix(w, n, gfile, prep, &n_nnz);
+      if (write)
+        A.write_sparse_to_file(write, true);
       int64_t matSize = A.nrow; 
 #ifdef CRITTER
       critter::start(critter_mode);
@@ -179,6 +185,8 @@ int main(int argc, char** argv)
     else if (k != -1) {
       int64_t matSize = pow(3, k);
       auto B = generate_kronecker(&w, k);
+      if (write)
+        B->write_sparse_to_file(write, true);
 
       if (w.rank == 0) {
         printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
@@ -192,6 +200,8 @@ int main(int argc, char** argv)
       if (w.rank == 0)
         printf("R-MAT scale = %d ef = %d seed = %lu\n", scale, ef, myseed);
       Matrix<wht> A = gen_rmat_matrix(w, scale, ef, myseed, prep, &n_nnz, max_ewht);
+      if (write)
+        A.write_sparse_to_file(write, true);
       int64_t matSize = A.nrow; 
       run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
     }
@@ -200,7 +210,8 @@ int main(int argc, char** argv)
       if (w.rank == 0)
         printf("uniform matrix n: %lld sparsity: %lf\n", n, sp);
       Matrix<wht> A = gen_uniform_matrix(w, n, prep, &n_nnz, sp, max_ewht);
-      A.print();
+      if (write)
+        A.write_sparse_to_file(write, true);
       int64_t matSize = A.nrow; 
       run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
     }
