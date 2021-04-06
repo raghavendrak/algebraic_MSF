@@ -174,16 +174,13 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     int global_roots[global_roots_num];
     roots(rec_gf_npairs, loc_roots_num, rec_p_loc_pairs, global_roots, world);
     
-    int64_t * nontriv_loc_indices;
     int64_t loc_nontriv_num;
-    create_nontriv_loc_indices(nontriv_loc_indices, &loc_nontriv_num, global_roots_num, global_roots, q_npairs, q_loc_pairs, world);
+    Pair<int> * nontriv_loc_pairs = new Pair<int>[q_npairs];
+    create_nontriv_loc_pairs(nontriv_loc_pairs, &loc_nontriv_num, global_roots_num, global_roots, q_npairs, q_loc_pairs);
 
-    Pair<int> * nontriv_loc_pairs = new Pair<int>[loc_nontriv_num];
     Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
     for (int64_t i = 0; i < loc_nontriv_num; i++) {
-      int64_t nontriv_index = nontriv_loc_indices[i];
-      nontriv_loc_pairs[i] = q_loc_pairs[nontriv_index];
-      remote_pairs[i].k = q_loc_pairs[nontriv_index].d;
+      remote_pairs[i].k = nontriv_loc_pairs[i].d;
     }
   
     TAU_FSTART(Optimized_shortcut_read);
@@ -196,10 +193,10 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
       nontriv_loc_pairs[i].d = remote_pairs[i].d;
     }
     
-    for (int64_t i = 0; i < loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
-      int64_t nontriv_index = nontriv_loc_indices[i];
-      q_loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
-    }
+    // for (int64_t i = 0; i < loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
+    //   int64_t nontriv_index = nontriv_loc_indices[i];
+    //   q_loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
+    // }
  
     TAU_FSTART(Optimized_shortcut_write); 
     //Timer t_osw("Optimized_shortcut2_write");
@@ -210,7 +207,6 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     
     delete [] remote_pairs;
     delete [] nontriv_loc_pairs;
-    delete [] nontriv_loc_indices;
   } else { // original shortcut
     Pair<int> * remote_pairs = new Pair<int>[q_npairs];
     for (int64_t i=0; i<q_npairs; i++) {
@@ -235,23 +231,23 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     delete [] remote_pairs;
   }
   
-  //prune out leaves
-  if (create_nonleaves) {
-    TAU_FSTART(Unoptimized_shortcut_Opruneleaves);
-    //Timer t_usoo("Unoptimized_shortcut_Opruneleaves");
-    //t_usoo.start();
-    *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
-    for (int64_t i=0; i<q_npairs; i++){
-      q_loc_pairs[i].k = q_loc_pairs[i].d;
-      q_loc_pairs[i].d = 1;
-    }
-    //FIXME: here and above potential optimization is to avoid duplicate queries to parent
-    (*nonleaves)->write(q_npairs, q_loc_pairs);
-    (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
-    (*nonleaves)->sparsify();
-    TAU_FSTOP(Unoptimized_shortcut_Opruneleaves);
-    //t_usoo.stop();
-  }
+  // //prune out leaves
+  // if (create_nonleaves) {
+  //   TAU_FSTART(Unoptimized_shortcut_Opruneleaves);
+  //   //Timer t_usoo("Unoptimized_shortcut_Opruneleaves");
+  //   //t_usoo.start();
+  //   *nonleaves = new Vector<int>(p.len, *p.wrld, *p.sr); //set nonleaves[i] = max_j p[j], i.e. set nonleaves[i] = 1 if i has child, i.e. is nonleaf
+  //   for (int64_t i=0; i<q_npairs; i++){
+  //     q_loc_pairs[i].k = q_loc_pairs[i].d;
+  //     q_loc_pairs[i].d = 1;
+  //   }
+  //   //FIXME: here and above potential optimization is to avoid duplicate queries to parent
+  //   (*nonleaves)->write(q_npairs, q_loc_pairs);
+  //   (*nonleaves)->operator[]("i") = (*nonleaves)->operator[]("i")*p["i"];
+  //   (*nonleaves)->sparsify();
+  //   TAU_FSTOP(Unoptimized_shortcut_Opruneleaves);
+  //   //t_usoo.stop();
+  // }
   TAU_FSTOP(Optimized_shortcut);
   //t_os2.stop();
 
@@ -300,36 +296,49 @@ void roots(int64_t npairs, int64_t loc_roots_num, Pair<int> * loc_pairs, int * g
   MPI_Allgatherv(loc_roots, loc_roots_num, MPI_INT, global_roots, global_roots_nums, displs_roots, MPI_INT, world->comm); // [., ., ., ., ., ., ., ., ., ., .]?
 }
 
-void create_nontriv_loc_indices(int64_t *& nontriv_loc_indices, int64_t * loc_nontriv_num, int64_t global_roots_num, int * global_roots, int64_t q_npairs, Pair<int> * q_loc_pairs, World * world) {
-  std::sort(global_roots, global_roots + global_roots_num);
+// a vertex is non-trivial if it is of height at least 2
+void create_nontriv_loc_pairs(Pair<int> *& nontriv_loc_pairs, int64_t * loc_nontriv_num, int64_t global_roots_num, int * global_roots, int64_t q_npairs, Pair<int> * q_loc_pairs) {
+  // // implementation with sort then single pass through q_loc_pairs and global_roots
+  // // FIXME: bug if q_loc_pairs[i].d are not unique
+  // std::sort(global_roots, global_roots + global_roots_num);
+  // std::sort(q_loc_pairs, q_loc_pairs + q_npairs, 
+  //               [](Pair<int> const & first, Pair<int> const & second) -> bool { return first.d < second.d; });
+  // int64_t i = 0;
+  // int64_t j = 0;
+  // int64_t k = 0;
+  // for (; i < q_npairs; ++i) {
+  //   if (q_loc_pairs[i].d < global_roots[k]) {
+  //     nontriv_loc_pairs[j] = q_loc_pairs[i];
+  //     ++j;
+  //   }
+  //   while (q_loc_pairs[i].d > global_roots[k] && k < global_roots_num) { ++k; }
+  //   if (k >= global_roots_num) {
+  //     break;
+  //   } else {
+  //     nontriv_loc_pairs[j] = q_loc_pairs[i];
+  //     ++j;
+  //   }
+  // }
+  // for (; i < q_npairs; ++i) {
+  //   nontriv_loc_pairs[j] = q_loc_pairs[i];
+  //   ++j;
+  // }
 
-  nontriv_loc_indices = new int64_t[q_npairs]; // wastes a bit of memory
-  int64_t nontriv_index = 0;
-  int64_t q_index = 0;
-  bool end_roots = false;
-  for (int64_t root_index = 0; root_index < global_roots_num && q_index < q_npairs; q_index++) { // construct nontrivial local indices O((n+m)log(n+m))
-    if (q_loc_pairs[q_index].d < global_roots[root_index]) { // if a node's parent is not a root
-      nontriv_loc_indices[nontriv_index] = q_index;
-      nontriv_index++;
+  // *loc_nontriv_num = j;
+
+  std::set<int64_t> s;
+  for (int64_t i = 0; i < global_roots_num; ++i) {
+    s.insert(global_roots[i]);
+  }
+  int64_t j = 0;
+  for (int64_t i = 0; i < q_npairs; ++i) {
+    if (s.find(q_loc_pairs[i].d) == s.end()) {
+      nontriv_loc_pairs[j] = q_loc_pairs[i];
+      ++j;
     }
-    while (q_loc_pairs[q_index].d > global_roots[root_index]) {
-      root_index++;
-      if (root_index >= global_roots_num) { end_roots = true; break; }
-       
-      if (q_loc_pairs[q_index].d < global_roots[root_index]) { // if this node's parent is greater than previous root but less than current root
-        nontriv_loc_indices[nontriv_index] = q_index;
-        nontriv_index++;
-      }
-    }
-    if (end_roots) { break; }
   }
 
-  for (; q_index < q_npairs; q_index++) { // add nodes with parent greater than max root
-    nontriv_loc_indices[nontriv_index] = q_index;
-    nontriv_index++;
-  }
-
-  *loc_nontriv_num = nontriv_index;
+  *loc_nontriv_num = j;
 }
 
 // p[i] = rec_p[q[i]]
