@@ -96,7 +96,7 @@ total_weight(const Graph& g, WeightMap weight_map,
   int total_weight = 0;
   while (first != last) {
     total_weight += get(weight_map, *first);
-    // print mst
+    // // print mst
     // if (process_id(g.process_group()) == 0) {
     //   vertex_descriptor u = source(*first, g);
     //   vertex_descriptor v = target(*first, g);
@@ -149,22 +149,45 @@ int test_main(int argc, char** argv)
 
   int const in_num = argc;
   char** input_str = argv;
-  char *gfile = NULL;
+  char *metis_file = NULL;
+  char *ctf_file = NULL;
   int n = 0;
+  int mode = 0;
 
-  if (getCmdOption(input_str, input_str+in_num, "-f")){
-    gfile = getCmdOption(input_str, input_str+in_num, "-f");
-  } else gfile = NULL;
+  if (getCmdOption(input_str, input_str+in_num, "-metis")){
+    metis_file = getCmdOption(input_str, input_str+in_num, "-metis");
+  } else metis_file = NULL;
+  if (getCmdOption(input_str, input_str+in_num, "-ctf")){
+    ctf_file = getCmdOption(input_str, input_str+in_num, "-ctf");
+  } else ctf_file = NULL;
   if (getCmdOption(input_str, input_str+in_num, "-n")){
     n = atoi(getCmdOption(input_str, input_str+in_num, "-n"));
   } else n = 0;
 
-  Graph g(n);
-  get_graph(g, gfile, n);
-
-  int mst_weight = test_distributed_dense_boruvka(g, world);
-  if (world.rank() == 0)
-    printf("boost mst weight: %d", mst_weight);
+  if (ctf_file) {
+    assert(!metis_file);
+    assert(n > 0);
+    Graph g(n);
+    get_graph(g, ctf_file, n);
+    if (world.rank() == 0)
+      printf("reading graph is done\n");
+    int mst_weight = test_distributed_dense_boruvka(g, world);
+    if (world.rank() == 0)
+      printf("boost mst weight: %d", mst_weight);
+  } else {
+    assert(metis_file);
+    // Open the METIS input file
+    std::ifstream in(metis_file);
+    graph::metis_reader reader(in);
+    // Load the graph using the default distribution
+    Graph g(reader.begin(), reader.end(), reader.weight_begin(),
+        reader.num_vertices());
+    if (world.rank() == 0)
+      printf("reading graph is done\n");
+    int mst_weight = test_distributed_dense_boruvka(g, world);
+    if (world.rank() == 0)
+      printf("boost mst weight: %d", mst_weight);
+  }
 
   return 0;
 }
