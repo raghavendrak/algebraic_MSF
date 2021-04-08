@@ -111,7 +111,7 @@ total_weight(const Graph& g, WeightMap weight_map,
 }
 
 int
-test_distributed_dense_boruvka(Graph & g, boost::mpi::communicator &world)
+test_mst(Graph & g, boost::mpi::communicator &world, int mode)
 {
   if (process_id(g.process_group()) == 0)
     std::cerr << "--BOOST--\n";
@@ -121,7 +121,7 @@ test_distributed_dense_boruvka(Graph & g, boost::mpi::communicator &world)
   std::vector<edge_descriptor> mst_edges;
   MPI_Barrier(world);
   auto start = std::chrono::high_resolution_clock::now();
-  switch (2) {
+  switch (mode) {
     case 0  : dense_boruvka_minimum_spanning_tree(make_vertex_list_adaptor(g), 
                                                   weight_map, 
                                                   std::back_inserter(mst_edges)); break;
@@ -131,7 +131,7 @@ test_distributed_dense_boruvka(Graph & g, boost::mpi::communicator &world)
     case 2  : boruvka_then_merge(make_vertex_list_adaptor(g), 
                                  weight_map, 
                                  std::back_inserter(mst_edges)); break;
-    default : boruvka_mixed_merge(make_vertex_list_adaptor(g), 
+    case 3 :  boruvka_mixed_merge(make_vertex_list_adaptor(g), 
                                   weight_map, 
                                   std::back_inserter(mst_edges)); break;
   }
@@ -163,7 +163,11 @@ int test_main(int argc, char** argv)
   if (getCmdOption(input_str, input_str+in_num, "-n")){
     n = atoi(getCmdOption(input_str, input_str+in_num, "-n"));
   } else n = 0;
+  if (getCmdOption(input_str, input_str+in_num, "-mode")){
+    mode = atoi(getCmdOption(input_str, input_str+in_num, "-mode"));
+  } else mode = 0;
 
+  assert(0 <= mode && mode <= 3);
   if (ctf_file) {
     assert(!metis_file);
     assert(n > 0);
@@ -171,7 +175,7 @@ int test_main(int argc, char** argv)
     get_graph(g, ctf_file, n);
     if (world.rank() == 0)
       printf("reading graph is done\n");
-    int mst_weight = test_distributed_dense_boruvka(g, world);
+    int mst_weight = test_mst(g, world, mode);
     if (world.rank() == 0)
       printf("boost mst weight: %d", mst_weight);
   } else {
@@ -184,7 +188,7 @@ int test_main(int argc, char** argv)
         reader.num_vertices());
     if (world.rank() == 0)
       printf("reading graph is done\n");
-    int mst_weight = test_distributed_dense_boruvka(g, world);
+    int mst_weight = test_mst(g, world, mode);
     if (world.rank() == 0)
       printf("boost mst weight: %d", mst_weight);
   }
