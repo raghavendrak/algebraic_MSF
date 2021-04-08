@@ -68,7 +68,7 @@ void get_graph(Graph & g, char * gfile, int n) { // TODO: not parallel, all proc
     std::istringstream iss(line);
     int a, b, c;
     if (!(iss >> a >> b >> c)) { break; } // error
-    boost::add_edge(boost::vertex(a, g), boost::vertex(b, g), { c }, g);
+    boost::add_edge(boost::vertex(a-1, g), boost::vertex(b-1, g), { c }, g);
   }
 
   // // print graph
@@ -78,8 +78,8 @@ void get_graph(Graph & g, char * gfile, int n) { // TODO: not parallel, all proc
   // while (ei != ei_end) {
   //   vertex_descriptor u = source(*ei, g);
   //   vertex_descriptor v = target(*ei, g);
-  //   std::cout << "(" << g.distribution().global(owner(u), local(u))
-  //             << ", " << g.distribution().global(owner(v), local(v))
+  //   std::cout << "(" << g.distribution().global(owner(u), local(u)) + 1
+  //             << ", " << g.distribution().global(owner(v), local(v)) + 1
   //             << ", " << get(weight_map, *ei)
   //             << ")\n";
   //   ++ei;
