@@ -23,6 +23,10 @@ namespace CTF {
   }
 }
 
+// implementation of Algorithm 2 without any optimizations
+Vector<Edge>* as_hook(Matrix<Edge> *   A, 
+                      World*          world);
+
 Vector<Edge>* multilinear_hook(Matrix<wht> *      A, 
                                   World*          world, 
                                   int64_t         sc2, 

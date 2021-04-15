@@ -2,8 +2,23 @@
 #include "mst.h"
 #include <ctime>
 
+Matrix<Edge> * wht_to_edge(Matrix<wht> * A) {
+  int n = A->nrow;
+  const static Monoid<Edge> MIN_EDGE = get_minedge_monoid();
+  Matrix<Edge> * B = new Matrix<Edge>(n, n, A->symm|(A->is_sparse*SP), *(A->wrld), MIN_EDGE);
+  int64_t nprs;
+  Pair<wht> * prs;
+  A->get_local_pairs(&nprs, &prs, true);
+  Pair<Edge> B_prs[nprs];
+  for (int64_t i = 0; i < nprs; ++i) {
+    B_prs[i].k = prs[i].k;
+    B_prs[i].d = Edge(prs[i].d, prs[i].k % n);
+  }
+  B->write(nprs, B_prs);
+  return B;
+}
 
-void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, int run_serial, int run_multilinear, int64_t sc3, int64_t ptap, int64_t star, int64_t convgf)
+void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, int run_serial, int run_as, int run_multilinear, int64_t sc3, int64_t ptap, int64_t star, int64_t convgf)
 {
   TAU_FSTART(run_mst);
   MPI_Datatype mpi_pkv;
@@ -21,6 +36,28 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
   double stime;
   double etime;
   matSize = A->nrow; // Quick fix to avoid change in i/p matrix size after preprocessing
+  if (run_as) {
+    Matrix<Edge> * B = wht_to_edge(A);
+    TAU_FSTART(as_hook);
+    //Timer_epoch tmh("multilinear_hook");
+    //tmh.begin();
+    stime = MPI_Wtime();
+    Vector<Edge> * as_mst = as_hook(B, w);
+    etime = MPI_Wtime();
+    TAU_FSTOP(as_hook);
+    delete B;
+    //tmh.end();
+    if (w->rank == 0) {
+      printf("as mst done in %1.2lf\n", (etime - stime));
+    }
+
+    Scalar<wht> s(*w);
+    s[""] = sum_weights((*as_mst)["i"]);
+    int64_t sweight = s.get_val();
+    if (w->rank == 0)
+    	printf("weight of Awerbuch-Shiloach mst: %ld\n", sweight);
+    delete as_mst;
+  }
   if (run_multilinear) {
     TAU_FSTART(multilinear_hook);
     //Timer_epoch tmh("multilinear_hook");
@@ -84,6 +121,7 @@ int main(int argc, char** argv)
   int64_t sc2;
   int64_t sc3;
   int run_serial;
+  int run_as;
   int critter_mode=0;
   int ptap;
   int star;
@@ -142,6 +180,10 @@ int main(int argc, char** argv)
       run_serial = atoi(getCmdOption(input_str, input_str+in_num, "-serial"));
       if (run_serial < 0) run_serial = 0;
     } else run_serial = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-as")){
+      run_as = atoi(getCmdOption(input_str, input_str+in_num, "-as"));
+      if (run_as < 0) run_as = 0;
+    } else run_as = 0;
     if (getCmdOption(input_str, input_str+in_num, "-shortcut3")){
       sc3 = atoll(getCmdOption(input_str, input_str+in_num, "-shortcut3"));
       if (sc3 < 0) sc3 = 0;
@@ -177,7 +219,7 @@ int main(int argc, char** argv)
 #ifdef CRITTER
       critter::start(critter_mode);
 #endif
-      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, run_as, 1, sc3, ptap, star, convgf);
 #ifdef CRITTER
       critter::stop(critter_mode);
 #endif
@@ -191,7 +233,7 @@ int main(int argc, char** argv)
       if (w.rank == 0) {
         printf("Running connectivity on Kronecker graph K: %d matSize: %ld\n", k, matSize);
       }
-      run_mst(B, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
+      run_mst(B, matSize, &w, batch, sc2, run_serial, run_as, 1, sc3, ptap, star, convgf);
       delete B;
     }
     else if (scale > 0 && ef > 0){
@@ -203,7 +245,7 @@ int main(int argc, char** argv)
       if (write)
         A.write_sparse_to_file(write, true);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, run_as, 1, sc3, ptap, star, convgf);
     }
     else if (sp != 0.) {
       int64_t n_nnz = 0;
@@ -213,7 +255,7 @@ int main(int argc, char** argv)
       if (write)
         A.write_sparse_to_file(write, true);
       int64_t matSize = A.nrow; 
-      run_mst(&A, matSize, &w, batch, sc2, run_serial, 1, sc3, ptap, star, convgf);
+      run_mst(&A, matSize, &w, batch, sc2, run_serial, run_as, 1, sc3, ptap, star, convgf);
     }
     else {
       if (w.rank == 0) {

@@ -107,6 +107,78 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
 }
 template void project<Edge>(Vector<Edge> & r, Vector<int> & p, Vector<Edge> & q);
 
+Vector<Edge>* as_hook(Matrix<Edge> *   A, 
+                      World*          world) {
+  int64_t n = A->nrow;
+
+  auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
+  init_pvector(p);
+
+  auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
+
+  const static Monoid<Edge> MIN_EDGE = get_minedge_monoid();
+  auto mst = new Vector<Edge>(n, *world, MIN_EDGE);
+
+  int niter = 0;
+  while (are_vectors_different(*p, *p_prev)) {
+    ++niter;
+    (*p_prev)["i"] = (*p)["i"];
+
+    // q_i = MINWEIGHT {f(a_{ij},p_j) : i belongs to a star}
+    TAU_FSTART(Compute q);
+    auto q = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
+    Bivar_Function<Edge, int, Edge> fmv([](Edge e, int p) {
+      return e.parent != p ? Edge(e.weight, p) : Edge();
+    });
+    fmv.intersect_only = true;
+    (*q)["i"] = fmv((*A)["ij"], (*p)["j"]);
+    Vector<int> * star_mask = star_check(p);
+    Transform<int, Edge>([](int s, Edge & e){ if (!s) e = Edge(); })((*star_mask)["i"], (*q)["i"]); // output filter for vertices belonging to a star
+    delete star_mask;
+    TAU_FSTOP(Compute q);
+
+    // r[p[j]] = q[j] over MINWEIGHT
+    TAU_FSTART(Project);
+    //Timer t_p("Project");
+    //t_p.start();
+    auto r = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
+    project(*r, *p, *q);
+    TAU_FSTOP(Project);
+    //t_p.stop();
+
+    // hook only onto larger stars and update p
+    TAU_FSTART(Update p);
+    //Timer t_up("Update p");
+    //t_up.start();
+    (*p)["i"] += Function<Edge, int>([](Edge e){ return e.parent; })((*r)["i"]);
+    TAU_FSTOP(Update p);
+    //t_up.stop();
+
+    // hook only onto larger stars and update mst
+    TAU_FSTART(Update mst);
+    //Timer t_mst("Update mst");
+    //t_mst.start();
+    (*mst)["i"] += Bivar_Function<Edge, int, Edge>([](Edge e, int a){ return e.parent >= a ? e : Edge(); })((*r)["i"], (*p)["i"]);
+    TAU_FSTOP(Update mst);
+    //t_mst.stop();
+ 
+    delete r;
+    delete q;
+
+    shortcut2(*p, *p, *p, 0, world, NULL, false);
+
+    // update edges parent in A
+    TAU_FSTART(Update A);
+    Transform<int, Edge>([](int p, Edge & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
+    TAU_FSTOP(Update A);
+  }
+  if (world->rank == 0) printf("number of iterations: %d\n", niter);
+
+  delete p;
+  delete p_prev;
+  return mst;
+}
+
 Vector<Edge>* multilinear_hook(Matrix<wht> *      A, 
                                   World*          world, 
                                   int64_t         sc2, 
