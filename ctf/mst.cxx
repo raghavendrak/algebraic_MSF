@@ -59,7 +59,6 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
 
   // Build a map for p[j] to avoid duplicate updates to r[p[j]]
   std::map<int, T> m_pq;
-//#pragma omp parallel for
   for (int64_t i = 0; i < q_npairs; i++) {
     typename std::map<int, T>::iterator it;
     it = m_pq.find(p_read_pairs[i].d);
@@ -71,8 +70,9 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
       }
     }
     else {
-//#pragma omp critical
-      m_pq.insert({p_read_pairs[i].d, q_loc_pairs[i].d});
+      if (q_loc_pairs[i].d.weight != MAX_WHT) {
+        m_pq.insert({p_read_pairs[i].d, q_loc_pairs[i].d});
+      }
     }
   }
 
@@ -92,10 +92,26 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
     r_loc_pairs[ir].k = pq.first;
     r_loc_pairs[ir++].d = pq.second;
   }
-  TAU_FSTART(Write_r_in_project);
   //Timer t_wr("Write_r_in_project");
   //t_wr.start();
+#ifdef TIME_ITERATION
+  double stime;
+  double etime;
+  MPI_Barrier(MPI_COMM_WORLD);
+  stime = MPI_Wtime();
+#endif
+  
+  TAU_FSTART(Write_r_in_project);
   r.write(ir, r_loc_pairs);
+
+#ifdef TIME_ITERATION
+  MPI_Barrier(MPI_COMM_WORLD);
+  etime = MPI_Wtime();
+  if (q.wrld->rank == 0) {
+    printf("r.write in %1.2lf  ", (etime - stime));
+  }
+#endif
+            
   //t_wr.stop();
   TAU_FSTOP(Write_r_in_project);
  
@@ -218,7 +234,17 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
   }
 
   int niter = 0;
+#ifdef TIME_ITERATION
+  double stime;
+  double etime;
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
   while (convgf ? are_vectors_different(*gf, *gf_prev) : are_vectors_different(*p, *p_prev)) { // for most real world graphs, gf converges one iteration before p (see FastSV)
+
+#ifdef TIME_ITERATION
+    stime = MPI_Wtime();
+#endif
+
     ++niter;
     if (convgf) {
       (*gf_prev)["i"] = (*gf)["i"];
@@ -240,21 +266,49 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       vec_list[1] = p_star;
       delete star_mask;
     }
+#ifdef TIME_ITERATION
+    double stimea;
+    double etimea;
+    MPI_Barrier(MPI_COMM_WORLD);
+    stimea = MPI_Wtime();
+#endif
     TAU_FSTART(Update A);
     //Timer t_ua("Update A");
     //t_ua.start();
     Multilinear<int, Edge>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
+
+#ifdef TIME_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimea = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("multilinear in %1.2lf  ", (etimea - stimea));
+    }
+#endif
+
     if (star) delete p_star;
     TAU_FSTOP(Update A);
     //t_ua.stop();
     //q->sparsify(); // optional optimization: q grows sparse as nodes have no more edges to new components
-
+#ifdef TIME_ITERATION
+    double stimep;
+    double etimep;
+    MPI_Barrier(MPI_COMM_WORLD);
+    stimep = MPI_Wtime();
+#endif
     // r[p[j]] = q[j] over MINWEIGHT
     TAU_FSTART(Project);
     //Timer t_p("Project");
     //t_p.start();
     auto r = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
     project(*r, *p, *q);
+
+#ifdef TIME_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimep = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("project in %1.2lf  ", (etimep - stimep));
+    }
+#endif
     TAU_FSTOP(Project);
     //t_p.stop();
 
@@ -279,6 +333,12 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
     // 256kB: 32768
     bool is_shortcutted = false;
+#ifdef TIME_ITERATION
+    double stimes;
+    double etimes;
+    MPI_Barrier(MPI_COMM_WORLD);
+    stimes = MPI_Wtime();
+#endif
     if (sc3 > 0) {
       TAU_FSTART(sc3 aggressive shortcut);
       //Timer t_sc3("sc3_aggressive_shortcut");
@@ -333,6 +393,18 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     if (convgf) {
       shortcut2(*gf, *p, *p, sc2, world, NULL, false); // gf = p[p[i]]
     }
+
+#ifdef TIME_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimes = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("shortcut in %1.2lf  ", (etimes - stimes));
+    }
+    etime = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("iteration %d in %1.2lf\n", niter, (etime - stime));
+    }
+#endif
   }
   if (world->rank == 0) printf("number of iterations: %d\n", niter);
 
