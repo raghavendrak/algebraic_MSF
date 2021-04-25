@@ -464,7 +464,6 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
       }
     }
 #ifdef TIME_ST_ITERATION
-    MPI_Barrier(MPI_COMM_WORLD);
     etimest = MPI_Wtime();
     if (world->rank == 0) {
       printf("\n ------ shortcut3: st iteration in %1.2lf  ", (etimest - stimest));
