@@ -477,7 +477,7 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
   MPI_Barrier(MPI_COMM_WORLD);
   etimec = MPI_Wtime();
   if (world->rank == 0) {
-    printf("shortcut3: recursive shortcut3 in %1.2lf  iterations: %ld", (etimec - stimec), num_st_iterations);
+    printf("shortcut3: recursive in %1.2lf iterations: %ld ", (etimec - stimec), num_st_iterations);
   }
 #endif
   TAU_FSTART(Local_shortcut3_write);
@@ -506,6 +506,12 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
 // return B where B[i,j] = A[p[i],p[j]], or if P is P[i,j] = p[i], compute B = P^T A P
 template<typename T>
 Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p){
+#ifdef TIME_ITERATION
+  double stimed;
+  double etimed;
+  MPI_Barrier(MPI_COMM_WORLD);
+  stimed = MPI_Wtime();
+#endif
   TAU_FSTART(CONNECTIVITY_PTAP);
   //Timer t_cp("CONNECTIVITY_PTAP");
   //t_cp.start();
@@ -545,6 +551,13 @@ Matrix<T>* PTAP(Matrix<T>* A, Vector<int>* p){
   Matrix<T> * PTAP = new Matrix<T>(n, n, SP*(A->is_sparse), *A->wrld, *A->sr);
   PTAP->write(nprs, A_prs);
   delete [] A_prs;
+#ifdef TIME_ITERATION
+  MPI_Barrier(MPI_COMM_WORLD);
+  etimed = MPI_Wtime();
+  if (p->wrld->rank == 0) {
+    printf("PTAP in %1.2lf  ", (etimed - stimed));
+  }
+#endif
   TAU_FSTOP(CONNECTIVITY_PTAP);
   //t_cp.stop();
   return PTAP;

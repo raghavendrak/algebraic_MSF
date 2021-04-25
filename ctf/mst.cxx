@@ -333,6 +333,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
     // 256kB: 32768
     bool is_shortcutted = false;
+    int64_t st2 = 0;
 #ifdef TIME_ITERATION
     double stimes;
     double etimes;
@@ -356,6 +357,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       //Timer t_ss("single shortcut2");
       //t_ss.start();
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      st2++;
       is_shortcutted = true;
       //t_ss.stop();
       TAU_FSTART(single shortcut);
@@ -366,10 +368,12 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       //t_sc2.start();
       Vector<int> * pi = new Vector<int>(*p);
       shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      st2++;
       while (are_vectors_different(*pi, *p)){
         delete pi;
         pi = new Vector<int>(*p);
         shortcut2(*p, *p, *p, sc2, world, NULL, false);
+        st2++;
       }
       delete pi;
       is_shortcutted = true;
@@ -392,13 +396,14 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
     if (convgf) {
       shortcut2(*gf, *p, *p, sc2, world, NULL, false); // gf = p[p[i]]
+      st2++;
     }
 
 #ifdef TIME_ITERATION
     MPI_Barrier(MPI_COMM_WORLD);
     etimes = MPI_Wtime();
     if (world->rank == 0) {
-      printf("shortcut in %1.2lf  ", (etimes - stimes));
+      printf("shortcut in %1.2lf  st2: %lld  ", (etimes - stimes), st2);
     }
     etime = MPI_Wtime();
     if (world->rank == 0) {
