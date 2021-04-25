@@ -131,8 +131,20 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
 // if create_nonleaves=true, computing non-leaf vertices in parent forest
 void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc2, World * world, Vector<int> ** nonleaves, bool create_nonleaves)
 {
+#ifdef TIME_ST_ITERATION
+    double stimest;
+    double etimest;
+    stimest = MPI_Wtime();
+#endif
   if (sc2 <= 0) { // run unoptimized shortcut
     shortcut(p, q, rec_p, nonleaves, create_nonleaves);
+#ifdef TIME_ST_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimest = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("\n ------ shortcut1: st iteration in %1.2lf  ", (etimest - stimest));
+    }
+#endif
     return;
   }
 
@@ -248,6 +260,13 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
   //   TAU_FSTOP(Unoptimized_shortcut_Opruneleaves);
   //   //t_usoo.stop();
   // }
+#ifdef TIME_ST_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimest = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("\n ------ shortcut2: st iteration in %1.2lf  ", (etimest - stimest));
+    }
+#endif
   TAU_FSTOP(Optimized_shortcut);
   //t_os2.stop();
 
@@ -348,6 +367,12 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
   TAU_FSTART(Local_shortcut3);
   //Timer t_shortcut("Local_shortcut3");
   //t_shortcut.start();
+#ifdef TIME_ITERATION
+  double stimea;
+  double etimea;
+  MPI_Barrier(MPI_COMM_WORLD);
+  stimea = MPI_Wtime();
+#endif
   std::vector<struct parentkv> loc_cparents;
   // Find out the changed parents (locally)
   Pair<int> * pprs;
@@ -376,20 +401,56 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
   struct parentkv *alldata;
   alldata = new struct parentkv[disps[np-1] + counts[np-1]];
   MPI_Allgatherv(loc_cparents.data(), nelements, mpi_pkv,
-                  alldata, counts, disps, mpi_pkv, MPI_COMM_WORLD);
-  
+      alldata, counts, disps, mpi_pkv, MPI_COMM_WORLD);
+#ifdef TIME_ITERATION
+  MPI_Barrier(MPI_COMM_WORLD);
+  etimea = MPI_Wtime();
+  if (world->rank == 0) {
+    printf("shortcut3: gather changed parents %1.2lf  ", (etimea - stimea));
+  }
+#endif
+
+#ifdef TIME_ITERATION
+  double stimeb;
+  double etimeb;
+  stimeb = MPI_Wtime();
+#endif
   // Build a map of the key value pair
   std::map<int64_t, int64_t> m_alldata;
   for(int i = 0; i < (disps[np-1] + counts[np-1]); i++) {
     m_alldata.insert({alldata[i].key, alldata[i].value});
   }
+#ifdef TIME_ITERATION
+  MPI_Barrier(MPI_COMM_WORLD);
+  etimeb = MPI_Wtime();
+  if (world->rank == 0) {
+    printf("shortcut3: build key, value pair in %1.2lf  ", (etimeb - stimeb));
+  }
+#endif
   delete [] counts;
   delete [] disps;
   delete [] alldata;
- 
+
   // TODO: Make the shortcut3 function generic
   // recursive shortcut until the local parent vector is no longer updated
+#ifdef TIME_ITERATION
+  double stimec;
+  double etimec;
+  stimec = MPI_Wtime();
+  int64_t num_st_iterations = 0;
+#endif
+
   while (1) {
+
+#ifdef TIME_ITERATION
+    num_st_iterations++;
+#endif
+
+#ifdef TIME_ST_ITERATION
+    double stimest;
+    double etimest;
+    stimest = MPI_Wtime();
+#endif
     int64_t nf = 0;
     for (int64_t i = 0; i < npprs; i++) {
       std::map<int64_t, int64_t>::iterator it;
@@ -402,13 +463,40 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
         nf++;
       }
     }
-   if (nf == npprs) break; 
+#ifdef TIME_ST_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimest = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("\n ------ shortcut3: st iteration in %1.2lf  ", (etimest - stimest));
+    }
+#endif
+    if (nf == npprs) break; 
   }
+
+#ifdef TIME_ITERATION
+  MPI_Barrier(MPI_COMM_WORLD);
+  etimec = MPI_Wtime();
+  if (world->rank == 0) {
+    printf("shortcut3: recursive shortcut3 in %1.2lf  iterations: %ld", (etimec - stimec), num_st_iterations);
+  }
+#endif
   TAU_FSTART(Local_shortcut3_write);
   //Timer t_shortcut_write("Local_shortcut3_write");
   // TODO: can optimize here
   //t_shortcut_write.start();
+#ifdef TIME_ITERATION
+  double stimed;
+  double etimed;
+  stimed = MPI_Wtime();
+#endif
   p.write(npprs, pprs);
+#ifdef TIME_ITERATION
+  MPI_Barrier(MPI_COMM_WORLD);
+  etimed = MPI_Wtime();
+  if (world->rank == 0) {
+    printf("shortcut3: p.write in %1.2lf  ", (etimed - stimed));
+  }
+#endif
   //t_shortcut_write.stop();
   TAU_FSTOP(Local_shortcut3_write);
   //t_shortcut.stop();
