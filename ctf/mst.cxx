@@ -58,9 +58,10 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
   //p.read(q_npairs, p_read_pairs); // if q->sparsify() enabled
 
   // Build a map for p[j] to avoid duplicate updates to r[p[j]]
-  std::map<int, T> m_pq;
+  // can sort: nlogn
+  std::unordered_map<int, T> m_pq;
   for (int64_t i = 0; i < q_npairs; i++) {
-    typename std::map<int, T>::iterator it;
+    typename std::unordered_map<int, T>::iterator it;
     it = m_pq.find(p_read_pairs[i].d);
     if (it != m_pq.end()) {
       // update with minimum weight
