@@ -203,7 +203,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
                                   int64_t         ptap,
                                   int64_t         star,
                                   int64_t         convgf) {
-  assert(!(sc2 > 0 && sc3 > 0)); // TODO: cannot run both shortcut2 and shortcut3
+  //assert(!(sc2 > 0 && sc3 > 0)); // TODO: cannot run both shortcut2 and shortcut3
 
   int64_t n = A->nrow;
 
@@ -383,7 +383,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     assert(is_shortcutted);
 
     if (ptap > 0 && first_ptap) {
-      first_ptap = false;
+      // first_ptap = false;
       int64_t npairs;
       Pair<int> * loc_pairs;
       p->get_local_pairs(&npairs, &loc_pairs);
@@ -407,7 +407,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     }
     etime = MPI_Wtime();
     if (world->rank == 0) {
-      printf("iteration %d in %1.2lf\n", niter, (etime - stime));
+      printf("iteration %d in %1.2lf\n\n\n", niter, (etime - stime));
     }
 #endif
   }

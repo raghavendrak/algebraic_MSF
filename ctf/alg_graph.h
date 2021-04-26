@@ -5,6 +5,7 @@
 #include <float.h>
 #include <math.h>
 #include "graph_aux.h"
+#include <unordered_map>
 
 using namespace CTF;
 #define SEED 23

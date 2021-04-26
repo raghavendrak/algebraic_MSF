@@ -395,8 +395,10 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
   int nelements = (int)loc_cparents.size();
   MPI_Allgather(&nelements, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
   int *disps = new int[np];
-  for (int i = 0; i < np; i++)
-    disps[i] = (i > 0) ? (disps[i-1] + counts[i-1]) : 0;
+
+  disps[0] = 0;
+  for (int i = 1; i < np; i++)
+    disps[i] = (disps[i-1] + counts[i-1]);
 
   struct parentkv *alldata;
   alldata = new struct parentkv[disps[np-1] + counts[np-1]];
@@ -416,7 +418,7 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
   stimeb = MPI_Wtime();
 #endif
   // Build a map of the key value pair
-  std::map<int64_t, int64_t> m_alldata;
+  std::unordered_map<int64_t, int64_t> m_alldata;
   for(int i = 0; i < (disps[np-1] + counts[np-1]); i++) {
     m_alldata.insert({alldata[i].key, alldata[i].value});
   }
@@ -451,16 +453,17 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
     double etimest;
     stimest = MPI_Wtime();
 #endif
-    int64_t nf = 0;
+    bool changed = false;
+#ifdef _OPENMP
+      #pragma omp parallel for shared(changed)
+#endif
     for (int64_t i = 0; i < npprs; i++) {
-      std::map<int64_t, int64_t>::iterator it;
+      std::unordered_map<int64_t, int64_t>::iterator it;
       it = m_alldata.find(pprs[i].d);
       if (it != m_alldata.end()) {
         // change the parent (shortcut)
         pprs[i].d = it->second;
-      }
-      else {
-        nf++;
+        changed = true;
       }
     }
 #ifdef TIME_ST_ITERATION
@@ -469,7 +472,7 @@ void shortcut3(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int
       printf("\n ------ shortcut3: st iteration in %1.2lf  ", (etimest - stimest));
     }
 #endif
-    if (nf == npprs) break; 
+    if (changed == false) break; 
   }
 
 #ifdef TIME_ITERATION
