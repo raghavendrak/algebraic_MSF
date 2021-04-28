@@ -346,6 +346,11 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       //Timer t_sc3("sc3_aggressive_shortcut");
       //t_sc3.start();
       int64_t diff = are_vectors_different(*p, *p_prev);
+#ifdef TIME_ST_ITERATION
+      if (world->rank == 0) {
+        printf("diff p p_prev: %lld  ", diff);
+      }
+#endif
       if (diff < sc3) {
         shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
         is_shortcutted = true;

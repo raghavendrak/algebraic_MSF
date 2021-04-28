@@ -86,10 +86,23 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   for (int64_t i=0; i<npairs; i++){
     remote_pairs[i].k = loc_pairs[i].d;
   }
+#ifdef TIME_ST_ITERATION
+    double stimest;
+    double etimest;
+    MPI_Barrier(MPI_COMM_WORLD);
+    stimest = MPI_Wtime();
+#endif
   TAU_FSTART(Unoptimized_shortcut_rread);
   //Timer t_usr("Unoptimized_shortcut_rread");
   //t_usr.start();
   rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
+#ifdef TIME_ST_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimest = MPI_Wtime();
+    if (p.wrld->rank == 0) {
+      printf("\n ------ shortcut1: rec_p.read in %1.2lf  ", (etimest - stimest));
+    }
+#endif
   //t_usr.stop();
   TAU_FSTOP(Unoptimized_shortcut_rread);
   for (int64_t i=0; i<npairs; i++){
@@ -99,7 +112,18 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
   TAU_FSTART(Unoptimized_shortcut_write);
   //Timer t_usw("Unoptimized_shortcut_write");
   //t_usw.start();
+#ifdef TIME_ST_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    stimest = MPI_Wtime();
+#endif
   p.write(npairs, loc_pairs); //enter data into p[i]
+#ifdef TIME_ST_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimest = MPI_Wtime();
+    if (p.wrld->rank == 0) {
+      printf("p.write for npairs %lld in %1.2lf  ", npairs, (etimest - stimest));
+    }
+#endif
   TAU_FSTOP(Unoptimized_shortcut_write);
   //t_usw.stop();
   
@@ -142,7 +166,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     MPI_Barrier(MPI_COMM_WORLD);
     etimest = MPI_Wtime();
     if (world->rank == 0) {
-      printf("\n ------ shortcut1: st iteration in %1.2lf  ", (etimest - stimest));
+      printf("st iteration in %1.2lf  ", (etimest - stimest));
     }
 #endif
     return;
@@ -264,7 +288,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     MPI_Barrier(MPI_COMM_WORLD);
     etimest = MPI_Wtime();
     if (world->rank == 0) {
-      printf("\n ------ shortcut2: st iteration in %1.2lf  ", (etimest - stimest));
+      printf("\n ------ shortcut2: st iteration global_roots_num: %lld in %1.2lf  ", global_roots_num, (etimest - stimest));
     }
 #endif
   TAU_FSTOP(Optimized_shortcut);
