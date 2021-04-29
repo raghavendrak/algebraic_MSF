@@ -139,6 +139,14 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
 #endif
   //t_usr.stop();
   TAU_FSTOP(Unoptimized_shortcut_rread);
+
+  int64_t ir = 0;
+  for (auto& qd : q_data) {
+    if (qd.second != -1) {
+      qd.second = remote_pairs[ir++].d;
+    }
+  }
+
   for (int64_t i = 0; i < npairs; i++){
     // loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
     std::unordered_map<int64_t, int64_t>::iterator it;
