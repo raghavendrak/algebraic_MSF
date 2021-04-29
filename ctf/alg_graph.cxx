@@ -142,7 +142,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
 
   int64_t ir = 0;
   for (auto& qd : q_data) {
-    if (qd.second != -1) {
+    if (qd.second == -1) {
       qd.second = remote_pairs[ir++].d;
     }
   }
@@ -151,7 +151,7 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
     // loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
     std::unordered_map<int64_t, int64_t>::iterator it;
     
-    it = q_data.find(loc_pairs[i].k);
+    it = q_data.find(loc_pairs[i].d);
     if (it != q_data.end()) {
       assert(it->second != -1);
       loc_pairs[i].d = it->second;
