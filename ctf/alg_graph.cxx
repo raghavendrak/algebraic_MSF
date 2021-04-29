@@ -82,47 +82,92 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
     //if we have potentially updated all the vertices
     q.get_local_pairs(&npairs, &loc_pairs);
   }
+
+  // read might be from the local node
+  // duplicate requests - can squash
+  // <q.d, q.k>
+  std::unordered_map<int64_t, int64_t> q_data;
+  for(int i = 0; i < npairs; i++) {
+    std::unordered_map<int64_t, int64_t>::iterator it;
+    
+    // is data available in my local node?
+    it = q_data.find(loc_pairs[i].k);
+    if (it != q_data.end()) {
+      it->second = loc_pairs[i].d;
+    }
+    
+    // has this been queried already?
+    it = q_data.find(loc_pairs[i].d);
+    if (it == q_data.end()) {
+      q_data.insert({loc_pairs[i].d, -1});
+    }
+  }
+
+  /*
   Pair<int> * remote_pairs = new Pair<int>[npairs];
   for (int64_t i=0; i<npairs; i++){
     remote_pairs[i].k = loc_pairs[i].d;
   }
+  */
+  
+  // the size will be lesser than q_data.size()
+  Pair<int> * remote_pairs = new Pair<int>[q_data.size()];
+  int64_t tot_recp_reqs = 0;
+  for (const auto& qd : q_data) {
+    if (qd.second == -1) {
+      remote_pairs[tot_recp_reqs++].k = qd.first;
+    }
+  }
+
 #ifdef TIME_ST_ITERATION
-    double stimest;
-    double etimest;
-    MPI_Barrier(MPI_COMM_WORLD);
-    stimest = MPI_Wtime();
+  double stimest;
+  double etimest;
+  MPI_Barrier(MPI_COMM_WORLD);
+  stimest = MPI_Wtime();
 #endif
   TAU_FSTART(Unoptimized_shortcut_rread);
   //Timer t_usr("Unoptimized_shortcut_rread");
   //t_usr.start();
-  rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
+  //rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
+  rec_p.read(tot_recp_reqs, remote_pairs); //obtains rec_p[q[i]]
 #ifdef TIME_ST_ITERATION
-    MPI_Barrier(MPI_COMM_WORLD);
-    etimest = MPI_Wtime();
-    if (p.wrld->rank == 0) {
-      printf("\n ------ shortcut1: rec_p.read in %1.2lf  ", (etimest - stimest));
-    }
+  MPI_Barrier(MPI_COMM_WORLD);
+  etimest = MPI_Wtime();
+  if (p.wrld->rank == 0) {
+    printf("\n ------ shortcut1: rec_p.read for %lld in %1.2lf  ", npairs, (etimest - stimest));
+  }
 #endif
   //t_usr.stop();
   TAU_FSTOP(Unoptimized_shortcut_rread);
-  for (int64_t i=0; i<npairs; i++){
-    loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
+  for (int64_t i = 0; i < npairs; i++){
+    // loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
+    std::unordered_map<int64_t, int64_t>::iterator it;
+    
+    it = q_data.find(loc_pairs[i].k);
+    if (it != q_data.end()) {
+      assert(it->second != -1);
+      loc_pairs[i].d = it->second;
+    }
+    else {
+      assert(0);
+    }
+
   }
   delete [] remote_pairs;
   TAU_FSTART(Unoptimized_shortcut_write);
   //Timer t_usw("Unoptimized_shortcut_write");
   //t_usw.start();
 #ifdef TIME_ST_ITERATION
-    MPI_Barrier(MPI_COMM_WORLD);
-    stimest = MPI_Wtime();
+  MPI_Barrier(MPI_COMM_WORLD);
+  stimest = MPI_Wtime();
 #endif
   p.write(npairs, loc_pairs); //enter data into p[i]
 #ifdef TIME_ST_ITERATION
-    MPI_Barrier(MPI_COMM_WORLD);
-    etimest = MPI_Wtime();
-    if (p.wrld->rank == 0) {
-      printf("p.write for npairs %lld in %1.2lf  ", npairs, (etimest - stimest));
-    }
+  MPI_Barrier(MPI_COMM_WORLD);
+  etimest = MPI_Wtime();
+  if (p.wrld->rank == 0) {
+    printf("p.write for npairs %lld in %1.2lf  ", npairs, (etimest - stimest));
+  }
 #endif
   TAU_FSTOP(Unoptimized_shortcut_write);
   //t_usw.stop();
