@@ -18,6 +18,13 @@ Matrix<wht> read_matrix(World  &     dw,
                          int64_t *        n_nnz,
                          int64_t      max_ewht=1);
 
+Matrix<wht> read_matrix_snap(World  &     dw,
+                             int64_t      n,
+                             const char * fpath,
+                             bool         remove_singlets,
+                             int64_t *    n_nnz,
+                             int64_t      max_ewht=1);
+
 Matrix<wht> gen_rmat_matrix(World  & dw,
                              int      scale,
                              int      ef,

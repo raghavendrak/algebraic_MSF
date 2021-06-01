@@ -128,6 +128,7 @@ int main(int argc, char** argv)
   int convgf;
   double sp;
   char *write = NULL;
+  int snap_dataset = 0;
 
   int k;
   MPI_Init(&argc, &argv);
@@ -207,12 +208,22 @@ int main(int argc, char** argv)
     if (getCmdOption(input_str, input_str+in_num, "-wf")){
       write = getCmdOption(input_str, input_str+in_num, "-wf");
     } else write = NULL;
+    if (getCmdOption(input_str, input_str+in_num, "-snap")){
+      snap_dataset = atoll(getCmdOption(input_str, input_str+in_num, "-snap"));
+      if (snap_dataset < 0) snap_dataset = 0;
+    } else snap_dataset = 0;
 
     if (gfile != NULL){
       int64_t n_nnz = 0;
       if (w.rank == 0)
       printf("Reading real graph n = %lld\n", n);
-      Matrix<wht> A = read_matrix(w, n, gfile, prep, &n_nnz);
+      Matrix<wht> A;
+      if (snap_dataset) {
+        A = read_matrix_snap(w, n, gfile, prep, &n_nnz);
+      }
+      else {
+        A = read_matrix(w, n, gfile, prep, &n_nnz);
+      }
       if (write)
         A.write_sparse_to_file(write, true);
       int64_t matSize = A.nrow; 

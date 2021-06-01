@@ -57,6 +57,59 @@ Matrix <wht> preprocess_graph(int64_t       n,
 
 }
 
+Matrix <wht> read_matrix_snap(World  &     dw,
+                              int64_t      n,
+                              const char * fpath,
+                              bool         remove_singlets,
+                              int64_t *    n_nnz,
+                              int64_t      max_ewht){
+  uint64_t *my_edges = NULL;
+  uint64_t my_nedges = 0;
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
+  //random adjacency matrix
+  Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
+#ifdef MPIIO
+  if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
+  char **leno;
+  my_nedges = read_graph_mpiio(dw.rank, dw.np, fpath, &my_edges, &leno);
+  processedges(leno, my_nedges, dw.rank, &my_edges);
+  free(leno[0]);
+  free(leno);
+#else
+  if (dw.rank == 0) printf("Running graph reader n = %d... ",n);
+    my_nedges = read_graph(dw.rank, dw.np, fpath, &my_edges);
+#endif
+  if (dw.rank == 0) printf("finished reading (%ld edges).\n", my_nedges);
+  int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
+  wht * vals = (wht*)malloc(sizeof(wht)*my_nedges);
+
+  srand(dw.rank+1);
+  for (int64_t i = 0; i < my_nedges; i++){
+    inds[i] = my_edges[2*i] + my_edges[2*i+1] * n;
+    //vals[i] = (rand()%max_ewht) + 1;
+    vals[i] = 1;
+  }
+  if (dw.rank == 0) printf("filling CTF graph\n");
+  A_pre.write(my_nedges,inds,vals);
+  //A_pre["ij"] += A_pre["ji"];
+  A_pre["ij"] += A_pre["ji"];
+  free(inds);
+  free(vals);
+
+  Matrix<wht> newA =  preprocess_graph(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
+  /*int64_t nprs;
+  newA.read_local_nnz(&nprs,&inds,&vals);
+
+  for (int64_t i=0; i<nprs; i++){
+    printf("%d %d\n",inds[i]/newA.nrow,inds[i]%newA.nrow);
+  }*/
+  return newA;
+}
+
 Matrix <wht> read_matrix(World  &     dw,
                          int64_t      n,
                          const char * fpath,
