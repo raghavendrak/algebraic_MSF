@@ -310,3 +310,43 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pai
   }
   return n_edges;
 }
+
+uint64_t read_matrix_market(int myid, int ntask, const char *fpath, std::vector<std::pair<uint64_t, uint64_t> > &edges, int64_t * n, bool * e_weights, std::vector<wht> &eweights) 
+{  
+  std::string fpaths = std::string(fpath);
+  std::ifstream gfile(fpaths);
+  if (!gfile.is_open()) {
+    printf("I am rank: %d, I was unable to open file: %s\n", myid, fpaths.c_str());
+  }
+  std::string line_s;
+  while (std::getline(gfile, line_s)) {
+    if (line_s[0] != '%') break;
+  }
+  // read values n X m
+  uint64_t nrows, ncols, nweights;
+  std::stringstream line_ss(line_s);
+  line_ss >> nrows >> ncols >> nweights;
+  if (myid == 0) printf("matrix_market has nrows = %llu ncols = %llu\n", nrows, ncols);
+  assert (nrows == ncols);
+  *n = nrows + 1;
+  uint64_t lineNo = 0;
+  uint64_t row_index;
+  uint64_t col_index;
+  wht ew;
+  uint64_t n_edges = 0;
+  *e_weights = true;
+  while (std::getline(gfile, line_s)) {
+    if (lineNo % ntask == myid) {
+      std::stringstream line_ss(line_s);
+      line_ss >> row_index;
+      line_ss >> col_index;
+      line_ss >> ew;
+      edges.push_back(std::make_pair(row_index, col_index));
+      n_edges++;
+      // std::cout << row_index << " " << col_index << " " << ew << std::endl;
+      eweights.push_back(abs(ew));
+    }
+    lineNo++;
+  }
+  return n_edges;
+}

@@ -161,6 +161,57 @@ Matrix <wht> read_matrix(World  &     dw,
   return newA;
 }
 
+Matrix <wht> read_matrix_market(World  &     dw,
+                                int64_t      n,
+                                const char * fpath,
+                                bool         remove_singlets,
+                                int64_t *    n_nnz,
+                                int64_t      max_ewht){
+  uint64_t *my_edges = NULL;
+  uint64_t my_nedges = 0;
+  Semiring<wht> s(MAX_WHT,
+                  [](wht a, wht b){ return std::min(a,b); },
+                  MPI_MIN,
+                  0,
+                  [](wht a, wht b){ return a+b; });
+  if (dw.rank == 0) printf("Running matrix market graph reader n = %d... ",n);
+  bool e_weights;
+  // wht *vals;
+  std::vector<std::pair<uint64_t, uint64_t> > edges;
+  std::vector<wht> eweights;
+  my_nedges = read_matrix_market(dw.rank, dw.np, fpath, edges, &n, &e_weights, eweights);
+  if (dw.rank == 0) printf("finished reading (%ld edges) for rank 0.\n", my_nedges);
+  int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
+
+  srand(dw.rank+1);
+  for (int64_t i = 0; i < my_nedges; ++i){
+    // printf("edge: %lld %lld %d\n", edges[i].first, edges[i].second, eweights[i]);
+    inds[i] = edges[i].first + edges[i].second * n;
+    if (!e_weights) {
+      eweights.push_back(1);
+      //vals[i] = 1;
+      //vals[i] = (rand()%max_ewht) + 1;
+      //vals[i] = (rand()%10000) + 1;
+    }
+  }
+  if (dw.rank == 0) printf("filling CTF graph\n");
+  Matrix<wht> A_pre(n, n, SP, dw, MIN_TIMES_SR, "A_rmat");
+  A_pre.write(my_nedges, inds, eweights.data());
+  A_pre["ij"] += A_pre["ji"];
+  free(inds);
+  // A_pre.print_matrix();
+  // free(vals);
+
+  Matrix<wht> newA =  preprocess_graph(n,dw,A_pre,remove_singlets,n_nnz,max_ewht);
+  //int64_t nprs;
+  //newA.read_local_nnz(&nprs,&inds,&vals);
+
+  //for (int64_t i=0; i<nprs; i++){
+  //  printf("%d %d\n",inds[i]/newA.nrow,inds[i]%newA.nrow);
+  //}
+  return newA;
+}
+
 Matrix <wht> gen_rmat_matrix(World  & dw,
                              int      scale,
                              int      ef,
