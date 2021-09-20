@@ -72,6 +72,7 @@ Matrix <wht> read_matrix_snap(World  &     dw,
                   [](wht a, wht b){ return a+b; });
   //random adjacency matrix
   Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
+i/*
 #ifdef MPIIO
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
   char **leno;
@@ -80,9 +81,10 @@ Matrix <wht> read_matrix_snap(World  &     dw,
   free(leno[0]);
   free(leno);
 #else
+*/
   if (dw.rank == 0) printf("Running graph reader n = %d... ",n);
     my_nedges = read_graph(dw.rank, dw.np, fpath, &my_edges);
-#endif
+//#endif
   if (dw.rank == 0) printf("finished reading (%ld edges).\n", my_nedges);
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
   wht * vals = (wht*)malloc(sizeof(wht)*my_nedges);
