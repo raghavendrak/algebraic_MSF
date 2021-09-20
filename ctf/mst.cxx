@@ -188,11 +188,67 @@ Vector<Edge>* as_hook(Matrix<Edge> *  A,
     delete r;
     delete q;
 
+    // if (sc3 > 0) {
+    //   shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+    // } else {
+    //   shortcut2(*p, *p, *p, 0, world, NULL, false);
+    // }
+    
+    // 256kB: 32768
+    bool is_shortcutted = false;
+    int64_t st2 = 0;
+#ifdef TIME_ITERATION
+    double stimes;
+    double etimes;
+    MPI_Barrier(MPI_COMM_WORLD);
+    stimes = MPI_Wtime();
+#endif
     if (sc3 > 0) {
-      shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
-    } else {
-      shortcut2(*p, *p, *p, 0, world, NULL, false);
+      TAU_FSTART(sc3 aggressive shortcut);
+      //Timer t_sc3("sc3_aggressive_shortcut");
+      //t_sc3.start();
+      int64_t diff = are_vectors_different(*p, *p_prev);
+#ifdef TIME_ST_ITERATION
+      if (world->rank == 0) {
+        printf("diff p p_prev: %lld  ", diff);
+      }
+#endif
+      if (diff < sc3) {
+        shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+        is_shortcutted = true;
+      }
+      TAU_FSTOP(sc3 aggressive shortcut);
+      //t_sc3.stop();
+    } 
+    if (star && !is_shortcutted) { // shortcut once
+      TAU_FSTART(single shortcut);
+      //Timer t_ss("single shortcut2");
+      //t_ss.start();
+      shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      st2++;
+      is_shortcutted = true;
+      //t_ss.stop();
+      TAU_FSTART(single shortcut);
     }
+    if (!is_shortcutted) {
+      TAU_FSTART(sc2 aggressive shortcut);
+      //Timer t_sc2("sc2_aggressive_shortcut");
+      //t_sc2.start();
+      Vector<int> * pi = new Vector<int>(*p);
+      shortcut2(*p, *p, *p, sc2, world, NULL, false);
+      st2++;
+      while (are_vectors_different(*pi, *p)){
+        delete pi;
+        pi = new Vector<int>(*p);
+        shortcut2(*p, *p, *p, sc2, world, NULL, false);
+        st2++;
+      }
+      delete pi;
+      is_shortcutted = true;
+      //t_sc2.stop();
+      TAU_FSTOP(sc2 aggressive shortcut);
+    }
+    assert(is_shortcutted);
 
     // update edges parent in A
     TAU_FSTART(Update A);
