@@ -42,7 +42,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
     //Timer_epoch tmh("multilinear_hook");
     //tmh.begin();
     stime = MPI_Wtime();
-    Vector<Edge> * as_mst = as_hook(B, w);
+    Vector<Edge> * as_mst = as_hook(B, w, sc2, mpi_pkv, sc3, star);
     etime = MPI_Wtime();
     TAU_FSTOP(as_hook);
     delete B;

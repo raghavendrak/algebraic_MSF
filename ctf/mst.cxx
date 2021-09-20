@@ -124,8 +124,14 @@ void project(Vector<T> & r, Vector<int> & p, Vector<T> & q)
 }
 template void project<Edge>(Vector<Edge> & r, Vector<int> & p, Vector<Edge> & q);
 
-Vector<Edge>* as_hook(Matrix<Edge> *   A, 
-                      World*          world) {
+Vector<Edge>* as_hook(Matrix<Edge> *  A, 
+                      World*          world,
+                      int64_t         sc2,
+                      MPI_Datatype &  mpi_pkv,
+                      int64_t         sc3,
+                      int64_t         star) {
+  assert(!(sc2 > 0 && sc3 > 0)); // TODO: cannot run both shortcut2 and shortcut3
+
   int64_t n = A->nrow;
 
   auto p = new Vector<int>(n, *world, MAX_TIMES_SR);
@@ -182,7 +188,11 @@ Vector<Edge>* as_hook(Matrix<Edge> *   A,
     delete r;
     delete q;
 
-    shortcut2(*p, *p, *p, 0, world, NULL, false);
+    if (sc3 > 0) {
+      shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
+    } else {
+      shortcut2(*p, *p, *p, 0, world, NULL, false);
+    }
 
     // update edges parent in A
     TAU_FSTART(Update A);
@@ -276,6 +286,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     TAU_FSTART(Update A);
     //Timer t_ua("Update A");
     //t_ua.start();
+    // Multilinear<wht, int, Edge>(A, vec_list, q, f); // in Tim fork of CTF on multilinear branch
     Multilinear<int, Edge>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
 
 #ifdef TIME_ITERATION

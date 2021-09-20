@@ -23,9 +23,13 @@ namespace CTF {
   }
 }
 
-// implementation of Algorithm 2 without any optimizations
-Vector<Edge>* as_hook(Matrix<Edge> *   A, 
-                      World*          world);
+// implementation of Algorithm 2 without multilinear
+Vector<Edge>* as_hook(Matrix<Edge> *  A, 
+                      World*          world,
+                      int64_t         sc2, 
+                      MPI_Datatype &  mpi_pkv, 
+                      int64_t         sc3,
+                      int64_t         star);
 
 Vector<Edge>* multilinear_hook(Matrix<wht> *      A, 
                                   World*          world, 
