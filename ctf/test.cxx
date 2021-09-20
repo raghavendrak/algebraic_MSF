@@ -72,7 +72,7 @@ Matrix <wht> read_matrix_snap(World  &     dw,
                   [](wht a, wht b){ return a+b; });
   //random adjacency matrix
   Matrix<wht> A_pre(n, n, SP, dw, MAX_TIMES_SR, "A_rmat");
-i/*
+/*
 #ifdef MPIIO
   if (dw.rank == 0) printf("Running MPI-IO graph reader n = %d... ",n);
   char **leno;
