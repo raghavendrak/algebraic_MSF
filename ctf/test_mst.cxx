@@ -129,7 +129,7 @@ int main(int argc, char** argv)
   double sp;
   char *write = NULL;
   int snap_dataset = 0;
-  int mm = 0;
+  int mm = 0, mm_w = 0;
 
   int k;
   MPI_Init(&argc, &argv);
@@ -217,6 +217,10 @@ int main(int argc, char** argv)
       mm = atoll(getCmdOption(input_str, input_str+in_num, "-mm"));
       if (mm < 0) mm = 0;
     } else mm = 0;
+    if (getCmdOption(input_str, input_str+in_num, "-mm_w")){
+      mm_w = atoll(getCmdOption(input_str, input_str+in_num, "-mm_w"));
+      if (mm_w < 0) mm_w = 0;
+    } else mm_w = 0;
 
     if (gfile != NULL){
       int64_t n_nnz = 0;
@@ -227,7 +231,7 @@ int main(int argc, char** argv)
         A = read_matrix_snap(w, n, gfile, prep, &n_nnz);
       }
       else if (mm) {
-        A = read_matrix_market(w, n, gfile, prep, &n_nnz);
+        A = read_matrix_market(w, n, gfile, prep, &n_nnz, mm_w);
       }
       else {
         A = read_matrix(w, n, gfile, prep, &n_nnz);

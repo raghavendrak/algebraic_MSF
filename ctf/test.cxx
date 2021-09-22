@@ -93,7 +93,8 @@ Matrix <wht> read_matrix_snap(World  &     dw,
   for (int64_t i = 0; i < my_nedges; i++){
     inds[i] = my_edges[2*i] + my_edges[2*i+1] * n;
     //vals[i] = (rand()%max_ewht) + 1;
-    vals[i] = 1;
+    vals[i] = (rand()%10000) + 1;
+    //vals[i] = 1;
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
   A_pre.write(my_nedges,inds,vals);
@@ -139,7 +140,8 @@ Matrix <wht> read_matrix(World  &     dw,
     // printf("edge: %lld %lld %d\n", edges[i].first, edges[i].second, eweights[i]);
     inds[i] = edges[i].first + edges[i].second * n;
     if (!e_weights) {
-      eweights.push_back(1);
+      //eweights.push_back(1);
+      eweights.push_back(((rand()%10000)+1));
       //vals[i] = 1;
       //vals[i] = (rand()%max_ewht) + 1;
       //vals[i] = (rand()%10000) + 1;
@@ -168,6 +170,7 @@ Matrix <wht> read_matrix_market(World  &     dw,
                                 const char * fpath,
                                 bool         remove_singlets,
                                 int64_t *    n_nnz,
+                                int          is_weight,
                                 int64_t      max_ewht){
   uint64_t *my_edges = NULL;
   uint64_t my_nedges = 0;
@@ -181,7 +184,7 @@ Matrix <wht> read_matrix_market(World  &     dw,
   // wht *vals;
   std::vector<std::pair<uint64_t, uint64_t> > edges;
   std::vector<wht> eweights;
-  my_nedges = read_matrix_market(dw.rank, dw.np, fpath, edges, &n, &e_weights, eweights);
+  my_nedges = read_matrix_market(dw.rank, dw.np, fpath, edges, &n, &e_weights, eweights, is_weight);
   if (dw.rank == 0) printf("finished reading (%ld edges) for rank 0.\n", my_nedges);
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
 
@@ -190,7 +193,8 @@ Matrix <wht> read_matrix_market(World  &     dw,
     // printf("edge: %lld %lld %d\n", edges[i].first, edges[i].second, eweights[i]);
     inds[i] = edges[i].first + edges[i].second * n;
     if (!e_weights) {
-      eweights.push_back(1);
+      //eweights.push_back(1);
+      eweights.push_back(((rand()%10000)+1));
       //vals[i] = 1;
       //vals[i] = (rand()%max_ewht) + 1;
       //vals[i] = (rand()%10000) + 1;

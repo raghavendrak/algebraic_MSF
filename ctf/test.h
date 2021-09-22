@@ -30,6 +30,7 @@ Matrix<wht> read_matrix_market(World  &     dw,
                                const char * fpath,
                                bool         remove_singlets,
                                int64_t *        n_nnz,
+                               int          is_weight,
                                int64_t      max_ewht=1);
 
 Matrix<wht> gen_rmat_matrix(World  & dw,
