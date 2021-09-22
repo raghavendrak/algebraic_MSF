@@ -353,7 +353,7 @@ uint64_t read_matrix_market(int myid, int ntask, const char *fpath, std::vector<
       else if (is_weight == 2) {
         // edge weight is between 0 and 1; example MOLIERE_2016
         line_ss >> ew;
-        wht temp = ew * MAX_WHT;
+        wht temp = ew * (INT_MAX / 2);
         eweights.push_back(abs(temp));
         *e_weights = true;
       }
