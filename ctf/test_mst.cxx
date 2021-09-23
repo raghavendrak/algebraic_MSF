@@ -58,7 +58,7 @@ void run_mst(Matrix<wht>* A, int64_t matSize, World *w, int batch, int64_t sc2, 
     	printf("weight of Awerbuch-Shiloach mst: %ld\n", sweight);
     delete as_mst;
   }
-  if (run_multilinear) {
+  else if (run_multilinear) {
     TAU_FSTART(multilinear_hook);
     //Timer_epoch tmh("multilinear_hook");
     //tmh.begin();
