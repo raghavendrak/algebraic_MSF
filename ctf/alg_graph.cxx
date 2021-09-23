@@ -241,8 +241,8 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     roots(rec_gf_npairs, loc_roots_num, rec_p_loc_pairs, global_roots, world);
     
     int64_t loc_nontriv_num;
-    Pair<int> * nontriv_loc_pairs = new Pair<int>[q_npairs];
-    create_nontriv_loc_pairs(nontriv_loc_pairs, &loc_nontriv_num, global_roots_num, global_roots, q_npairs, rec_p_loc_pairs);
+    Pair<int> * nontriv_loc_pairs = new Pair<int>[rec_gf_npairs];
+    create_nontriv_loc_pairs(nontriv_loc_pairs, &loc_nontriv_num, global_roots_num, global_roots, rec_gf_npairs, rec_p_loc_pairs);
 
     Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
     for (int64_t i = 0; i < loc_nontriv_num; i++) {
@@ -274,7 +274,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
 #endif
     TAU_FSTART(Unoptimized_shortcut);
     std::unordered_map<int64_t, int64_t> q_data;
-    for(int i = 0; i < npairs; i++) {
+    for(int i = 0; i < rec_gf_npairs; i++) {
       std::unordered_map<int64_t, int64_t>::iterator it;
 
       // is data available in my local node?
@@ -323,14 +323,14 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
       }
     }
 
-    for (int64_t i = 0; i < npairs; i++){
+    for (int64_t i = 0; i < rec_gf_npairs; i++){
       // loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
       std::unordered_map<int64_t, int64_t>::iterator it;
 
-      it = q_data.find(loc_pairs[i].d);
+      it = q_data.find(rec_p_loc_pairs[i].d);
       if (it != q_data.end()) {
         assert(it->second != -1);
-        loc_pairs[i].d = it->second;
+        rec_p_loc_pairs[i].d = it->second;
       }
       else {
         assert(0);
@@ -347,7 +347,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     stimest = MPI_Wtime();
 #endif
 */
-    p.write(npairs, loc_pairs); //enter data into p[i]
+    p.write(rec_gf_npairs, rec_p_loc_pairs); //enter data into p[i]
 #ifdef TIME_ST_ITERATION
     MPI_Barrier(MPI_COMM_WORLD);
     etimest1 = MPI_Wtime();
