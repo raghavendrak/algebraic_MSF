@@ -297,6 +297,8 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     delete [] remote_pairs;
     delete [] nontriv_loc_pairs;
   } else { // original shortcut
+    shortcut(p, q, rec_p, nonleaves, create_nonleaves);
+    /*
     Pair<int> * remote_pairs = new Pair<int>[q_npairs];
     for (int64_t i=0; i<q_npairs; i++) {
       remote_pairs[i].k = q_loc_pairs[i].d;
@@ -318,6 +320,7 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     TAU_FSTOP(Unoptimized_shortcut_Owrite);
 
     delete [] remote_pairs;
+    */
   }
   
   // //prune out leaves
