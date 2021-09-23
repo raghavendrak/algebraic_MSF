@@ -144,6 +144,12 @@ Vector<Edge>* as_hook(Matrix<Edge> *  A,
 
   int niter = 0;
   while (are_vectors_different(*p, *p_prev)) {
+#ifdef TIME_ITERATION
+    double stimeas;
+    double etimeas;
+    MPI_Barrier(MPI_COMM_WORLD);
+    stimeas = MPI_Wtime();
+#endif
     ++niter;
     (*p_prev)["i"] = (*p)["i"];
 
@@ -197,12 +203,14 @@ Vector<Edge>* as_hook(Matrix<Edge> *  A,
     // 256kB: 32768
     bool is_shortcutted = false;
     int64_t st2 = 0;
+/*
 #ifdef TIME_ITERATION
     double stimes;
     double etimes;
     MPI_Barrier(MPI_COMM_WORLD);
     stimes = MPI_Wtime();
 #endif
+*/
     if (sc3 > 0) {
       TAU_FSTART(sc3 aggressive shortcut);
       //Timer t_sc3("sc3_aggressive_shortcut");
@@ -254,6 +262,13 @@ Vector<Edge>* as_hook(Matrix<Edge> *  A,
     TAU_FSTART(Update A);
     Transform<int, Edge>([](int p, Edge & e){ e.parent = p; })((*p)["i"], (*A)["ij"]);
     TAU_FSTOP(Update A);
+#ifdef TIME_ITERATION
+    MPI_Barrier(MPI_COMM_WORLD);
+    etimeas = MPI_Wtime();
+    if (world->rank == 0) {
+      printf("\n as iteration %d in %1.2lf\n\n\n", niter, (etimeas - stimeas));
+    }
+#endif
   }
   if (world->rank == 0) printf("number of iterations: %d\n", niter);
 
