@@ -3,7 +3,7 @@
 
 #include "alg_graph.h"
 #include "mst.h"
-
+#include <random>
 Matrix<wht> preprocess_graph(int64_t           n,
                               World &       dw,
                               Matrix<wht> & A_pre,
@@ -30,6 +30,7 @@ Matrix<wht> read_matrix_market(World  &     dw,
                                const char * fpath,
                                bool         remove_singlets,
                                int64_t *        n_nnz,
+                               int          is_weight,
                                int64_t      max_ewht=1);
 
 Matrix<wht> gen_rmat_matrix(World  & dw,
@@ -49,4 +50,5 @@ Matrix<wht> gen_uniform_matrix(World & dw,
 
 Matrix<int>* generate_kronecker(World* w, int order);
 
+const int64_t kRandSeed = 27491095;
 #endif

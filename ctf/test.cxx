@@ -89,11 +89,16 @@ Matrix <wht> read_matrix_snap(World  &     dw,
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
   wht * vals = (wht*)malloc(sizeof(wht)*my_nedges);
 
-  srand(dw.rank+1);
+  //srand(dw.rank+1);
+  std::mt19937 rng;
+  std::uniform_int_distribution<int> udist(1, 255);
+  rng.seed(kRandSeed + n);
   for (int64_t i = 0; i < my_nedges; i++){
     inds[i] = my_edges[2*i] + my_edges[2*i+1] * n;
     //vals[i] = (rand()%max_ewht) + 1;
-    vals[i] = 1;
+    //vals[i] = (rand()%10000) + 1;
+    vals[i] = static_cast<wht>(udist(rng));
+    //vals[i] = 1;
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
   A_pre.write(my_nedges,inds,vals);
@@ -134,12 +139,17 @@ Matrix <wht> read_matrix(World  &     dw,
   if (dw.rank == 0) printf("finished reading (%ld edges).\n", my_nedges);
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
 
-  srand(dw.rank+1);
+  //srand(dw.rank+1);
+  std::mt19937 rng;
+  std::uniform_int_distribution<int> udist(1, 255);
+  rng.seed(kRandSeed + n);
   for (int64_t i = 0; i < my_nedges; ++i){
     // printf("edge: %lld %lld %d\n", edges[i].first, edges[i].second, eweights[i]);
     inds[i] = edges[i].first + edges[i].second * n;
     if (!e_weights) {
-      eweights.push_back(1);
+      //eweights.push_back(1);
+      //eweights.push_back(((rand()%10000)+1));
+      eweights.push_back(static_cast<wht>(udist(rng)));
       //vals[i] = 1;
       //vals[i] = (rand()%max_ewht) + 1;
       //vals[i] = (rand()%10000) + 1;
@@ -168,6 +178,7 @@ Matrix <wht> read_matrix_market(World  &     dw,
                                 const char * fpath,
                                 bool         remove_singlets,
                                 int64_t *    n_nnz,
+                                int          is_weight,
                                 int64_t      max_ewht){
   uint64_t *my_edges = NULL;
   uint64_t my_nedges = 0;
@@ -181,16 +192,21 @@ Matrix <wht> read_matrix_market(World  &     dw,
   // wht *vals;
   std::vector<std::pair<uint64_t, uint64_t> > edges;
   std::vector<wht> eweights;
-  my_nedges = read_matrix_market(dw.rank, dw.np, fpath, edges, &n, &e_weights, eweights);
+  my_nedges = read_matrix_market(dw.rank, dw.np, fpath, edges, &n, &e_weights, eweights, is_weight);
   if (dw.rank == 0) printf("finished reading (%ld edges) for rank 0.\n", my_nedges);
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*my_nedges);
 
-  srand(dw.rank+1);
+  //srand(dw.rank+1);
+  std::mt19937 rng;
+  std::uniform_int_distribution<int> udist(1, 255);
+  rng.seed(kRandSeed + n);
   for (int64_t i = 0; i < my_nedges; ++i){
     // printf("edge: %lld %lld %d\n", edges[i].first, edges[i].second, eweights[i]);
     inds[i] = edges[i].first + edges[i].second * n;
     if (!e_weights) {
-      eweights.push_back(1);
+      //eweights.push_back(1);
+      //eweights.push_back(((rand()%10000)+1));
+      eweights.push_back(static_cast<wht>(udist(rng)));
       //vals[i] = 1;
       //vals[i] = (rand()%max_ewht) + 1;
       //vals[i] = (rand()%10000) + 1;
@@ -237,12 +253,16 @@ Matrix <wht> gen_rmat_matrix(World  & dw,
   int64_t * inds = (int64_t*)malloc(sizeof(int64_t)*nedges);
   wht * vals = (wht*)malloc(sizeof(wht)*nedges);
 
-  srand(dw.rank+1);
+  //srand(dw.rank+1);
+  std::mt19937 rng;
+  std::uniform_int_distribution<int> udist(1, 255);
+  rng.seed(kRandSeed + n);
   for (int64_t i=0; i<nedges; i++){
     inds[i] = (edge[2*i]+(edge[2*i+1])*n);
     //vals[i] = (rand()%max_ewht) + 1;
     //vals[i] = 1;
-    vals[i] = (rand()%10000) + 1;
+    //vals[i] = (rand()%10000) + 1;
+    vals[i] = static_cast<wht>(udist(rng));
   }
   if (dw.rank == 0) printf("filling CTF graph\n");
   A_pre.write(nedges,inds,vals);
@@ -270,7 +290,10 @@ Matrix <wht> gen_uniform_matrix(World & dw,
   if(dw.rank == 0) printf("Uniform matrix A created\n");
 
   //fill with values in the range of [1,min(n*n,100)]
-  srand(dw.rank+1);
+  //srand(dw.rank+1);
+  std::mt19937 rng;
+  std::uniform_int_distribution<int> udist(1, 255);
+  rng.seed(kRandSeed + n);
 //  A.fill_random(1, std::min(n*n,100));
   int nmy = ((int)std::max((int)(n*sp),(int)1))*((int)((n+dw.np-1)/dw.np));
   int64_t inds[nmy];
@@ -288,7 +311,8 @@ Matrix <wht> gen_uniform_matrix(World & dw,
         }
       } while (is_rep);
       inds[i] = cols[col]*n+row;
-      vals[i] = (rand()%10000)+1;
+      //vals[i] = (rand()%10000)+1;
+      vals[i] = static_cast<wht>(udist(rng));
       i++;
     }
   }

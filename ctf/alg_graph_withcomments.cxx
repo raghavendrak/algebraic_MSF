@@ -103,6 +103,13 @@ void shortcut(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, Vector<int>
     }
   }
 
+  /*
+  Pair<int> * remote_pairs = new Pair<int>[npairs];
+  for (int64_t i=0; i<npairs; i++){
+    remote_pairs[i].k = loc_pairs[i].d;
+  }
+  */
+  
   // the size will be lesser than q_data.size()
   Pair<int> * remote_pairs = new Pair<int>[q_data.size()];
   int64_t tot_recp_reqs = 0;
@@ -236,13 +243,32 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
   roots_num(rec_gf_npairs, rec_p_loc_pairs, &loc_roots_num, &global_roots_num, world);
   
   if (global_roots_num < sc2) {
+    int64_t q_npairs;
+    Pair<int> * q_loc_pairs;
+    bool delete_p = true;
+    /*
+    if (&q == &rec_p) {
+      q_npairs = rec_gf_npairs;
+      q_loc_pairs = rec_p_loc_pairs;
+      delete_p = false;
+    } else {
+      //p["i"] += q["i"];
+      if (q.is_sparse){
+        //if we have updated only a subset of the vertices
+        q.get_local_pairs(&q_npairs, &q_loc_pairs, true);
+      } else {
+        //if we have potentially updated all the vertices
+        q.get_local_pairs(&q_npairs, &q_loc_pairs);
+      }
+    }
+    */
 
     int global_roots[global_roots_num];
     roots(rec_gf_npairs, loc_roots_num, rec_p_loc_pairs, global_roots, world);
     
     int64_t loc_nontriv_num;
-    Pair<int> * nontriv_loc_pairs = new Pair<int>[rec_gf_npairs];
-    create_nontriv_loc_pairs(nontriv_loc_pairs, &loc_nontriv_num, global_roots_num, global_roots, rec_gf_npairs, rec_p_loc_pairs);
+    Pair<int> * nontriv_loc_pairs = new Pair<int>[q_npairs];
+    create_nontriv_loc_pairs(nontriv_loc_pairs, &loc_nontriv_num, global_roots_num, global_roots, q_npairs, rec_p_loc_pairs);
 
     Pair<int> * remote_pairs = new Pair<int>[loc_nontriv_num];
     for (int64_t i = 0; i < loc_nontriv_num; i++) {
@@ -250,12 +276,20 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     }
   
     TAU_FSTART(Optimized_shortcut_read);
+    //Timer t_osr("Optimized_shortcut2_read");
+    //t_osr.start();
     rec_p.read(loc_nontriv_num, remote_pairs); //obtains rec_p[q[i]]
+    //t_osr.stop();
     TAU_FSTOP(Optimized_shortcut_read);
     for(int64_t i = 0; i < loc_nontriv_num; i++) {
       nontriv_loc_pairs[i].d = remote_pairs[i].d;
     }
     
+    // for (int64_t i = 0; i < loc_nontriv_num; i++) { // update loc_pairs for create_nonleaves step
+    //   int64_t nontriv_index = nontriv_loc_indices[i];
+    //   q_loc_pairs[nontriv_index].d = remote_pairs[i].d; // p[i] = rec_p[q[i]]
+    // }
+ 
     TAU_FSTART(Optimized_shortcut_write); 
     //Timer t_osw("Optimized_shortcut2_write");
     //t_osw.start();
@@ -267,14 +301,77 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     delete [] nontriv_loc_pairs;
   } else { // original shortcut
 #ifdef TIME_ST_ITERATION
-    double stimest1;
-    double etimest1;
+    double stimest;
+    double etimest;
     MPI_Barrier(MPI_COMM_WORLD);
-    stimest1 = MPI_Wtime();
+    stimest = MPI_Wtime();
 #endif
+    //shortcut(p, q, rec_p, nonleaves, create_nonleaves);
+    /*
+    Pair<int> * remote_pairs = new Pair<int>[q_npairs];
+    for (int64_t i=0; i<q_npairs; i++) {
+      remote_pairs[i].k = q_loc_pairs[i].d;
+    }
+    TAU_FSTART(Unoptimized_shortcut_Orread);
+    //Timer t_uso("Unoptimized_shortcut_Orread");
+    //t_uso.start();
+    rec_p.read(q_npairs, remote_pairs); //obtains rec_p[q[i]]
+    //t_uso.stop();
+    TAU_FSTOP(Unoptimized_shortcut_Orread);
+    for (int64_t i=0; i<q_npairs; i++){
+      q_loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
+    }
+    TAU_FSTART(Unoptimized_shortcut_Owrite);
+    //Timer t_usw("Unoptimized_shortcut_Owrite");
+    //t_usw.start();
+    p.write(q_npairs, q_loc_pairs); //enter data into p[i]
+    //t_usw.stop();
+    TAU_FSTOP(Unoptimized_shortcut_Owrite);
+
+    delete [] remote_pairs;
+    */
     TAU_FSTART(Unoptimized_shortcut);
+    /*
+    int64_t q_npairs;
+    Pair<int> * q_loc_pairs;
+    bool delete_p = true;
+    if (&q == &rec_p) {
+      q_npairs = rec_gf_npairs;
+      q_loc_pairs = rec_p_loc_pairs;
+      delete_p = false;
+    } else {
+      //p["i"] += q["i"];
+      if (q.is_sparse){
+        //if we have updated only a subset of the vertices
+        q.get_local_pairs(&q_npairs, &q_loc_pairs, true);
+      } else {
+        //if we have potentially updated all the vertices
+        q.get_local_pairs(&q_npairs, &q_loc_pairs);
+      }
+    }
+    */
+
+
+    //Timer t_us("Unoptimized_shortcut");
+    //t_us.start();
+    //
+    /*
+    int64_t npairs;
+    Pair<int> * loc_pairs;
+    if (q.is_sparse){
+      //if we have updated only a subset of the vertices
+      q.get_local_pairs(&npairs, &loc_pairs, true);
+    } else {
+      //if we have potentially updated all the vertices
+      q.get_local_pairs(&npairs, &loc_pairs);
+    }
+    */
+
+    // read might be from the local node
+    // duplicate requests - can squash
+    // <q.d, q.k>
     std::unordered_map<int64_t, int64_t> q_data;
-    for(int i = 0; i < rec_gf_npairs; i++) {
+    for(int i = 0; i < npairs; i++) {
       std::unordered_map<int64_t, int64_t>::iterator it;
 
       // is data available in my local node?
@@ -289,6 +386,13 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
         q_data.insert({rec_p_loc_pairs[i].d, -1});
       }
     }
+
+    /*
+       Pair<int> * remote_pairs = new Pair<int>[npairs];
+       for (int64_t i=0; i<npairs; i++){
+       remote_pairs[i].k = loc_pairs[i].d;
+       }
+       */
 
     // the size will be lesser than q_data.size()
     Pair<int> * remote_pairs = new Pair<int>[q_data.size()];
@@ -323,14 +427,14 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
       }
     }
 
-    for (int64_t i = 0; i < rec_gf_npairs; i++){
+    for (int64_t i = 0; i < npairs; i++){
       // loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
       std::unordered_map<int64_t, int64_t>::iterator it;
 
-      it = q_data.find(rec_p_loc_pairs[i].d);
+      it = q_data.find(loc_pairs[i].d);
       if (it != q_data.end()) {
         assert(it->second != -1);
-        rec_p_loc_pairs[i].d = it->second;
+        loc_pairs[i].d = it->second;
       }
       else {
         assert(0);
@@ -347,12 +451,12 @@ void shortcut2(Vector<int> & p, Vector<int> & q, Vector<int> & rec_p, int64_t sc
     stimest = MPI_Wtime();
 #endif
 */
-    p.write(rec_gf_npairs, rec_p_loc_pairs); //enter data into p[i]
+    p.write(npairs, loc_pairs); //enter data into p[i]
 #ifdef TIME_ST_ITERATION
     MPI_Barrier(MPI_COMM_WORLD);
-    etimest1 = MPI_Wtime();
+    etimest = MPI_Wtime();
     if (p.wrld->rank == 0) {
-      printf("\n ------ shortcut1: in %1.2lf  ", (etimest1 - stimest1));
+      printf("\n ------ shortcut1: in %1.2lf  ", (etimest - stimest));
       //printf("p.write for npairs %lld in %1.2lf  ", npairs, (etimest - stimest));
     }
 #endif

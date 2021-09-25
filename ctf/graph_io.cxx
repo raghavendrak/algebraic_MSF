@@ -311,7 +311,7 @@ uint64_t read_metis(int myid, int ntask, const char *fpath, std::vector<std::pai
   return n_edges;
 }
 
-uint64_t read_matrix_market(int myid, int ntask, const char *fpath, std::vector<std::pair<uint64_t, uint64_t> > &edges, int64_t * n, bool * e_weights, std::vector<wht> &eweights) 
+uint64_t read_matrix_market(int myid, int ntask, const char *fpath, std::vector<std::pair<uint64_t, uint64_t> > &edges, int64_t * n, bool * e_weights, std::vector<wht> &eweights, int is_weight) 
 {  
   std::string fpaths = std::string(fpath);
   std::ifstream gfile(fpaths);
@@ -332,19 +332,31 @@ uint64_t read_matrix_market(int myid, int ntask, const char *fpath, std::vector<
   uint64_t lineNo = 0;
   uint64_t row_index;
   uint64_t col_index;
-  wht ew;
+  //wht ew;
+  double ew;
   uint64_t n_edges = 0;
-  *e_weights = true;
+  *e_weights = false;
   while (std::getline(gfile, line_s)) {
     if (lineNo % ntask == myid) {
       std::stringstream line_ss(line_s);
       line_ss >> row_index;
       line_ss >> col_index;
-      line_ss >> ew;
       edges.push_back(std::make_pair(row_index, col_index));
       n_edges++;
       // std::cout << row_index << " " << col_index << " " << ew << std::endl;
-      eweights.push_back(abs(ew));
+      if (is_weight == 1) { 
+        // edge weight is an integer
+        line_ss >> ew;
+        eweights.push_back(abs((wht)ew));
+        *e_weights = true;
+      }
+      else if (is_weight == 2) {
+        // edge weight is between 0 and 1; example MOLIERE_2016
+        line_ss >> ew;
+        wht temp = ew * (INT_MAX / 2);
+        eweights.push_back(abs(temp));
+        *e_weights = true;
+      }
     }
     lineNo++;
   }
