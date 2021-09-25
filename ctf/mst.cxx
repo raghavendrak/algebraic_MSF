@@ -292,7 +292,7 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
   const static Monoid<Edge> MIN_EDGE = get_minedge_monoid();
 
-  Pair<Edge> mst_prs[n];
+  Pair<Edge> mst_prs[n]; // TODO: use std::vector
   int64_t mst_nprs = 0;
 
   std::function<Edge(int, wht, int)> f = [](int x, wht a, int y){
@@ -333,10 +333,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
       (*p_prev)["i"] = (*p)["i"];
     }
 
-    // if (world->rank == 0)
-    //   printf("p at beginning of iteration:\n");
-    // p->print();
-
     // q_i = MINWEIGHT {f(p_i,a_{ij},p_j) : j in [n]}
     auto q = new Vector<Edge>(n, p->is_sparse, *world, MIN_EDGE);
     Tensor<int> * vec_list[2] = {p, p};
@@ -365,10 +361,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     //t_ua.start();
     Multilinear<wht, int, Edge>(A, vec_list, q, f); // in Tim fork of CTF on multilinear branch
     // Multilinear<int, Edge>(A, vec_list, q, f); // in Raghavendra fork of CTF on multilinear branch
-    
-    // if (world->rank == 0)
-    //   printf("q:\n");
-    // q->print();
 
 #ifdef TIME_ITERATION
     MPI_Barrier(MPI_COMM_WORLD);
@@ -407,19 +399,19 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
     // (*p)["i"] = Function<Edge, int>([](Edge e){ return e.parent; })((*r)["i"]);
     Transform<Edge,int>([](Edge e, int & y){ if (e.parent != -1) y = e.parent; })((*r)["i"], (*p)["i"]);
-    
-    Vector<int> gf2(n, *world);
+
+    // Vector<int> gf2(n, *world);
     // start reading grandparent
   //Timer t_us("Unoptimized_shortcut");
   //t_us.start();
   int64_t npairs;
-  Pair<int> * loc_pairs;
+  Pair<int> * p_loc_pairs;
   if (p->is_sparse){
     //if we have updated only a subset of the vertices
-    p->get_local_pairs(&npairs, &loc_pairs, true);
+    p->get_local_pairs(&npairs, &p_loc_pairs, true);
   } else {
     //if we have potentially updated all the vertices
-    p->get_local_pairs(&npairs, &loc_pairs);
+    p->get_local_pairs(&npairs, &p_loc_pairs);
   }
 
   // read might be from the local node
@@ -430,22 +422,22 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     std::unordered_map<int64_t, int64_t>::iterator it;
     
     // is data available in my local node?
-    it = q_data.find(loc_pairs[i].k);
+    it = q_data.find(p_loc_pairs[i].k);
     if (it != q_data.end()) {
-      it->second = loc_pairs[i].d;
+      it->second = p_loc_pairs[i].d;
     }
     
     // has this been queried already?
-    it = q_data.find(loc_pairs[i].d);
+    it = q_data.find(p_loc_pairs[i].d);
     if (it == q_data.end()) {
-      q_data.insert({loc_pairs[i].d, -1});
+      q_data.insert({p_loc_pairs[i].d, -1}); // TODO: use std::set instead of std::unordered_map?
     }
   }
 
   /*
   Pair<int> * remote_pairs = new Pair<int>[npairs];
   for (int64_t i=0; i<npairs; i++){
-    remote_pairs[i].k = loc_pairs[i].d;
+    remote_pairs[i].k = p_loc_pairs[i].d;
   }
   */
   
@@ -471,14 +463,16 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     }
   }
 
+  bool tie_loc_pairs[npairs];
   for (int64_t i = 0; i < npairs; i++){
-    // loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
+    // p_loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
     std::unordered_map<int64_t, int64_t>::iterator it;
-    
-    it = q_data.find(loc_pairs[i].d);
+   
+    it = q_data.find(p_loc_pairs[i].d);
     if (it != q_data.end()) {
       assert(it->second != -1);
-      loc_pairs[i].d = it->second;
+      // p_loc_pairs[i].d = it->second;
+      tie_loc_pairs[i] = (p_loc_pairs[i].k > p_loc_pairs[i].d && p_loc_pairs[i].k == it->second);
     }
     else {
       assert(0);
@@ -486,39 +480,51 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
   }
   delete [] remote_pairs;
-  gf2.write(npairs, loc_pairs); //enter data into p[i]
-  delete [] loc_pairs;
+  // gf2.write(npairs, p_loc_pairs); //enter data into p[i]
     
     // end reading granparent
 
-    Vector<int> * tie_break = new Vector<int>(n, p->is_sparse, *world);
-    Vector<int> * id = new Vector<int>(n, p->is_sparse, *world);
-    init_pvector(id);
-    (*tie_break)["i"] += Function<int, int, int>([](int x, int id){ return x < id; })((*p)["i"], (*id)["i"]);
-    (*tie_break)["i"] += Function<int, int, int>([](int x, int id){ return x == id; })(gf2["i"], (*id)["i"]);
+    // Vector<int> * tie_break = new Vector<int>(n, p->is_sparse, *world);
+    // Vector<int> * id = new Vector<int>(n, p->is_sparse, *world);
+    // init_pvector(id);
+    // (*tie_break)["i"] += Function<int, int, int>([](int x, int id){ return x < id; })((*p)["i"], (*id)["i"]);
 
-    // if (world->rank == 0) printf("r\n");
-    // r->print();
+    int64_t nties = 0;
+    Pair<int> p_wr_prs[npairs];
+    for (int64_t i = 0; i < npairs; ++i) {
+      if (tie_loc_pairs[i]) {
+        p_wr_prs[nties].k = p_loc_pairs[i].k;
+        p_wr_prs[nties].d = p_loc_pairs[i].k;
+        ++nties;
+      }
+    }
+    p->write(nties, p_wr_prs);
+
+    delete [] p_loc_pairs;
+    
+
+    // (*tie_break)["i"] += Function<int, int, int>([](int x, int id){ return x == id; })(gf2["i"], (*id)["i"]);
+    // (*tie_break)["i"] += Function<int, int>([](int x){ return x == 1; })(gf2["i"]);
 
     // if (world->rank == 0) printf("tie break\n");
     // tie_break->print();
 
-    Transform<int,int,int>([](int tie, int id, int & x){ if (tie == 2) x = id; })((*tie_break)["i"], (*id)["i"], (*p)["i"]);
+    // Transform<int,int,int>([](int tie, int id, int & x){ if (tie == 2) x = id; })((*tie_break)["i"], (*id)["i"], (*p)["i"]);
     // Transform<int,Edge,Edge>([](int tie, Edge x, Edge & y){ if (tie != 2) y = x; })((*tie_break)["i"], (*r)["i"], (*mst)["i"]);
-
+    
     int64_t r_nprs;
     Pair<Edge> * r_prs;
     r->get_local_pairs(&r_nprs, &r_prs);
-    int64_t tie_nprs;
-    Pair<int> * tie_prs;
-    tie_break->get_local_pairs(&tie_nprs, &tie_prs);
-    assert(r_nprs == tie_nprs);
+    // int64_t tie_nprs;
+    // Pair<int> * tie_prs;
+    // tie_break->get_local_pairs(&tie_nprs, &tie_prs);
+    // assert(r_nprs == tie_nprs);
     for(int64_t i = 0; i < r_nprs; ++i) {
-      assert(r_prs[i].k == tie_prs[i].k); // r_prs and tie_nprs should be lined up correctly
-      if (tie_prs[i].d != 2 && r_prs[i].d.parent != -1) {
+      if (!tie_loc_pairs[i] && r_prs[i].d.parent != -1) {
         mst_prs[mst_nprs].k = -1;
         mst_prs[mst_nprs].d = r_prs[i].d;
         ++mst_nprs;
+        assert(mst_nprs < n);
       }
     }
 
@@ -530,10 +536,6 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     // (*p)["i"] = Function<int, int, int>([](int id, int x){ return x == -1 ? id : x; })((*id)["i"], (*p)["i"]);
     // (*mst)["i"] += Bivar_Function<Edge, int, Edge>([](Edge e, int a){ return e.parent >= a ? e : Edge(); })((*r)["i"], (*p)["i"]);
     // (*mst)["i"] += Function<Edge, int, Edge>([](Edge e, int tie){ return tie == 2 ? Edge() : e; })((*r)["i"], (*tie_break)["i"]);
-
-    // if (world->rank == 0) printf("p after\n");
-    // p->print();
-
 
     // // hook only onto larger stars and update p
     // TAU_FSTART(Update p);
