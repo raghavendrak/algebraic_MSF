@@ -292,8 +292,8 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
   const static Monoid<Edge> MIN_EDGE = get_minedge_monoid();
 
-  Pair<Edge> mst_prs[n]; // TODO: use std::vector
-  int64_t mst_nprs = 0;
+  // Pair<Edge> mst_prs[n]; // TODO: use std::vector
+  std::vector<Pair<Edge>> mst_prs;
 
   std::function<Edge(int, wht, int)> f = [](int x, wht a, int y){
     if (x != y) {
@@ -521,10 +521,13 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
     // assert(r_nprs == tie_nprs);
     for(int64_t i = 0; i < r_nprs; ++i) {
       if (!tie_loc_pairs[i] && r_prs[i].d.parent != -1) {
-        mst_prs[mst_nprs].k = -1;
-        mst_prs[mst_nprs].d = r_prs[i].d;
-        ++mst_nprs;
-        assert(mst_nprs < n);
+        Pair<Edge> pr;
+        pr.k = -1;
+        pr.d = r_prs[i].d;
+        mst_prs.push_back(pr);
+        // mst_prs[mst_nprs].k = -1;
+        // mst_prs[mst_nprs].d = r_prs[i].d;
+        // assert(mst_nprs < n);
       }
     }
 
@@ -646,13 +649,14 @@ Vector<Edge>* multilinear_hook(Matrix<wht> *      A,
 
   auto mst = new Vector<Edge>(n, *world, MIN_EDGE);
   int64_t off;
+  int64_t mst_nprs = mst_prs.size();
   MPI_Exscan(&mst_nprs, &off, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
   if (world->rank == 0)
     off = 0;
   for (int64_t i = 0; i < mst_nprs; ++i) {
     mst_prs[i].k = i + off;
   }
-  mst->write(mst_nprs, mst_prs);
+  mst->write(mst_nprs, mst_prs.data());
 
   // if (world->rank == 0) printf("mst:\n");
   // mst->print();
