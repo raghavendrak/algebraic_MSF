@@ -140,7 +140,9 @@ Vector<Edge>* as_hook(Matrix<Edge> *  A,
   auto p_prev = new Vector<int>(n, *world, MAX_TIMES_SR);
 
   const static Monoid<Edge> MIN_EDGE = get_minedge_monoid();
-  auto mst = new Vector<Edge>(n, *world, MIN_EDGE);
+
+  // Pair<Edge> mst_prs[n]; // TODO: use std::vector
+  std::vector<Pair<Edge>> mst_prs;
 
   int niter = 0;
   while (are_vectors_different(*p, *p_prev)) {
@@ -186,24 +188,186 @@ Vector<Edge>* as_hook(Matrix<Edge> *  A,
     TAU_FSTOP(Project);
     //t_p.stop();
 
-    // hook only onto larger stars and update p
-    TAU_FSTART(Update p);
-    //Timer t_up("Update p");
-    //t_up.start();
-    (*p)["i"] += Function<Edge, int>([](Edge e){ return e.parent; })((*r)["i"]);
-    TAU_FSTOP(Update p);
-    //t_up.stop();
+    // (*p)["i"] = Function<Edge, int>([](Edge e){ return e.parent; })((*r)["i"]);
+    Transform<Edge,int>([](Edge e, int & y){ if (e.parent != -1) y = e.parent; })((*r)["i"], (*p)["i"]);
 
-    // hook only onto larger stars and update mst
-    TAU_FSTART(Update mst);
-    //Timer t_mst("Update mst");
-    //t_mst.start();
-    (*mst)["i"] += Bivar_Function<Edge, int, Edge>([](Edge e, int a){ return e.parent >= a ? e : Edge(); })((*r)["i"], (*p)["i"]);
-    TAU_FSTOP(Update mst);
-    //t_mst.stop();
- 
+    // Vector<int> gf2(n, *world);
+    // start reading grandparent
+  //Timer t_us("Unoptimized_shortcut");
+  //t_us.start();
+  int64_t npairs;
+  Pair<int> * p_loc_pairs;
+  if (p->is_sparse){
+    //if we have updated only a subset of the vertices
+    p->get_local_pairs(&npairs, &p_loc_pairs, true);
+  } else {
+    //if we have potentially updated all the vertices
+    p->get_local_pairs(&npairs, &p_loc_pairs);
+  }
+
+  // read might be from the local node
+  // duplicate requests - can squash
+  // <q.d, q.k>
+  std::unordered_map<int64_t, int64_t> q_data;
+  for(int i = 0; i < npairs; i++) {
+    std::unordered_map<int64_t, int64_t>::iterator it;
+    
+    // is data available in my local node?
+    it = q_data.find(p_loc_pairs[i].k);
+    if (it != q_data.end()) {
+      it->second = p_loc_pairs[i].d;
+    }
+    
+    // has this been queried already?
+    it = q_data.find(p_loc_pairs[i].d);
+    if (it == q_data.end()) {
+      q_data.insert({p_loc_pairs[i].d, -1}); // TODO: use std::set instead of std::unordered_map?
+    }
+  }
+
+  /*
+  Pair<int> * remote_pairs = new Pair<int>[npairs];
+  for (int64_t i=0; i<npairs; i++){
+    remote_pairs[i].k = p_loc_pairs[i].d;
+  }
+  */
+  
+  // the size will be lesser than q_data.size()
+  Pair<int> * remote_pairs = new Pair<int>[q_data.size()];
+  int64_t tot_recp_reqs = 0;
+  for (const auto& qd : q_data) {
+    if (qd.second == -1) {
+      remote_pairs[tot_recp_reqs++].k = qd.first;
+    }
+  }
+
+  TAU_FSTART(Unoptimized_shortcut_rread);
+  //Timer t_usr("Unoptimized_shortcut_rread");
+  //t_usr.start();
+  //rec_p.read(npairs, remote_pairs); //obtains rec_p[q[i]]
+  p->read(tot_recp_reqs, remote_pairs); //obtains rec_p[q[i]]
+
+  int64_t ir = 0;
+  for (auto& qd : q_data) {
+    if (qd.second == -1) {
+      qd.second = remote_pairs[ir++].d;
+    }
+  }
+
+  bool tie_loc_pairs[npairs];
+  for (int64_t i = 0; i < npairs; i++){
+    // p_loc_pairs[i].d = remote_pairs[i].d; //p[i] = rec_p[q[i]]
+    std::unordered_map<int64_t, int64_t>::iterator it;
+   
+    it = q_data.find(p_loc_pairs[i].d);
+    if (it != q_data.end()) {
+      assert(it->second != -1);
+      // p_loc_pairs[i].d = it->second;
+      tie_loc_pairs[i] = (p_loc_pairs[i].k > p_loc_pairs[i].d && p_loc_pairs[i].k == it->second);
+    }
+    else {
+      assert(0);
+    }
+
+  }
+  delete [] remote_pairs;
+  // gf2.write(npairs, p_loc_pairs); //enter data into p[i]
+    
+    // end reading granparent
+
+    // Vector<int> * tie_break = new Vector<int>(n, p->is_sparse, *world);
+    // Vector<int> * id = new Vector<int>(n, p->is_sparse, *world);
+    // init_pvector(id);
+    // (*tie_break)["i"] += Function<int, int, int>([](int x, int id){ return x < id; })((*p)["i"], (*id)["i"]);
+
+    int64_t nties = 0;
+    Pair<int> p_wr_prs[npairs];
+    for (int64_t i = 0; i < npairs; ++i) {
+      if (tie_loc_pairs[i]) {
+        p_wr_prs[nties].k = p_loc_pairs[i].k;
+        p_wr_prs[nties].d = p_loc_pairs[i].k;
+        ++nties;
+      }
+    }
+    p->write(nties, p_wr_prs);
+
+    delete [] p_loc_pairs;
+    
+
+    // (*tie_break)["i"] += Function<int, int, int>([](int x, int id){ return x == id; })(gf2["i"], (*id)["i"]);
+    // (*tie_break)["i"] += Function<int, int>([](int x){ return x == 1; })(gf2["i"]);
+
+    // if (world->rank == 0) printf("tie break\n");
+    // tie_break->print();
+
+    // Transform<int,int,int>([](int tie, int id, int & x){ if (tie == 2) x = id; })((*tie_break)["i"], (*id)["i"], (*p)["i"]);
+    // Transform<int,Edge,Edge>([](int tie, Edge x, Edge & y){ if (tie != 2) y = x; })((*tie_break)["i"], (*r)["i"], (*mst)["i"]);
+    
+    int64_t r_nprs;
+    Pair<Edge> * r_prs;
+    r->get_local_pairs(&r_nprs, &r_prs);
+    // int64_t tie_nprs;
+    // Pair<int> * tie_prs;
+    // tie_break->get_local_pairs(&tie_nprs, &tie_prs);
+    // assert(r_nprs == tie_nprs);
+    for(int64_t i = 0; i < r_nprs; ++i) {
+      if (!tie_loc_pairs[i] && r_prs[i].d.parent != -1) {
+        Pair<Edge> pr;
+        pr.k = -1;
+        pr.d = r_prs[i].d;
+        mst_prs.push_back(pr);
+        // mst_prs[mst_nprs].k = -1;
+        // mst_prs[mst_nprs].d = r_prs[i].d;
+        // assert(mst_nprs < n);
+      }
+    }
+
+
+    // (*p)["i"] = Function<Edge, int, int>([](int x, int tie){ return tie == 2 ? -1 : x; })((*p)["i"], (*tie_break)["i"]);
+    // (*p)["i"] = Function<int, int, int>([](int id, int x){ return x == -1 ? id : x; })((*id)["i"], (*p)["i"]);
+
+    // (*p)["i"] = Function<Edge, int, int>([](Edge e, int tie){ return tie == 2 ? -1 : e.parent; })((*r)["i"], (*tie_break)["i"]);
+    // (*p)["i"] = Function<int, int, int>([](int id, int x){ return x == -1 ? id : x; })((*id)["i"], (*p)["i"]);
+    // (*mst)["i"] += Bivar_Function<Edge, int, Edge>([](Edge e, int a){ return e.parent >= a ? e : Edge(); })((*r)["i"], (*p)["i"]);
+    // (*mst)["i"] += Function<Edge, int, Edge>([](Edge e, int tie){ return tie == 2 ? Edge() : e; })((*r)["i"], (*tie_break)["i"]);
+
+    // // hook only onto larger stars and update p
+    // TAU_FSTART(Update p);
+    // //Timer t_up("Update p");
+    // //t_up.start();
+    // (*p)["i"] += Function<Edge, int>([](Edge e){ return e.parent; })((*r)["i"]);
+    // TAU_FSTOP(Update p);
+    // //t_up.stop();
+
+    // // hook only onto larger stars and update mst
+    // TAU_FSTART(Update mst);
+    // //Timer t_mst("Update mst");
+    // //t_mst.start();
+    // (*mst)["i"] += Bivar_Function<Edge, int, Edge>([](Edge e, int a){ return e.parent >= a ? e : Edge(); })((*r)["i"], (*p)["i"]);
+    // TAU_FSTOP(Update mst);
+    // //t_mst.stop();
+
     delete r;
     delete q;
+
+    // // hook only onto larger stars and update p
+    // TAU_FSTART(Update p);
+    // //Timer t_up("Update p");
+    // //t_up.start();
+    // (*p)["i"] += Function<Edge, int>([](Edge e){ return e.parent; })((*r)["i"]);
+    // TAU_FSTOP(Update p);
+    // //t_up.stop();
+
+    // // hook only onto larger stars and update mst
+    // TAU_FSTART(Update mst);
+    // //Timer t_mst("Update mst");
+    // //t_mst.start();
+    // (*mst)["i"] += Bivar_Function<Edge, int, Edge>([](Edge e, int a){ return e.parent >= a ? e : Edge(); })((*r)["i"], (*p)["i"]);
+    // TAU_FSTOP(Update mst);
+    // //t_mst.stop();
+ 
+    // delete r;
+    // delete q;
 
     // if (sc3 > 0) {
     //   shortcut3(*p, *p, *p, *p_prev, mpi_pkv, world);
@@ -282,6 +446,17 @@ Vector<Edge>* as_hook(Matrix<Edge> *  A,
 #endif
   }
   if (world->rank == 0) printf("number of iterations: %d\n", niter);
+
+  auto mst = new Vector<Edge>(n, *world, MIN_EDGE);
+  int64_t off;
+  int64_t mst_nprs = mst_prs.size();
+  MPI_Exscan(&mst_nprs, &off, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
+  if (world->rank == 0)
+    off = 0;
+  for (int64_t i = 0; i < mst_nprs; ++i) {
+    mst_prs[i].k = i + off;
+  }
+  mst->write(mst_nprs, mst_prs.data());
 
   delete p;
   delete p_prev;
